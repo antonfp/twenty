@@ -75,10 +75,10 @@ export default {
         290,
         291,
         292,
-        299,
         300,
-        303,
-        340,
+        301,
+        304,
+        341,
         347,
         349,
         350,
@@ -91,7 +91,7 @@ export default {
         382,
         389,
         390,
-        503,
+        504,
         527
     ],
     "types": {
@@ -2378,9 +2378,6 @@ export default {
                 87
             ],
             "frontComponentId": [
-                3
-            ],
-            "headerCommandMenuItemUniversalIdentifiers": [
                 3
             ],
             "__typename": [
@@ -5304,6 +5301,17 @@ export default {
                 1
             ]
         },
+        "CancelMessageCampaignOutputDTO": {
+            "campaignId": [
+                1
+            ],
+            "canceledMessageCount": [
+                26
+            ],
+            "__typename": [
+                1
+            ]
+        },
         "SendEmailViaDomainOutput": {
             "messageId": [
                 1
@@ -5334,7 +5342,7 @@ export default {
                 26
             ],
             "skipped": [
-                296
+                297
             ],
             "__typename": [
                 1
@@ -5351,10 +5359,10 @@ export default {
                 1
             ],
             "reason": [
-                299
+                300
             ],
             "source": [
-                300
+                301
             ],
             "unsubscribeTopicId": [
                 3
@@ -5367,7 +5375,7 @@ export default {
         "MessageSuppressionSource": {},
         "MessageSuppressionList": {
             "records": [
-                298
+                299
             ],
             "totalCount": [
                 26
@@ -5393,7 +5401,7 @@ export default {
                 1
             ],
             "visibility": [
-                303
+                304
             ],
             "__typename": [
                 1
@@ -5439,7 +5447,7 @@ export default {
                 1
             ],
             "location": [
-                305
+                306
             ],
             "__typename": [
                 1
@@ -5467,13 +5475,13 @@ export default {
                 1
             ],
             "IMAP": [
-                307
+                308
             ],
             "SMTP": [
-                307
+                308
             ],
             "CALDAV": [
-                307
+                308
             ],
             "__typename": [
                 1
@@ -5493,7 +5501,7 @@ export default {
                 3
             ],
             "connectionParameters": [
-                308
+                309
             ],
             "__typename": [
                 1
@@ -5715,7 +5723,7 @@ export default {
                 1
             ],
             "series": [
-                317
+                318
             ],
             "xAxisLabel": [
                 1
@@ -5764,7 +5772,7 @@ export default {
                 1
             ],
             "data": [
-                319
+                320
             ],
             "__typename": [
                 1
@@ -5772,7 +5780,7 @@ export default {
         },
         "LineChartData": {
             "series": [
-                320
+                321
             ],
             "xAxisLabel": [
                 1
@@ -5809,7 +5817,7 @@ export default {
         },
         "PieChartData": {
             "data": [
-                322
+                323
             ],
             "showLegend": [
                 8
@@ -5914,13 +5922,13 @@ export default {
         },
         "EventLogQueryResult": {
             "records": [
-                327
+                328
             ],
             "totalCount": [
                 26
             ],
             "pageInfo": [
-                328
+                329
             ],
             "__typename": [
                 1
@@ -5984,7 +5992,7 @@ export default {
                 1
             ],
             "parts": [
-                313
+                314
             ],
             "processedAt": [
                 4
@@ -6053,7 +6061,7 @@ export default {
         },
         "AiSystemPromptPreview": {
             "sections": [
-                333
+                334
             ],
             "estimatedTokenCount": [
                 26
@@ -6081,7 +6089,7 @@ export default {
                 26
             ],
             "error": [
-                335
+                336
             ],
             "__typename": [
                 1
@@ -6114,10 +6122,10 @@ export default {
         },
         "StartWorkspaceSetupChatResult": {
             "outcome": [
-                340
+                341
             ],
             "thread": [
-                332
+                333
             ],
             "__typename": [
                 1
@@ -6155,10 +6163,10 @@ export default {
                 3
             ],
             "evaluations": [
-                341
+                342
             ],
             "messages": [
-                331
+                332
             ],
             "createdAt": [
                 4
@@ -6187,20 +6195,6 @@ export default {
             ],
             "logicFunctionUniversalIdentifier": [
                 1
-            ],
-            "__typename": [
-                1
-            ]
-        },
-        "EnqueueJobsResult": {
-            "enqueued": [
-                8
-            ],
-            "logicFunctionUniversalIdentifier": [
-                1
-            ],
-            "enqueuedJobsCount": [
-                26
             ],
             "__typename": [
                 1
@@ -7060,7 +7054,7 @@ export default {
                 }
             ],
             "messageSuppressions": [
-                301,
+                302,
                 {
                     "input": [
                         371,
@@ -7069,7 +7063,7 @@ export default {
                 }
             ],
             "unsubscribeTopics": [
-                302
+                303
             ],
             "myMessageChannels": [
                 285,
@@ -7086,7 +7080,7 @@ export default {
                 250
             ],
             "getToolIndex": [
-                312
+                313
             ],
             "getToolInputSchema": [
                 9,
@@ -7098,10 +7092,10 @@ export default {
                 }
             ],
             "webhooks": [
-                311
+                312
             ],
             "webhook": [
-                311,
+                312,
                 {
                     "id": [
                         3,
@@ -7158,13 +7152,13 @@ export default {
                 }
             ],
             "findWorkspaceAiStats": [
-                343
+                344
             ],
             "chatThreads": [
-                332
+                333
             ],
             "chatThread": [
-                332,
+                333,
                 {
                     "id": [
                         3,
@@ -7173,7 +7167,7 @@ export default {
                 }
             ],
             "chatMessages": [
-                331,
+                332,
                 {
                     "threadId": [
                         3,
@@ -7182,7 +7176,7 @@ export default {
                 }
             ],
             "chatStreamCatchupChunks": [
-                336,
+                337,
                 {
                     "threadId": [
                         3,
@@ -7191,13 +7185,13 @@ export default {
                 }
             ],
             "getAiSystemPromptPreview": [
-                334
+                335
             ],
             "skills": [
-                330
+                331
             ],
             "skill": [
-                330,
+                331,
                 {
                     "id": [
                         3,
@@ -7206,7 +7200,7 @@ export default {
                 }
             ],
             "agentTurns": [
-                342,
+                343,
                 {
                     "agentId": [
                         3,
@@ -7284,7 +7278,7 @@ export default {
                 210
             ],
             "eventLogs": [
-                329,
+                330,
                 {
                     "input": [
                         374,
@@ -7293,7 +7287,7 @@ export default {
                 }
             ],
             "pieChartData": [
-                323,
+                324,
                 {
                     "input": [
                         378,
@@ -7302,7 +7296,7 @@ export default {
                 }
             ],
             "lineChartData": [
-                321,
+                322,
                 {
                     "input": [
                         379,
@@ -7311,7 +7305,7 @@ export default {
                 }
             ],
             "barChartData": [
-                318,
+                319,
                 {
                     "input": [
                         380,
@@ -7320,7 +7314,7 @@ export default {
                 }
             ],
             "getConnectedImapSmtpCaldavAccount": [
-                309,
+                310,
                 {
                     "id": [
                         3,
@@ -7329,7 +7323,7 @@ export default {
                 }
             ],
             "getAutoCompleteAddress": [
-                304,
+                305,
                 {
                     "address": [
                         1,
@@ -7348,7 +7342,7 @@ export default {
                 }
             ],
             "getAddressDetails": [
-                306,
+                307,
                 {
                     "placeId": [
                         1,
@@ -7453,7 +7447,7 @@ export default {
         },
         "FindMessageSuppressionsInput": {
             "reason": [
-                299
+                300
             ],
             "searchTerm": [
                 1
@@ -8958,7 +8952,7 @@ export default {
                 }
             ],
             "sendEmailViaEmailingDomain": [
-                295,
+                296,
                 {
                     "input": [
                         491,
@@ -8967,7 +8961,7 @@ export default {
                 }
             ],
             "sendMessageCampaign": [
-                297,
+                298,
                 {
                     "input": [
                         492,
@@ -8975,29 +8969,38 @@ export default {
                     ]
                 }
             ],
-            "sendMessageCampaignTest": [
+            "cancelMessageCampaign": [
                 295,
                 {
                     "input": [
                         493,
+                        "CancelMessageCampaignInput!"
+                    ]
+                }
+            ],
+            "sendMessageCampaignTest": [
+                296,
+                {
+                    "input": [
+                        494,
                         "SendMessageCampaignTestInput!"
                     ]
                 }
             ],
             "createUnsubscribeTopic": [
-                302,
+                303,
                 {
                     "input": [
-                        494,
+                        495,
                         "CreateUnsubscribeTopicInput!"
                     ]
                 }
             ],
             "updateUnsubscribeTopic": [
-                302,
+                303,
                 {
                     "input": [
-                        495,
+                        496,
                         "UpdateUnsubscribeTopicInput!"
                     ]
                 }
@@ -9015,7 +9018,7 @@ export default {
                 285,
                 {
                     "input": [
-                        496,
+                        497,
                         "UpdateMessageChannelInput!"
                     ]
                 }
@@ -9024,7 +9027,7 @@ export default {
                 293,
                 {
                     "input": [
-                        498,
+                        499,
                         "CreateEmailGroupChannelInput!"
                     ]
                 }
@@ -9033,7 +9036,7 @@ export default {
                 285,
                 {
                     "input": [
-                        499,
+                        500,
                         "UpdateEmailGroupChannelInput!"
                     ]
                 }
@@ -9051,7 +9054,7 @@ export default {
                 283,
                 {
                     "input": [
-                        500,
+                        501,
                         "CreateEmailingDomainInput!"
                     ]
                 }
@@ -9084,34 +9087,34 @@ export default {
                 }
             ],
             "runAgent": [
-                314,
+                315,
                 {
                     "input": [
-                        501,
+                        502,
                         "RunAgentInput!"
                     ]
                 }
             ],
             "createWebhook": [
-                311,
+                312,
                 {
                     "input": [
-                        504,
+                        505,
                         "CreateWebhookInput!"
                     ]
                 }
             ],
             "updateWebhook": [
-                311,
+                312,
                 {
                     "input": [
-                        505,
+                        506,
                         "UpdateWebhookInput!"
                     ]
                 }
             ],
             "deleteWebhook": [
-                311,
+                312,
                 {
                     "id": [
                         3,
@@ -9123,7 +9126,7 @@ export default {
                 353,
                 {
                     "input": [
-                        507,
+                        508,
                         "UpdateMessageFolderInput!"
                     ]
                 }
@@ -9132,7 +9135,7 @@ export default {
                 353,
                 {
                     "input": [
-                        509,
+                        510,
                         "UpdateMessageFoldersInput!"
                     ]
                 }
@@ -9141,7 +9144,7 @@ export default {
                 348,
                 {
                     "input": [
-                        510,
+                        511,
                         "UpdateCalendarChannelInput!"
                     ]
                 }
@@ -9150,7 +9153,7 @@ export default {
                 346,
                 {
                     "input": [
-                        512,
+                        513,
                         "SetAppKeyValueInput!"
                     ]
                 }
@@ -9168,28 +9171,19 @@ export default {
                 }
             ],
             "enqueueJob": [
-                344,
-                {
-                    "input": [
-                        513,
-                        "EnqueueJobInput!"
-                    ]
-                }
-            ],
-            "enqueueJobs": [
                 345,
                 {
                     "input": [
                         514,
-                        "EnqueueJobsInput!"
+                        "EnqueueJobInput!"
                     ]
                 }
             ],
             "createChatThread": [
-                332
+                333
             ],
             "sendChatMessage": [
-                337,
+                338,
                 {
                     "threadId": [
                         3,
@@ -9216,7 +9210,7 @@ export default {
                 }
             ],
             "retryChatMessage": [
-                337,
+                338,
                 {
                     "threadId": [
                         3,
@@ -9228,7 +9222,7 @@ export default {
                 }
             ],
             "answerAgentChatQuestion": [
-                337,
+                338,
                 {
                     "threadId": [
                         3,
@@ -9261,7 +9255,7 @@ export default {
                 }
             ],
             "renameChatThread": [
-                332,
+                333,
                 {
                     "id": [
                         3,
@@ -9274,7 +9268,7 @@ export default {
                 }
             ],
             "archiveChatThread": [
-                332,
+                333,
                 {
                     "id": [
                         3,
@@ -9283,7 +9277,7 @@ export default {
                 }
             ],
             "unarchiveChatThread": [
-                332,
+                333,
                 {
                     "id": [
                         3,
@@ -9310,7 +9304,7 @@ export default {
                 }
             ],
             "startWorkspaceSetupChat": [
-                339,
+                340,
                 {
                     "companyContext": [
                         9
@@ -9321,7 +9315,7 @@ export default {
                 }
             ],
             "createSkill": [
-                330,
+                331,
                 {
                     "input": [
                         517,
@@ -9330,7 +9324,7 @@ export default {
                 }
             ],
             "updateSkill": [
-                330,
+                331,
                 {
                     "input": [
                         518,
@@ -9339,7 +9333,7 @@ export default {
                 }
             ],
             "deleteSkill": [
-                330,
+                331,
                 {
                     "id": [
                         3,
@@ -9348,7 +9342,7 @@ export default {
                 }
             ],
             "activateSkill": [
-                330,
+                331,
                 {
                     "id": [
                         3,
@@ -9357,7 +9351,7 @@ export default {
                 }
             ],
             "deactivateSkill": [
-                330,
+                331,
                 {
                     "id": [
                         3,
@@ -9366,7 +9360,7 @@ export default {
                 }
             ],
             "evaluateAgentTurn": [
-                341,
+                342,
                 {
                     "turnId": [
                         3,
@@ -9375,7 +9369,7 @@ export default {
                 }
             ],
             "runEvaluationInput": [
-                342,
+                343,
                 {
                     "agentId": [
                         3,
@@ -9817,7 +9811,7 @@ export default {
                 }
             ],
             "createObjectEvent": [
-                326,
+                327,
                 {
                     "event": [
                         1,
@@ -9837,7 +9831,7 @@ export default {
                 }
             ],
             "trackAnalytics": [
-                326,
+                327,
                 {
                     "type": [
                         527,
@@ -9855,7 +9849,7 @@ export default {
                 }
             ],
             "duplicateDashboard": [
-                324,
+                325,
                 {
                     "id": [
                         3,
@@ -9880,7 +9874,7 @@ export default {
                 273
             ],
             "createCalendarEvent": [
-                316,
+                317,
                 {
                     "input": [
                         528,
@@ -9889,7 +9883,7 @@ export default {
                 }
             ],
             "sendEmail": [
-                325,
+                326,
                 {
                     "input": [
                         529,
@@ -9898,7 +9892,7 @@ export default {
                 }
             ],
             "startChannelSync": [
-                315,
+                316,
                 {
                     "connectedAccountId": [
                         3,
@@ -9907,7 +9901,7 @@ export default {
                 }
             ],
             "saveImapSmtpCaldavAccount": [
-                310,
+                311,
                 {
                     "handle": [
                         1,
@@ -12226,6 +12220,14 @@ export default {
                 1
             ]
         },
+        "CancelMessageCampaignInput": {
+            "campaignId": [
+                1
+            ],
+            "__typename": [
+                1
+            ]
+        },
         "SendMessageCampaignTestInput": {
             "toAddress": [
                 1
@@ -12254,7 +12256,7 @@ export default {
                 1
             ],
             "visibility": [
-                303
+                304
             ],
             "__typename": [
                 1
@@ -12271,7 +12273,7 @@ export default {
                 1
             ],
             "visibility": [
-                303
+                304
             ],
             "__typename": [
                 1
@@ -12282,7 +12284,7 @@ export default {
                 3
             ],
             "update": [
-                497
+                498
             ],
             "__typename": [
                 1
@@ -12355,7 +12357,7 @@ export default {
                 3
             ],
             "messages": [
-                502
+                503
             ],
             "__typename": [
                 1
@@ -12363,7 +12365,7 @@ export default {
         },
         "RunAgentMessageInput": {
             "role": [
-                503
+                504
             ],
             "content": [
                 1
@@ -12398,7 +12400,7 @@ export default {
                 3
             ],
             "update": [
-                506
+                507
             ],
             "__typename": [
                 1
@@ -12426,7 +12428,7 @@ export default {
                 3
             ],
             "update": [
-                508
+                509
             ],
             "__typename": [
                 1
@@ -12445,7 +12447,7 @@ export default {
                 3
             ],
             "update": [
-                508
+                509
             ],
             "__typename": [
                 1
@@ -12456,7 +12458,7 @@ export default {
                 3
             ],
             "update": [
-                511
+                512
             ],
             "__typename": [
                 1
@@ -12498,23 +12500,6 @@ export default {
                 1
             ],
             "payload": [
-                9
-            ],
-            "retryLimit": [
-                26
-            ],
-            "delayMs": [
-                26
-            ],
-            "__typename": [
-                1
-            ]
-        },
-        "EnqueueJobsInput": {
-            "logicFunctionUniversalIdentifier": [
-                1
-            ],
-            "payloads": [
                 9
             ],
             "retryLimit": [
@@ -12756,9 +12741,6 @@ export default {
             "connectedAccountId": [
                 1
             ],
-            "fromHandle": [
-                1
-            ],
             "to": [
                 1
             ],
@@ -12866,7 +12848,7 @@ export default {
                 }
             ],
             "onAgentChatEvent": [
-                338,
+                339,
                 {
                     "threadId": [
                         3,
@@ -12875,7 +12857,7 @@ export default {
                 }
             ],
             "eventLogsLive": [
-                327,
+                328,
                 {
                     "table": [
                         375,
