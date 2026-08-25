@@ -42,7 +42,7 @@ export const CleanSuspendedWorkspaceEmail = ({
         <Trans id="Its data has been removed and can no longer be recovered." />
         <br />
         <br />
-        <Trans id="If you'd ever like to give Twenty another try, you can start a fresh workspace in minutes — we'd love to have you back." />
+        <Trans id="Если захотите вернуться в ERPilot — новое рабочее пространство создаётся за пару минут. Будем рады видеть вас снова." />
       </MainText>
       <br />
       <CallToAction

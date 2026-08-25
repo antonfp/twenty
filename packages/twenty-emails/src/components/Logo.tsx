@@ -1,17 +1,11 @@
-import { Img } from 'react-email';
-
 const logoStyle = {
   marginBottom: '40px',
+  fontFamily: 'Arial, sans-serif',
+  fontSize: '24px',
+  fontWeight: 700,
+  color: '#1c2523',
 };
 
 export const Logo = () => {
-  return (
-    <Img
-      src="https://app.twenty.com/images/icons/windows11/Square150x150Logo.scale-100.png"
-      alt="Twenty logo"
-      width="40"
-      height="40"
-      style={logoStyle}
-    />
-  );
+  return <div style={logoStyle}>ERPilot</div>;
 };
