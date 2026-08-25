@@ -13,11 +13,17 @@ import {
   type CreateOneResolverArgs,
   type DeleteManyResolverArgs,
   type DeleteOneResolverArgs,
+  type MergeManyResolverArgs,
+  type RestoreManyResolverArgs,
+  type RestoreOneResolverArgs,
   type UpdateManyResolverArgs,
   type UpdateOneResolverArgs,
 } from 'src/engine/api/graphql/workspace-resolver-builder/interfaces/workspace-resolvers-builder.interface';
 import { DOC_STATUS } from 'src/engine/core-modules/erp/types/doc-status.type';
-import { type ErpDocumentGuardOperation } from 'src/engine/core-modules/erp-sales/services/erp-document-guard.service';
+import {
+  ERP_UPSERT_BLOCKED_MESSAGE,
+  type ErpDocumentGuardOperation,
+} from 'src/engine/core-modules/erp-sales/services/erp-document-guard.service';
 import { extractRecordIdsFromFilter } from 'src/engine/core-modules/erp-sales/utils/extract-record-ids-from-filter.util';
 import { GlobalWorkspaceOrmManager } from 'src/engine/twenty-orm/global-workspace-datasource/global-workspace-orm.manager';
 import { buildSystemAuthContext } from 'src/engine/twenty-orm/utils/build-system-auth-context.util';
@@ -52,6 +58,8 @@ export class ErpDocumentLineGuardService {
   }: DocumentLineGuardArgs): Promise<void> {
     switch (operation) {
       case 'createOne': {
+        this.assertNoUpsert((payload as CreateOneResolverArgs).upsert);
+
         const data = (payload as CreateOneResolverArgs).data ?? {};
 
         await this.assertParentIdsAreDraft(
@@ -68,6 +76,8 @@ export class ErpDocumentLineGuardService {
         return;
       }
       case 'createMany': {
+        this.assertNoUpsert((payload as CreateManyResolverArgs).upsert);
+
         const parentIds = ((payload as CreateManyResolverArgs).data ?? []).map(
           (data) =>
             this.extractParentId(
@@ -85,7 +95,7 @@ export class ErpDocumentLineGuardService {
         return;
       }
       case 'updateOne': {
-        const { id } = payload as UpdateOneResolverArgs;
+        const { id, data } = payload as UpdateOneResolverArgs;
 
         await this.assertLineRecordsHaveDraftParent(
           workspaceId,
@@ -94,11 +104,18 @@ export class ErpDocumentLineGuardService {
           parentObjectNameSingular,
           [id],
         );
+        // Also check the parent this update would move the line onto —
+        // the current-parent check above only sees where it is today.
+        await this.assertParentIdsAreDraft(
+          workspaceId,
+          parentObjectNameSingular,
+          [this.extractParentId(data as Record<string, unknown>, parentFieldName)],
+        );
 
         return;
       }
       case 'updateMany': {
-        const { filter } = payload as UpdateManyResolverArgs;
+        const { filter, data } = payload as UpdateManyResolverArgs;
 
         await this.assertFilteredLinesHaveDraftParent(
           workspaceId,
@@ -106,6 +123,11 @@ export class ErpDocumentLineGuardService {
           parentFieldName,
           parentObjectNameSingular,
           filter,
+        );
+        await this.assertParentIdsAreDraft(
+          workspaceId,
+          parentObjectNameSingular,
+          [this.extractParentId(data as Record<string, unknown>, parentFieldName)],
         );
 
         return;
@@ -138,6 +160,61 @@ export class ErpDocumentLineGuardService {
 
         return;
       }
+      case 'restoreOne': {
+        const { id } = payload as RestoreOneResolverArgs;
+
+        // The line itself is soft-deleted, so it's invisible to a plain
+        // lookup — must query withDeleted or the guard silently no-ops.
+        await this.assertLineRecordsHaveDraftParent(
+          workspaceId,
+          lineObjectNameSingular,
+          parentFieldName,
+          parentObjectNameSingular,
+          [id],
+          { withDeleted: true },
+        );
+
+        return;
+      }
+      case 'restoreMany': {
+        const { filter } = payload as RestoreManyResolverArgs;
+
+        await this.assertFilteredLinesHaveDraftParent(
+          workspaceId,
+          lineObjectNameSingular,
+          parentFieldName,
+          parentObjectNameSingular,
+          filter,
+          { withDeleted: true },
+        );
+
+        return;
+      }
+      case 'mergeMany': {
+        const { ids } = payload as MergeManyResolverArgs;
+
+        await this.assertLineRecordsHaveDraftParent(
+          workspaceId,
+          lineObjectNameSingular,
+          parentFieldName,
+          parentObjectNameSingular,
+          ids,
+        );
+
+        return;
+      }
+    }
+  }
+
+  private assertNoUpsert(upsert: boolean | undefined): void {
+    if (upsert === true) {
+      throw new CommonQueryRunnerException(
+        `Upsert is not allowed on ERP document line object`,
+        CommonQueryRunnerExceptionCode.BAD_REQUEST,
+        {
+          userFriendlyMessage: ERP_UPSERT_BLOCKED_MESSAGE,
+        },
+      );
     }
   }
 
@@ -154,6 +231,7 @@ export class ErpDocumentLineGuardService {
     parentFieldName: string,
     parentObjectNameSingular: string,
     filter: unknown,
+    options?: { withDeleted?: boolean },
   ): Promise<void> {
     const lineIds = extractRecordIdsFromFilter(filter);
 
@@ -175,6 +253,7 @@ export class ErpDocumentLineGuardService {
       parentFieldName,
       parentObjectNameSingular,
       lineIds,
+      options,
     );
   }
 
@@ -184,6 +263,7 @@ export class ErpDocumentLineGuardService {
     parentFieldName: string,
     parentObjectNameSingular: string,
     lineIds: string[],
+    options?: { withDeleted?: boolean },
   ): Promise<void> {
     if (lineIds.length === 0) {
       return;
@@ -198,7 +278,10 @@ export class ErpDocumentLineGuardService {
             shouldBypassPermissionChecks: true,
           });
 
-          return repository.findBy({ id: In(lineIds) });
+          return repository.find({
+            where: { id: In(lineIds) },
+            withDeleted: options?.withDeleted,
+          });
         },
         buildSystemAuthContext(workspaceId),
       );

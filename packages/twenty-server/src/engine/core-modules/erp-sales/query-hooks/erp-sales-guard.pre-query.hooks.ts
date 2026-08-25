@@ -30,6 +30,9 @@ const ERP_DOCUMENT_GUARD_OPERATIONS: readonly ErpDocumentGuardOperation[] = [
   'deleteMany',
   'destroyOne',
   'destroyMany',
+  'restoreOne',
+  'restoreMany',
+  'mergeMany',
 ];
 
 const SALES_INVOICE_LINE_OBJECT_NAME = 'salesInvoiceLine';
@@ -47,6 +50,9 @@ const ERP_REGISTER_GUARD_OPERATIONS = [
   'deleteMany',
   'destroyOne',
   'destroyMany',
+  'restoreOne',
+  'restoreMany',
+  'mergeMany',
 ] as const;
 
 // One decorated class per (object, operation) hook key: the query-hook

@@ -9,12 +9,13 @@ const PARENT_OBJECT_NAME = 'salesInvoice';
 const PARENT_ID = 'invoice-1';
 const LINE_ID = 'line-1';
 
-type FakeRepository = { findBy: jest.Mock };
+type FakeRepository = { findBy: jest.Mock; find: jest.Mock };
 
 const createFakeRepository = (
   records: Record<string, unknown>[],
 ): FakeRepository => ({
   findBy: jest.fn().mockResolvedValue(records),
+  find: jest.fn().mockResolvedValue(records),
 });
 
 const createService = (
@@ -50,6 +51,46 @@ const baseArgs = {
 } as const;
 
 describe('ErpDocumentLineGuardService', () => {
+  describe('upsert', () => {
+    it('rejects createOne with upsert:true', async () => {
+      const { service } = createService({
+        [PARENT_OBJECT_NAME]: createFakeRepository([
+          { id: PARENT_ID, docStatus: 'DRAFT' },
+        ]),
+      });
+
+      await expect(
+        service.assertLineMutationAllowed({
+          ...baseArgs,
+          operation: 'createOne',
+          payload: {
+            data: { [PARENT_FIELD_NAME]: PARENT_ID },
+            upsert: true,
+          },
+        }),
+      ).rejects.toThrow(CommonQueryRunnerException);
+    });
+
+    it('rejects createMany with upsert:true', async () => {
+      const { service } = createService({
+        [PARENT_OBJECT_NAME]: createFakeRepository([
+          { id: PARENT_ID, docStatus: 'DRAFT' },
+        ]),
+      });
+
+      await expect(
+        service.assertLineMutationAllowed({
+          ...baseArgs,
+          operation: 'createMany',
+          payload: {
+            data: [{ [PARENT_FIELD_NAME]: PARENT_ID }],
+            upsert: true,
+          },
+        }),
+      ).rejects.toThrow(CommonQueryRunnerException);
+    });
+  });
+
   describe('createOne', () => {
     it('allows creating a line for a DRAFT parent', async () => {
       const { service } = createService({
@@ -151,6 +192,54 @@ describe('ErpDocumentLineGuardService', () => {
         }),
       ).resolves.toBeUndefined();
     });
+
+    it('blocks re-parenting a line onto a POSTED document', async () => {
+      const OTHER_PARENT_ID = 'invoice-2';
+      const { service } = createService({
+        [LINE_OBJECT_NAME]: createFakeRepository([
+          { id: LINE_ID, [PARENT_FIELD_NAME]: PARENT_ID },
+        ]),
+        [PARENT_OBJECT_NAME]: createFakeRepository([
+          { id: PARENT_ID, docStatus: 'DRAFT' },
+          { id: OTHER_PARENT_ID, docStatus: 'POSTED' },
+        ]),
+      });
+
+      await expect(
+        service.assertLineMutationAllowed({
+          ...baseArgs,
+          operation: 'updateOne',
+          payload: {
+            id: LINE_ID,
+            data: { [PARENT_FIELD_NAME]: OTHER_PARENT_ID },
+          },
+        }),
+      ).rejects.toThrow(CommonQueryRunnerException);
+    });
+
+    it('allows re-parenting a line onto another DRAFT document', async () => {
+      const OTHER_PARENT_ID = 'invoice-2';
+      const { service } = createService({
+        [LINE_OBJECT_NAME]: createFakeRepository([
+          { id: LINE_ID, [PARENT_FIELD_NAME]: PARENT_ID },
+        ]),
+        [PARENT_OBJECT_NAME]: createFakeRepository([
+          { id: PARENT_ID, docStatus: 'DRAFT' },
+          { id: OTHER_PARENT_ID, docStatus: 'DRAFT' },
+        ]),
+      });
+
+      await expect(
+        service.assertLineMutationAllowed({
+          ...baseArgs,
+          operation: 'updateOne',
+          payload: {
+            id: LINE_ID,
+            data: { [PARENT_FIELD_NAME]: OTHER_PARENT_ID },
+          },
+        }),
+      ).resolves.toBeUndefined();
+    });
   });
 
   describe('bulk operations', () => {
@@ -203,6 +292,50 @@ describe('ErpDocumentLineGuardService', () => {
           ...baseArgs,
           operation: 'deleteMany',
           payload: { filter: { id: { in: [LINE_ID] } } },
+        }),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('restore', () => {
+    it('blocks restoreOne when the (soft-deleted) line resolves to a POSTED parent', async () => {
+      const lineRepository = createFakeRepository([
+        { id: LINE_ID, [PARENT_FIELD_NAME]: PARENT_ID },
+      ]);
+      const { service } = createService({
+        [LINE_OBJECT_NAME]: lineRepository,
+        [PARENT_OBJECT_NAME]: createFakeRepository([
+          { id: PARENT_ID, docStatus: 'POSTED' },
+        ]),
+      });
+
+      await expect(
+        service.assertLineMutationAllowed({
+          ...baseArgs,
+          operation: 'restoreOne',
+          payload: { id: LINE_ID },
+        }),
+      ).rejects.toThrow(CommonQueryRunnerException);
+      expect(lineRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({ withDeleted: true }),
+      );
+    });
+
+    it('allows restoreOne when the line resolves to a DRAFT parent', async () => {
+      const { service } = createService({
+        [LINE_OBJECT_NAME]: createFakeRepository([
+          { id: LINE_ID, [PARENT_FIELD_NAME]: PARENT_ID },
+        ]),
+        [PARENT_OBJECT_NAME]: createFakeRepository([
+          { id: PARENT_ID, docStatus: 'DRAFT' },
+        ]),
+      });
+
+      await expect(
+        service.assertLineMutationAllowed({
+          ...baseArgs,
+          operation: 'restoreOne',
+          payload: { id: LINE_ID },
         }),
       ).resolves.toBeUndefined();
     });

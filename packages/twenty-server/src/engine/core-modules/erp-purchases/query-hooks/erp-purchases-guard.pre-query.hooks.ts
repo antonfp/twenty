@@ -31,6 +31,9 @@ const ERP_DOCUMENT_GUARD_OPERATIONS: readonly ErpDocumentGuardOperation[] = [
   'deleteMany',
   'destroyOne',
   'destroyMany',
+  'restoreOne',
+  'restoreMany',
+  'mergeMany',
 ];
 
 const SUPPLIER_INVOICE_LINE_OBJECT_NAME = 'supplierInvoiceLine';

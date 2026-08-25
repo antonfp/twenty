@@ -13,6 +13,9 @@ import {
   type CreateOneResolverArgs,
   type DeleteManyResolverArgs,
   type DeleteOneResolverArgs,
+  type MergeManyResolverArgs,
+  type RestoreManyResolverArgs,
+  type RestoreOneResolverArgs,
   type UpdateManyResolverArgs,
   type UpdateOneResolverArgs,
 } from 'src/engine/api/graphql/workspace-resolver-builder/interfaces/workspace-resolvers-builder.interface';
@@ -29,7 +32,14 @@ export type ErpDocumentGuardOperation =
   | 'deleteOne'
   | 'deleteMany'
   | 'destroyOne'
-  | 'destroyMany';
+  | 'destroyMany'
+  | 'restoreOne'
+  | 'restoreMany'
+  | 'mergeMany';
+
+// Shared with ErpDocumentLineGuardService so both guards reject upsert with
+// the same wording.
+export const ERP_UPSERT_BLOCKED_MESSAGE = msg`Upsert недоступен для документов/строк документов — используйте создание или обновление`;
 
 // Fields owned by the posting flow; letting clients set them would fake a
 // posted/paid state without register rows.
@@ -61,6 +71,7 @@ export class ErpDocumentGuardService {
   }: DocumentGuardArgs): Promise<void> {
     switch (operation) {
       case 'createOne': {
+        this.assertNoUpsert((payload as CreateOneResolverArgs).upsert);
         this.assertCreateDataIsDraft(
           (payload as CreateOneResolverArgs).data ?? {},
         );
@@ -68,6 +79,7 @@ export class ErpDocumentGuardService {
         return;
       }
       case 'createMany': {
+        this.assertNoUpsert((payload as CreateManyResolverArgs).upsert);
         for (const data of (payload as CreateManyResolverArgs).data ?? []) {
           this.assertCreateDataIsDraft(data);
         }
@@ -114,6 +126,50 @@ export class ErpDocumentGuardService {
 
         return;
       }
+      case 'restoreOne': {
+        // The target is soft-deleted, so it must be looked up with
+        // withDeleted — otherwise it's invisible to the query and the guard
+        // silently no-ops.
+        await this.assertRecordsAreDraft(
+          workspaceId,
+          objectNameSingular,
+          [(payload as RestoreOneResolverArgs).id],
+          { withDeleted: true },
+        );
+
+        return;
+      }
+      case 'restoreMany': {
+        await this.assertFilteredRecordsAreDraft(
+          workspaceId,
+          objectNameSingular,
+          (payload as RestoreManyResolverArgs).filter,
+          { withDeleted: true },
+        );
+
+        return;
+      }
+      case 'mergeMany': {
+        await this.assertRecordsAreDraft(
+          workspaceId,
+          objectNameSingular,
+          (payload as MergeManyResolverArgs).ids,
+        );
+
+        return;
+      }
+    }
+  }
+
+  private assertNoUpsert(upsert: boolean | undefined): void {
+    if (upsert === true) {
+      throw new CommonQueryRunnerException(
+        `Upsert is not allowed on ERP document object`,
+        CommonQueryRunnerExceptionCode.BAD_REQUEST,
+        {
+          userFriendlyMessage: ERP_UPSERT_BLOCKED_MESSAGE,
+        },
+      );
     }
   }
 
@@ -155,6 +211,7 @@ export class ErpDocumentGuardService {
     workspaceId: string,
     objectNameSingular: string,
     filter: unknown,
+    options?: { withDeleted?: boolean },
   ): Promise<void> {
     const recordIds = extractRecordIdsFromFilter(filter);
 
@@ -170,13 +227,19 @@ export class ErpDocumentGuardService {
       );
     }
 
-    await this.assertRecordsAreDraft(workspaceId, objectNameSingular, recordIds);
+    await this.assertRecordsAreDraft(
+      workspaceId,
+      objectNameSingular,
+      recordIds,
+      options,
+    );
   }
 
   private async assertRecordsAreDraft(
     workspaceId: string,
     objectNameSingular: string,
     recordIds: string[],
+    options?: { withDeleted?: boolean },
   ): Promise<void> {
     if (recordIds.length === 0) {
       return;
@@ -191,7 +254,10 @@ export class ErpDocumentGuardService {
           shouldBypassPermissionChecks: true,
         });
 
-        return repository.findBy({ id: In(recordIds) });
+        return repository.find({
+          where: { id: In(recordIds) },
+          withDeleted: options?.withDeleted,
+        });
       },
       buildSystemAuthContext(workspaceId),
     );
