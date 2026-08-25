@@ -3,7 +3,7 @@ const logoStyle = {
   fontFamily: 'Arial, sans-serif',
   fontSize: '24px',
   fontWeight: 700,
-  color: '#1c2523',
+  color: '#121212',
 };
 
 export const Logo = () => {
