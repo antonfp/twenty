@@ -12,6 +12,7 @@ import {
   type ErpDocumentGuardOperation,
   ErpDocumentGuardService,
 } from 'src/engine/core-modules/erp-sales/services/erp-document-guard.service';
+import { ErpDocumentLineGuardService } from 'src/engine/core-modules/erp-sales/services/erp-document-line-guard.service';
 
 // Register (partyLedgerEntry) mutation hooks already exist on the sales
 // module and apply workspace-wide by object.operation key — duplicating them
@@ -31,6 +32,10 @@ const ERP_DOCUMENT_GUARD_OPERATIONS: readonly ErpDocumentGuardOperation[] = [
   'destroyOne',
   'destroyMany',
 ];
+
+const SUPPLIER_INVOICE_LINE_OBJECT_NAME = 'supplierInvoiceLine';
+const SUPPLIER_INVOICE_LINE_PARENT_FIELD_NAME = 'supplierInvoiceId';
+const SUPPLIER_INVOICE_OBJECT_NAME = 'supplierInvoice';
 
 // One decorated class per (object, operation) hook key: the query-hook
 // storage holds a single key per class, so hooks cannot be merged further.
@@ -67,9 +72,60 @@ const createErpDocumentGuardHook = (
   return ErpPurchasesDocumentGuardPreQueryHook;
 };
 
+// One decorated class per (lineObject, operation) hook key, mirroring
+// createErpDocumentGuardHook above — the shared check itself lives in
+// ErpDocumentLineGuardService (erp-sales) so it isn't duplicated per document
+// type.
+const createErpDocumentLineGuardHook = (
+  lineObjectNameSingular: string,
+  parentFieldName: string,
+  parentObjectNameSingular: string,
+  operation: ErpDocumentGuardOperation,
+): Type<WorkspacePreQueryHookInstance> => {
+  @WorkspaceQueryHook(`${lineObjectNameSingular}.${operation}`)
+  class ErpPurchasesDocumentLineGuardPreQueryHook implements WorkspacePreQueryHookInstance {
+    constructor(
+      private readonly erpDocumentLineGuardService: ErpDocumentLineGuardService,
+    ) {}
+
+    async execute(
+      authContext: WorkspaceAuthContext,
+      _objectName: string,
+      payload: ResolverArgs,
+    ): Promise<ResolverArgs> {
+      const workspace = authContext.workspace;
+
+      assertIsDefinedOrThrow(workspace, WorkspaceNotFoundDefaultError);
+
+      await this.erpDocumentLineGuardService.assertLineMutationAllowed({
+        workspaceId: workspace.id,
+        lineObjectNameSingular,
+        parentFieldName,
+        parentObjectNameSingular,
+        operation,
+        payload,
+      });
+
+      return payload;
+    }
+  }
+
+  return ErpPurchasesDocumentLineGuardPreQueryHook;
+};
+
 export const ERP_PURCHASES_GUARD_HOOKS: Type<WorkspacePreQueryHookInstance>[] =
-  ERP_DOCUMENT_OBJECT_NAMES.flatMap((objectNameSingular) =>
-    ERP_DOCUMENT_GUARD_OPERATIONS.map((operation) =>
-      createErpDocumentGuardHook(objectNameSingular, operation),
+  [
+    ...ERP_DOCUMENT_OBJECT_NAMES.flatMap((objectNameSingular) =>
+      ERP_DOCUMENT_GUARD_OPERATIONS.map((operation) =>
+        createErpDocumentGuardHook(objectNameSingular, operation),
+      ),
     ),
-  );
+    ...ERP_DOCUMENT_GUARD_OPERATIONS.map((operation) =>
+      createErpDocumentLineGuardHook(
+        SUPPLIER_INVOICE_LINE_OBJECT_NAME,
+        SUPPLIER_INVOICE_LINE_PARENT_FIELD_NAME,
+        SUPPLIER_INVOICE_OBJECT_NAME,
+        operation,
+      ),
+    ),
+  ];

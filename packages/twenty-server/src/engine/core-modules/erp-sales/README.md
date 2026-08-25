@@ -84,6 +84,15 @@ cancel-хука.
   можно было бы подделать без регистров.
 - `partyLedgerEntry`: все мутации (`createOne…destroyMany`) блокируются
   безусловно — регистр пишет только сервер при проведении.
+- `salesInvoiceLine` (и `supplierInvoiceLine` в `erp-purchases`, тот же
+  сервис): строку нельзя создать/изменить/удалить, если её родительский
+  документ (`salesInvoiceId`/`supplierInvoiceId`) существует и
+  `docStatus !== 'DRAFT'` — иначе строки проведённого счёта оставались
+  редактируемыми, хотя сам документ уже был защищён. Для create родитель
+  берётся из payload; для update/delete — по строке из БД. Строка без
+  родителя (id null) разрешена всегда. Массовые операции — тот же fail-closed
+  паттерн по id из фильтра (`ErpDocumentLineGuardService`,
+  `services/erp-document-line-guard.service.ts`).
 
 Хуки обходятся только серверными репозиториями (сам `PostingService`),
 GraphQL/REST/MCP идут через них.

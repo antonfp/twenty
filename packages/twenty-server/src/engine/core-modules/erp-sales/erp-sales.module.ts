@@ -9,6 +9,7 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
 import { SalesInvoicePrintController } from 'src/engine/core-modules/erp-sales/controllers/sales-invoice-print.controller';
 import { ERP_SALES_GUARD_HOOKS } from 'src/engine/core-modules/erp-sales/query-hooks/erp-sales-guard.pre-query.hooks';
 import { ErpDocumentGuardService } from 'src/engine/core-modules/erp-sales/services/erp-document-guard.service';
+import { ErpDocumentLineGuardService } from 'src/engine/core-modules/erp-sales/services/erp-document-line-guard.service';
 import { PaymentPostingRulesService } from 'src/engine/core-modules/erp-sales/services/payment-posting-rules.service';
 import { SalesInvoicePostingRulesService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-posting-rules.service';
 import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
@@ -22,6 +23,7 @@ import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/serv
     JwtAuthGuard,
     WorkspaceAuthGuard,
     ErpDocumentGuardService,
+    ErpDocumentLineGuardService,
     PaymentPostingRulesService,
     SalesInvoicePostingRulesService,
     SalesInvoicePrintService,
