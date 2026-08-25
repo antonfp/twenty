@@ -368,7 +368,6 @@ export class UserWorkspaceService {
       relations: {
         userWorkspaces: {
           workspace: {
-            workspaceSSOIdentityProviders: true,
             approvedAccessDomains: true,
           },
         },
@@ -393,7 +392,7 @@ export class UserWorkspaceService {
 
     // Email-domain discovery is the only "listing" source: PUBLIC only.
     const workspacesFromApprovedAccessDomain = (
-      await this.approvedAccessDomainService.findValidatedApprovedAccessDomainWithWorkspacesAndSSOIdentityProvidersDomain(
+      await this.approvedAccessDomainService.findValidatedApprovedAccessDomainWithWorkspacesByDomain(
         getDomainFromEmailOrThrow(email),
       )
     )
@@ -626,24 +625,8 @@ export class UserWorkspaceService {
             fileFolder: FileFolder.CorePicture,
           })
         : '',
-      sso:
-        workspace.workspaceSSOIdentityProviders?.reduce(
-          (acc, identityProvider) =>
-            acc.concat(
-              identityProvider.status === 'Inactive'
-                ? []
-                : [
-                    {
-                      id: identityProvider.id,
-                      name: identityProvider.name,
-                      issuer: identityProvider.issuer,
-                      type: identityProvider.type,
-                      status: identityProvider.status,
-                    },
-                  ],
-            ),
-          [] as AvailableWorkspace['sso'],
-        ) ?? [],
+      // SSO identity providers were removed from this fork.
+      sso: [] as AvailableWorkspace['sso'],
     };
   }
 

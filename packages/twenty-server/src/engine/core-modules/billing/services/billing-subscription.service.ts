@@ -4,14 +4,11 @@ import { BillingEntitlementDTO } from 'src/engine/core-modules/billing/dtos/bill
 import { type BillingCustomerEntity } from 'src/engine/core-modules/billing/entities/billing-customer.entity';
 import { type BillingSubscriptionEntity } from 'src/engine/core-modules/billing/entities/billing-subscription.entity';
 import { BillingEntitlementKey } from 'src/engine/core-modules/billing/enums/billing-entitlement-key.enum';
-import { EnterprisePlanService } from 'src/engine/core-modules/enterprise/services/enterprise-plan.service';
 
 // Clean-room stub preserving the billing-disabled semantics of the removed
-// Enterprise billing module: no customer, no subscriptions, entitlements
-// driven solely by the enterprise key.
+// Enterprise billing module: no customer, no subscriptions, no entitlements.
 @Injectable()
 export class BillingSubscriptionService {
-  constructor(private readonly enterprisePlanService: EnterprisePlanService) {}
 
   async getBillingSubscriptions(
     _workspaceId: string,
@@ -43,11 +40,9 @@ export class BillingSubscriptionService {
   async getWorkspaceEntitlements(
     _workspaceId: string,
   ): Promise<BillingEntitlementDTO[]> {
-    const hasValidEnterprisePlan = this.enterprisePlanService.isValid();
-
     return Object.values(BillingEntitlementKey).map((key) => ({
       key,
-      value: hasValidEnterprisePlan,
+      value: false,
     }));
   }
 }

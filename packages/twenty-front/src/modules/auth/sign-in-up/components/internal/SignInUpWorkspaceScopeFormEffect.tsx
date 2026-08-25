@@ -1,14 +1,10 @@
 import { useSignInUp } from '@/auth/sign-in-up/hooks/useSignInUp';
 import { useSignInUpForm } from '@/auth/sign-in-up/hooks/useSignInUpForm';
-import {
-  SignInUpStep,
-  signInUpStepState,
-} from '@/auth/states/signInUpStepState';
+import { SignInUpStep } from '@/auth/states/signInUpStepState';
 import { isRequestingCaptchaTokenState } from '@/captcha/states/isRequestingCaptchaTokenState';
 import { captchaState } from '@/client-config/states/captchaState';
 import { workspaceAuthProvidersState } from '@/workspace/states/workspaceAuthProvidersState';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
-import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomState';
 import { useEffect, useState } from 'react';
 import { isDefined } from 'twenty-shared/utils';
 
@@ -38,23 +34,6 @@ export const SignInUpWorkspaceScopeFormEffect = () => {
 
   const { signInUpStep, continueWithEmail, continueWithCredentials } =
     useSignInUp(form);
-
-  const setSignInUpStep = useSetAtomState(signInUpStepState);
-
-  useEffect(() => {
-    if (!workspaceAuthProviders) {
-      return;
-    }
-
-    const hasOnlySSOProvidersEnabled =
-      !workspaceAuthProviders.google &&
-      !workspaceAuthProviders.microsoft &&
-      !workspaceAuthProviders.password;
-
-    if (hasOnlySSOProvidersEnabled && workspaceAuthProviders.sso.length > 1) {
-      return setSignInUpStep(SignInUpStep.SSOIdentityProviderSelection);
-    }
-  }, [setSignInUpStep, workspaceAuthProviders]);
 
   useEffect(() => {
     if (loadingStatus === LoadingStatus.Done) {

@@ -13,7 +13,6 @@ export enum SettingsPath {
   BillingPlans = 'billing/plans',
   Usage = 'billing/usage',
   UsageUserDetail = 'billing/usage/user/:userWorkspaceId',
-  Enterprise = 'enterprise',
   Objects = 'objects',
   ObjectOverview = 'objects/overview',
   ObjectDetail = 'objects/:objectNamePlural',
@@ -27,7 +26,6 @@ export enum SettingsPath {
   WorkspaceMemberPage = 'members/:workspaceMemberId',
   General = 'general',
   Subdomain = 'general/subdomain',
-  CustomDomain = 'general/custom-domain',
   WorkspaceCommunications = 'communications',
   EmailGroupChannelDetail = 'email/email-group/:messageChannelId',
   NewEmailGroupChannel = 'email/new-email-group',
@@ -69,7 +67,6 @@ export enum SettingsPath {
   Integrations = 'integrations',
   Security = 'general#security',
   Logs = 'general#logs',
-  NewSSOIdentityProvider = 'security/sso/new',
 
   AdminPanel = 'admin-panel',
   AdminPanelEnterprise = 'admin-panel#enterprise',

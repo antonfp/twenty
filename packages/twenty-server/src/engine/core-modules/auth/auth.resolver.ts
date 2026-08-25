@@ -5,7 +5,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import bytes from 'bytes';
 import { type Request } from 'express';
 import GraphQLUpload from 'graphql-upload/GraphQLUpload.mjs';
-import omit from 'lodash.omit';
 import { PermissionFlagType } from 'twenty-shared/constants';
 import { SOURCE_LOCALE } from 'twenty-shared/translations';
 import { TwoFactorAuthenticationStrategy } from 'twenty-shared/types';
@@ -32,8 +31,6 @@ import { AvailableWorkspacesAndAccessTokensDTO } from 'src/engine/core-modules/a
 import { EmailPasswordResetLinkDTO } from 'src/engine/core-modules/auth/dto/email-password-reset-link.dto';
 import { EmailPasswordResetLinkInput } from 'src/engine/core-modules/auth/dto/email-password-reset-link.input';
 import { GetAuthTokenFromEmailVerificationTokenInput } from 'src/engine/core-modules/auth/dto/get-auth-token-from-email-verification-token.input';
-import { GetAuthorizationUrlForSSODTO } from 'src/engine/core-modules/auth/dto/get-authorization-url-for-sso.dto';
-import { GetAuthorizationUrlForSSOInput } from 'src/engine/core-modules/auth/dto/get-authorization-url-for-sso.input';
 import { InvalidatePasswordDTO } from 'src/engine/core-modules/auth/dto/invalidate-password.dto';
 import { SignUpDTO } from 'src/engine/core-modules/auth/dto/sign-up.dto';
 import { TransientTokenDTO } from 'src/engine/core-modules/auth/dto/transient-token.dto';
@@ -74,7 +71,6 @@ import { I18nContext } from 'src/engine/core-modules/i18n/types/i18n-context.typ
 import { IMPERSONATION_DENIAL_BY_REASON } from 'src/engine/core-modules/impersonation/constants/impersonation-denial-by-reason.constant';
 import { IMPERSONATION_DENIAL_LOG_MESSAGE_BY_REASON } from 'src/engine/core-modules/impersonation/constants/impersonation-denial-log-message-by-reason.constant';
 import { ImpersonationAuthorizationService } from 'src/engine/core-modules/impersonation/services/impersonation-authorization.service';
-import { SSOService } from 'src/engine/core-modules/sso/services/sso.service';
 import { TwoFactorAuthenticationVerificationInput } from 'src/engine/core-modules/two-factor-authentication/dto/two-factor-authentication-verification.input';
 import { TwoFactorAuthenticationExceptionFilter } from 'src/engine/core-modules/two-factor-authentication/two-factor-authentication-exception.filter';
 import { TwoFactorAuthenticationService } from 'src/engine/core-modules/two-factor-authentication/two-factor-authentication.service';
@@ -155,7 +151,6 @@ export class AuthResolver {
     private workspaceDomainsService: WorkspaceDomainsService,
     private userWorkspaceService: UserWorkspaceService,
     private emailVerificationTokenService: EmailVerificationTokenService,
-    private ssoService: SSOService,
     private readonly eventLogEmitterService: EventLogEmitterService,
     private readonly impersonationAuthorizationService: ImpersonationAuthorizationService,
     private readonly subdomainManagerService: SubdomainManagerService,
@@ -171,17 +166,6 @@ export class AuthResolver {
   ): Promise<CheckUserExistDTO> {
     return await this.authService.checkUserExists(
       checkUserExistsInput.email.toLowerCase(),
-    );
-  }
-
-  @Mutation(() => GetAuthorizationUrlForSSODTO)
-  @UseGuards(PublicEndpointGuard, NoPermissionGuard)
-  async getAuthorizationUrlForSSO(
-    @Args('input') params: GetAuthorizationUrlForSSOInput,
-  ) {
-    return await this.ssoService.getAuthorizationUrlForSSO(
-      params.identityProviderId,
-      omit(params, ['identityProviderId']),
     );
   }
 

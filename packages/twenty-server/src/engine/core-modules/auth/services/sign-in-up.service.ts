@@ -49,7 +49,6 @@ import {
   type SignInUpNewUserPayload,
 } from 'src/engine/core-modules/auth/types/signInUp.type';
 import { SubdomainManagerService } from 'src/engine/core-modules/domain/subdomain-manager/services/subdomain-manager.service';
-import { EnterprisePlanService } from 'src/engine/core-modules/enterprise/services/enterprise-plan.service';
 import { FileCorePictureService } from 'src/engine/core-modules/file/file-core-picture/services/file-core-picture.service';
 import { MetricsService } from 'src/engine/core-modules/metrics/metrics.service';
 import { MetricsKeys } from 'src/engine/core-modules/metrics/types/metrics-keys.type';
@@ -92,7 +91,6 @@ export class SignInUpService {
     private readonly workspaceCacheService: WorkspaceCacheService,
     private readonly applicationService: ApplicationService,
     private readonly fileCorePictureService: FileCorePictureService,
-    private readonly enterprisePlanService: EnterprisePlanService,
     private readonly eventLogEmitterService: EventLogEmitterService,
     private readonly billingCreditService: BillingCreditService,
     private readonly billingService: BillingService,
@@ -531,19 +529,15 @@ export class SignInUpService {
   private async assertWorkspaceCountWithinLimit(
     workspaceCount: number,
   ): Promise<void> {
-    if (this.enterprisePlanService.isValid()) {
-      return;
-    }
-
     if (workspaceCount < MAX_WORKSPACES_WITHOUT_ENTERPRISE_KEY) {
       return;
     }
 
     throw new AuthException(
-      `Cannot create more than ${MAX_WORKSPACES_WITHOUT_ENTERPRISE_KEY} workspaces without a valid enterprise key`,
+      `Cannot create more than ${MAX_WORKSPACES_WITHOUT_ENTERPRISE_KEY} workspaces`,
       AuthExceptionCode.FORBIDDEN_EXCEPTION,
       {
-        userFriendlyMessage: msg`Workspace limit reached. A valid enterprise key is required to create more workspaces.`,
+        userFriendlyMessage: msg`Workspace limit reached.`,
       },
     );
   }

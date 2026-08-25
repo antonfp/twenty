@@ -1,13 +1,11 @@
 import { Field, ObjectType } from '@nestjs/graphql';
 
 import { UUIDScalarType } from 'src/engine/api/graphql/workspace-schema-builder/graphql-types/scalars';
-import {
-  IdentityProviderType,
-  SSOIdentityProviderStatus,
-} from 'src/engine/core-modules/sso/workspace-sso-identity-provider.entity';
 import { WorkspaceUrlsDTO } from 'src/engine/core-modules/workspace/dtos/workspace-urls.dto';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 
+// SSO identity providers were removed from this fork; the type is kept in the
+// schema (the list is always empty) so existing clients querying it keep working.
 @ObjectType('SSOIdentityProvider')
 export class SSOIdentityProviderDTO {
   @Field(() => UUIDScalarType)
@@ -16,11 +14,11 @@ export class SSOIdentityProviderDTO {
   @Field(() => String)
   name: string;
 
-  @Field(() => IdentityProviderType)
-  type: IdentityProviderType;
+  @Field(() => String)
+  type: string;
 
-  @Field(() => SSOIdentityProviderStatus)
-  status: SSOIdentityProviderStatus;
+  @Field(() => String)
+  status: string;
 
   @Field(() => String)
   issuer: string;

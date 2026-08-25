@@ -3,7 +3,6 @@ import { useLingui } from '@lingui/react/macro';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { currentWorkspaceState } from '@/auth/states/currentWorkspaceState';
-import { authProvidersState } from '@/client-config/states/authProvidersState';
 import { isClickHouseConfiguredState } from '@/client-config/states/isClickHouseConfiguredState';
 import { isMultiWorkspaceEnabledState } from '@/client-config/states/isMultiWorkspaceEnabledState';
 import { Separator } from '@/settings/components/Separator';
@@ -14,11 +13,8 @@ import { SettingsOptionCardContentToggle } from '@/settings/components/SettingsO
 import { SettingsRoleDefaultRole } from '@/settings/roles/components/SettingsRolesDefaultRole';
 import { SettingsRolesQueryEffect } from '@/settings/roles/components/SettingsRolesQueryEffect';
 import { useSettingsAllRoles } from '@/settings/roles/hooks/useSettingsAllRoles';
-import { SettingsSSOIdentitiesProvidersListCard } from '@/settings/security/components/SSO/SettingsSSOIdentitiesProvidersListCard';
-import { SettingsSecurityAuthBypassOptionsList } from '@/settings/security/components/SettingsSecurityAuthBypassOptionsList';
 import { SettingsSecurityAuthProvidersOptionsList } from '@/settings/security/components/SettingsSecurityAuthProvidersOptionsList';
 import { SettingsSecurityEditableProfileFields } from '@/settings/security/components/SettingsSecurityEditableProfileFields';
-import { SSOIdentitiesProvidersState } from '@/settings/security/states/SSOIdentitiesProvidersState';
 import { ToggleImpersonate } from '@/settings/workspace/components/ToggleImpersonate';
 import { useSnackBar } from '@/ui/feedback/snack-bar-manager/hooks/useSnackBar';
 import { useAtomState } from '@/ui/utilities/state/jotai/hooks/useAtomState';
@@ -49,10 +45,6 @@ const StyledMainContent = styled.div`
   min-height: 200px;
 `;
 
-const StyledSectionContainer = styled.div`
-  flex-shrink: 0;
-`;
-
 export const SettingsSecuritySettings = () => {
   const { t } = useLingui();
   const { enqueueErrorSnackBar } = useSnackBar();
@@ -61,8 +53,6 @@ export const SettingsSecuritySettings = () => {
     isMultiWorkspaceEnabledState,
   );
   const isClickHouseConfigured = useAtomStateValue(isClickHouseConfiguredState);
-  const authProviders = useAtomStateValue(authProvidersState);
-  const SSOIdentitiesProviders = useAtomStateValue(SSOIdentitiesProvidersState);
   const [currentWorkspace, setCurrentWorkspace] = useAtomState(
     currentWorkspaceState,
   );
@@ -163,20 +153,6 @@ export const SettingsSecuritySettings = () => {
 
   const roles = useSettingsAllRoles();
 
-  const hasSsoIdentityProviders = SSOIdentitiesProviders.length > 0;
-  const hasDirectAuthEnabled =
-    currentWorkspace?.isGoogleAuthEnabled ||
-    currentWorkspace?.isMicrosoftAuthEnabled ||
-    currentWorkspace?.isPasswordAuthEnabled;
-  const hasBypassProviderAvailable =
-    authProviders?.google ||
-    authProviders?.microsoft ||
-    authProviders?.password;
-  const shouldShowBypassSection =
-    hasSsoIdentityProviders &&
-    !hasDirectAuthEnabled &&
-    hasBypassProviderAvailable;
-
   const hasEnterpriseAccess =
     currentWorkspace?.hasValidEnterpriseValidityToken === true;
   const isEventLogsEnabled = hasEnterpriseAccess && isClickHouseConfigured;
@@ -185,17 +161,6 @@ export const SettingsSecuritySettings = () => {
     <>
       <SettingsRolesQueryEffect />
       <StyledMainContent>
-        <StyledSectionContainer>
-          <Section>
-            <H2Title
-              title={t`SSO`}
-              description={t`Configure an SSO connection`}
-              adornment={<OrganizationAdornment />}
-            />
-            <SettingsSSOIdentitiesProvidersListCard />
-          </Section>
-        </StyledSectionContainer>
-
         <Section>
           <StyledContainer>
             <H2Title
@@ -215,17 +180,6 @@ export const SettingsSecuritySettings = () => {
           </StyledContainer>
         </Section>
         <SettingsRoleDefaultRole roles={roles} />
-        {shouldShowBypassSection && (
-          <Section>
-            <StyledContainer>
-              <H2Title
-                title={t`SSO Bypass`}
-                description={t`Configure fallback login methods for users with SSO bypass permissions`}
-              />
-              <SettingsSecurityAuthBypassOptionsList />
-            </StyledContainer>
-          </Section>
-        )}
         {isMultiWorkspaceEnabled && (
           <Section>
             <H2Title

@@ -26,7 +26,6 @@ import { FeatureFlagService } from 'src/engine/core-modules/feature-flag/service
 import { FileCorePictureService } from 'src/engine/core-modules/file/file-core-picture/services/file-core-picture.service';
 import { UserSessionCookieService } from 'src/engine/core-modules/user-session/services/user-session-cookie.service';
 import { UserSessionService } from 'src/engine/core-modules/user-session/services/user-session.service';
-import { SSOService } from 'src/engine/core-modules/sso/services/sso.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { TwoFactorAuthenticationService } from 'src/engine/core-modules/two-factor-authentication/two-factor-authentication.service';
 import { UserWorkspaceEntity } from 'src/engine/core-modules/user-workspace/user-workspace.entity';
@@ -170,10 +169,6 @@ describe('AuthResolver', () => {
         },
         {
           provide: FeatureFlagService,
-          useValue: {},
-        },
-        {
-          provide: SSOService,
           useValue: {},
         },
         {

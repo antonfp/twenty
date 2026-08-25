@@ -1,15 +1,12 @@
 import { Logger } from '@nestjs/common';
 
 import { Command, CommandRunner } from 'nest-commander';
-import { isDefined } from 'twenty-shared/utils';
 
 import { MarketplaceCatalogSyncCronCommand } from 'src/engine/core-modules/application/application-marketplace/crons/commands/marketplace-catalog-sync.cron.command';
 import { StaleRegistrationCleanupCronCommand } from 'src/engine/core-modules/application/application-oauth/stale-registration-cleanup/commands/stale-registration-cleanup.cron.command';
 import { ApplicationVersionCheckCronCommand } from 'src/engine/core-modules/application/application-upgrade/crons/commands/application-version-check.cron.command';
-import { EnterpriseKeyValidationCronCommand } from 'src/engine/core-modules/enterprise/cron/command/enterprise-key-validation.cron.command';
 import { EventLogCleanupCronCommand } from 'src/engine/core-modules/event-logs/cleanup/commands/event-log-cleanup.cron.command';
 import { PendingFileCleanupCronCommand } from 'src/engine/core-modules/file/file-upload/crons/commands/pending-file-cleanup.cron.command';
-import { RotateSigningKeysCronCommand } from 'src/engine/core-modules/jwt/crons/commands/rotate-signing-keys.cron.command';
 import { CronTriggerCronCommand } from 'src/engine/core-modules/logic-function/logic-function-trigger/triggers/cron/cron-trigger.cron.command';
 import { CheckPublicDomainsValidRecordsCronCommand } from 'src/engine/core-modules/public-domain/crons/commands/check-public-domains-valid-records.cron.command';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
@@ -66,8 +63,6 @@ export class CronRegisterAllCommand extends CommandRunner {
     private readonly cleanOnboardingWorkspacesCronCommand: CleanOnboardingWorkspacesCronCommand,
     private readonly trashCleanupCronCommand: TrashCleanupCronCommand,
     private readonly eventLogCleanupCronCommand: EventLogCleanupCronCommand,
-    private readonly enterpriseKeyValidationCronCommand: EnterpriseKeyValidationCronCommand,
-    private readonly rotateSigningKeysCronCommand: RotateSigningKeysCronCommand,
     private readonly marketplaceCatalogSyncCronCommand: MarketplaceCatalogSyncCronCommand,
     private readonly applicationVersionCheckCronCommand: ApplicationVersionCheckCronCommand,
     private readonly staleRegistrationCleanupCronCommand: StaleRegistrationCleanupCronCommand,
@@ -80,10 +75,6 @@ export class CronRegisterAllCommand extends CommandRunner {
 
   async run(): Promise<void> {
     this.logger.log('Registering all background sync cron jobs...');
-
-    const isSigningKeyAutoRotationEnabled = isDefined(
-      this.twentyConfigService.get('SIGNING_KEY_ROTATION_DAYS'),
-    );
 
     const isMarketplaceCatalogSyncEnabled = this.twentyConfigService.get(
       'MARKETPLACE_CATALOG_SYNC_CRON_ENABLED',
@@ -182,15 +173,6 @@ export class CronRegisterAllCommand extends CommandRunner {
       {
         name: 'ApplicationVersionCheck',
         command: this.applicationVersionCheckCronCommand,
-      },
-      {
-        name: 'EnterpriseKeyValidation',
-        command: this.enterpriseKeyValidationCronCommand,
-      },
-      {
-        name: 'RotateSigningKeys',
-        command: this.rotateSigningKeysCronCommand,
-        isEnabled: isSigningKeyAutoRotationEnabled,
       },
       {
         name: 'StaleRegistrationCleanup',

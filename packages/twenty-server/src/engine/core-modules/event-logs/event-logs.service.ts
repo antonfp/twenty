@@ -10,7 +10,6 @@ import { Repository } from 'typeorm';
 import { ClickHouseService } from 'src/database/clickHouse/clickHouse.service';
 import { formatDateTimeForClickHouse } from 'src/database/clickHouse/clickHouse.util';
 import { BillingService } from 'src/engine/core-modules/billing/services/billing.service';
-import { EnterprisePlanService } from 'src/engine/core-modules/enterprise/services/enterprise-plan.service';
 import { UserWorkspaceEntity } from 'src/engine/core-modules/user-workspace/user-workspace.entity';
 
 import {
@@ -35,7 +34,6 @@ export class EventLogsService {
   constructor(
     private readonly clickHouseService: ClickHouseService,
     private readonly billingService: BillingService,
-    private readonly enterprisePlanService: EnterprisePlanService,
     @InjectRepository(UserWorkspaceEntity)
     private readonly userWorkspaceRepository: Repository<UserWorkspaceEntity>,
   ) {}
@@ -141,12 +139,10 @@ export class EventLogsService {
       return;
     }
 
-    const hasAccess =
-      this.enterprisePlanService.isValid() &&
-      (await this.billingService.hasEntitlement(
-        workspaceId,
-        requiredEntitlement,
-      ));
+    const hasAccess = await this.billingService.hasEntitlement(
+      workspaceId,
+      requiredEntitlement,
+    );
 
     if (!hasAccess) {
       throw new EventLogsException(

@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 
-import { EnterpriseModule } from 'src/engine/core-modules/enterprise/enterprise.module';
 import { BillingCreditGrantService } from 'src/engine/core-modules/billing/services/billing-credit-grant.service';
 import { BillingCreditService } from 'src/engine/core-modules/billing/services/billing-credit.service';
 import { BillingSubscriptionService } from 'src/engine/core-modules/billing/services/billing-subscription.service';
@@ -12,7 +11,6 @@ import { WorkspaceCurrentBillingSubscriptionCacheService } from 'src/engine/core
 // services the rest of the codebase consumes, all answering with
 // billing-disabled semantics.
 @Module({
-  imports: [EnterpriseModule],
   providers: [
     BillingService,
     BillingSubscriptionService,
