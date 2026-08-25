@@ -66,4 +66,11 @@ export type PostingRulesProvider = {
     document: ErpDocumentRecord,
     lines: ErpDocumentLineRecord[],
   ) => Promise<GlEntryInput[]> | GlEntryInput[];
+  // Runs inside the cancel transaction after register reversal rows are
+  // written — for side effects the reversal itself can't express (e.g. a
+  // payment rolling back the linked invoice's paid status).
+  onCancel?: (
+    context: PostingContext,
+    document: ErpDocumentRecord,
+  ) => Promise<void> | void;
 };

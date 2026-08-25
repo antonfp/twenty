@@ -219,3 +219,55 @@ describe('PaymentPostingRulesService', () => {
     });
   });
 });
+
+describe('PaymentPostingRulesService onCancel', () => {
+  it('rolls a fully paid invoice back to PARTIALLY_PAID', async () => {
+    const invoiceRepository = createMockRepository();
+
+    invoiceRepository.findOneBy.mockResolvedValue(
+      postedInvoice({ total: rubles(90000), paidAmount: rubles(90000) }),
+    );
+    const { service } = createService();
+
+    await service.onCancel(
+      createContext({ salesInvoice: invoiceRepository }),
+      payment({ amount: rubles(50000) }),
+    );
+
+    expect(invoiceRepository.update).toHaveBeenCalledWith(INVOICE_ID, {
+      paidAmount: rubles(40000),
+      paymentStatus: 'PARTIALLY_PAID',
+    });
+  });
+
+  it('rolls back to UNPAID when the cancelled payment was the only one', async () => {
+    const invoiceRepository = createMockRepository();
+
+    invoiceRepository.findOneBy.mockResolvedValue(
+      postedInvoice({ total: rubles(90000), paidAmount: rubles(40000) }),
+    );
+    const { service } = createService();
+
+    await service.onCancel(
+      createContext({ salesInvoice: invoiceRepository }),
+      payment({ amount: rubles(40000) }),
+    );
+
+    expect(invoiceRepository.update).toHaveBeenCalledWith(INVOICE_ID, {
+      paidAmount: rubles(0),
+      paymentStatus: 'UNPAID',
+    });
+  });
+
+  it('does nothing when the payment has no linked invoice', async () => {
+    const invoiceRepository = createMockRepository();
+    const { service } = createService();
+
+    await service.onCancel(
+      createContext({ salesInvoice: invoiceRepository }),
+      payment({ salesInvoiceId: null, amount: rubles(100) }),
+    );
+
+    expect(invoiceRepository.update).not.toHaveBeenCalled();
+  });
+});

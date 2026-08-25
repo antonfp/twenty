@@ -235,6 +235,27 @@ export class PostingService {
       BYPASS_PERMISSIONS,
     );
 
+    const cancelProviders = this.postingRulesRegistry
+      .resolvePostingRules(objectNameSingular)
+      .filter((provider) => isDefined(provider.onCancel));
+
+    if (cancelProviders.length > 0) {
+      const document = await documentRepository.findOneByOrFail({
+        id: recordId,
+      });
+      const cancelContext: PostingContext = {
+        workspaceId,
+        documentObjectName: objectNameSingular,
+        documentId: recordId,
+        postingDate: this.resolvePostingDate(document),
+        transactionScope,
+      };
+
+      for (const provider of cancelProviders) {
+        await provider.onCancel?.(cancelContext, document);
+      }
+    }
+
     await documentRepository.update(recordId, {
       docStatus: DOC_STATUS.CANCELLED,
       cancelledAt: new Date().toISOString(),

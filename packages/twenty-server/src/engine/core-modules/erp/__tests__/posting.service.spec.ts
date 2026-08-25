@@ -19,6 +19,11 @@ import {
 } from 'src/engine/twenty-orm/storage/orm-workspace-context.storage';
 import { buildSystemAuthContext } from 'src/engine/twenty-orm/utils/build-system-auth-context.util';
 
+const SYSTEM_ACTOR_STAMP = {
+  createdBy: { source: 'SYSTEM', name: 'ERPilot', context: {} },
+  updatedBy: { source: 'SYSTEM', name: 'ERPilot', context: {} },
+};
+
 const WORKSPACE_ID = '20202020-1c25-4d02-bf25-6aeccf7ea419';
 const RECORD_ID = '30303030-0d5c-4a83-91d7-63f5b1a2f001';
 
@@ -172,9 +177,9 @@ describe('PostingService', () => {
 
       expect(
         fakeRepositoryByObjectName.partyLedgerEntry.insert,
-      ).toHaveBeenCalledWith([partyEntry]);
+      ).toHaveBeenCalledWith([{ ...SYSTEM_ACTOR_STAMP, ...partyEntry }]);
       expect(fakeRepositoryByObjectName.glEntry.insert).toHaveBeenCalledWith(
-        glEntries,
+        glEntries.map((glEntry) => ({ ...SYSTEM_ACTOR_STAMP, ...glEntry })),
       );
       expect(
         fakeRepositoryByObjectName.salesInvoice.update,

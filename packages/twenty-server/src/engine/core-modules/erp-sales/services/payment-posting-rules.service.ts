@@ -148,6 +148,53 @@ export class PaymentPostingRulesService implements PostingRulesProvider {
     return [partyLedgerEntryRow] as unknown as PartyLedgerEntryInput[];
   }
 
+  // Reversal rows fix the ledger; the invoice's denormalized paid state is
+  // rolled back here, inside the same cancel transaction.
+  async onCancel(
+    context: PostingContext,
+    document: ErpDocumentRecord,
+  ): Promise<void> {
+    const salesInvoiceId = document.salesInvoiceId;
+
+    if (!isDefined(salesInvoiceId) || typeof salesInvoiceId !== 'string') {
+      return;
+    }
+
+    const invoiceRepository =
+      context.transactionScope.getRepository<ErpDocumentRecord>(
+        SALES_INVOICE_OBJECT_NAME,
+        BYPASS_PERMISSIONS,
+      );
+    const invoice = await invoiceRepository.findOneBy({ id: salesInvoiceId });
+
+    if (!isDefined(invoice)) {
+      return;
+    }
+
+    const amountKopecks = currencyToKopecks(
+      document.amount as CurrencyFieldValue,
+    );
+    const invoiceTotalKopecks = currencyToKopecks(
+      invoice.total as CurrencyFieldValue,
+    );
+    const paidAmountKopecks = Math.max(
+      currencyToKopecks(invoice.paidAmount as CurrencyFieldValue) -
+        amountKopecks,
+      0,
+    );
+    const currencyCode = this.resolveCurrencyCode(document, invoice);
+
+    await invoiceRepository.update(invoice.id, {
+      paidAmount: kopecksToCurrency(paidAmountKopecks, currencyCode),
+      paymentStatus:
+        paidAmountKopecks <= 0
+          ? PAYMENT_STATUS.UNPAID
+          : paidAmountKopecks >= invoiceTotalKopecks
+            ? PAYMENT_STATUS.PAID
+            : PAYMENT_STATUS.PARTIALLY_PAID,
+    });
+  }
+
   private async loadPostedInvoice(
     context: PostingContext,
     document: ErpDocumentRecord,
