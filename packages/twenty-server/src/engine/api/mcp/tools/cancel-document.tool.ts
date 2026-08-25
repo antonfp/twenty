@@ -20,6 +20,11 @@ export type CancelDocumentResult = {
 export const createCancelDocumentTool = (
   postingService: PostingService,
   workspaceId: string,
+  // Same permission as updating the document object's records directly;
+  // shared with ErpPostingResolver via ErpObjectPermissionGuardService.
+  assertCanUpdateObjectRecords: (
+    objectNameSingular: string,
+  ) => Promise<void>,
 ) => ({
   description:
     'Cancel (отменить проведение) a POSTED ERP document: writes reversal (storno) register entries and switches docStatus to CANCELLED. Fails if the document is not POSTED.',
@@ -28,6 +33,7 @@ export const createCancelDocumentTool = (
     objectNameSingular,
     recordId,
   }: z.infer<typeof cancelDocumentInputSchema>): Promise<CancelDocumentResult> => {
+    await assertCanUpdateObjectRecords(objectNameSingular);
     await postingService.cancel(workspaceId, objectNameSingular, recordId);
 
     return {

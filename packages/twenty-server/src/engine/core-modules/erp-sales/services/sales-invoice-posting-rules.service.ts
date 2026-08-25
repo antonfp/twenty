@@ -2,12 +2,14 @@ import { Injectable } from '@nestjs/common';
 
 import { msg } from '@lingui/core/macro';
 import { isNonEmptyString } from '@sniptt/guards';
+import { isDefined } from 'twenty-shared/utils';
 
 import {
   ERP_POSTING_EXCEPTION_CODE,
   ErpPostingException,
 } from 'src/engine/core-modules/erp/erp-posting.exception';
 import { DocumentNumberingService } from 'src/engine/core-modules/erp/services/document-numbering.service';
+import { DOC_STATUS } from 'src/engine/core-modules/erp/types/doc-status.type';
 import {
   type ErpDocumentLineRecord,
   type ErpDocumentRecord,
@@ -30,6 +32,7 @@ import { formatDateRuShort } from 'src/engine/core-modules/erp-sales/utils/forma
 const SALES_INVOICE_OBJECT_NAME = 'salesInvoice';
 const SALES_INVOICE_LINE_OBJECT_NAME = 'salesInvoiceLine';
 const SALES_INVOICE_NUMBER_PREFIX = 'SI';
+const PAYMENT_OBJECT_NAME = 'payment';
 const BYPASS_PERMISSIONS = { shouldBypassPermissionChecks: true } as const;
 
 @Injectable()
@@ -152,6 +155,31 @@ export class SalesInvoicePostingRulesService implements PostingRulesProvider {
     // not the older core PartyLedgerEntryInput type; PostingService inserts
     // rows verbatim, so the cast is only a contract-boundary formality.
     return [partyLedgerEntryRow] as unknown as PartyLedgerEntryInput[];
+  }
+
+  // Ruling: cancelling a posted invoice is blocked while any POSTED payment
+  // is still linked to it — cancelled payments don't count. Checked here
+  // (not in validate) because the block applies to cancel, not post.
+  async onCancel(
+    context: PostingContext,
+    document: ErpDocumentRecord,
+  ): Promise<void> {
+    const postedPayment = await context.transactionScope
+      .getRepository<ErpDocumentRecord>(PAYMENT_OBJECT_NAME, BYPASS_PERMISSIONS)
+      .findOneBy({
+        salesInvoiceId: document.id,
+        docStatus: DOC_STATUS.POSTED,
+      });
+
+    if (isDefined(postedPayment)) {
+      throw new ErpPostingException(
+        `Cannot cancel sales invoice "${document.id}": posted payment "${postedPayment.id}" is still linked to it`,
+        ERP_POSTING_EXCEPTION_CODE.POSTING_FAILED,
+        {
+          userFriendlyMessage: msg`Сначала отмените оплаты по счёту.`,
+        },
+      );
+    }
   }
 
   private resolveCurrencyCode(lines: ErpDocumentLineRecord[]): string {

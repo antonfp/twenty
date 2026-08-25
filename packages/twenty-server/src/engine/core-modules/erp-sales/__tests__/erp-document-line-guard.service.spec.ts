@@ -339,5 +339,38 @@ describe('ErpDocumentLineGuardService', () => {
         }),
       ).resolves.toBeUndefined();
     });
+
+    it('queries the parent with withDeleted:true during restoreOne, so a soft-deleted non-DRAFT parent still blocks', async () => {
+      // A plain (non-withDeleted) lookup would miss the soft-deleted parent
+      // and wrongly allow the restore; only withDeleted:true surfaces it.
+      const parentRepository: FakeRepository = {
+        findBy: jest.fn(),
+        find: jest.fn(({ withDeleted }: { withDeleted?: boolean }) =>
+          Promise.resolve(
+            withDeleted === true
+              ? [{ id: PARENT_ID, docStatus: 'POSTED' }]
+              : [],
+          ),
+        ),
+      };
+      const { service } = createService({
+        [LINE_OBJECT_NAME]: createFakeRepository([
+          { id: LINE_ID, [PARENT_FIELD_NAME]: PARENT_ID },
+        ]),
+        [PARENT_OBJECT_NAME]: parentRepository,
+      });
+
+      await expect(
+        service.assertLineMutationAllowed({
+          ...baseArgs,
+          operation: 'restoreOne',
+          payload: { id: LINE_ID },
+        }),
+      ).rejects.toThrow(CommonQueryRunnerException);
+
+      expect(parentRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({ withDeleted: true }),
+      );
+    });
   });
 });

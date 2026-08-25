@@ -292,6 +292,7 @@ export class ErpDocumentLineGuardService {
       workspaceId,
       parentObjectNameSingular,
       parentIds,
+      options,
     );
   }
 
@@ -299,6 +300,7 @@ export class ErpDocumentLineGuardService {
     workspaceId: string,
     parentObjectNameSingular: string,
     parentIds: unknown[],
+    options?: { withDeleted?: boolean },
   ): Promise<void> {
     // A line without a parent (id null/undefined) is allowed unconditionally.
     const uniqueParentIds = Array.from(
@@ -324,7 +326,10 @@ export class ErpDocumentLineGuardService {
               shouldBypassPermissionChecks: true,
             });
 
-          return repository.findBy({ id: In(uniqueParentIds) });
+          return repository.find({
+            where: { id: In(uniqueParentIds) },
+            withDeleted: options?.withDeleted,
+          });
         },
         buildSystemAuthContext(workspaceId),
       );

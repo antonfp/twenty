@@ -20,6 +20,11 @@ export type PostDocumentResult = {
 export const createPostDocumentTool = (
   postingService: PostingService,
   workspaceId: string,
+  // Same permission as updating the document object's records directly;
+  // shared with ErpPostingResolver via ErpObjectPermissionGuardService.
+  assertCanUpdateObjectRecords: (
+    objectNameSingular: string,
+  ) => Promise<void>,
 ) => ({
   description:
     'Post (провести) an ERP document: atomically writes its register entries (ledgers) and switches docStatus from DRAFT to POSTED. Fails if the document is not in DRAFT status.',
@@ -28,6 +33,7 @@ export const createPostDocumentTool = (
     objectNameSingular,
     recordId,
   }: z.infer<typeof postDocumentInputSchema>): Promise<PostDocumentResult> => {
+    await assertCanUpdateObjectRecords(objectNameSingular);
     await postingService.post(workspaceId, objectNameSingular, recordId);
 
     return {

@@ -215,4 +215,49 @@ describe('SalesInvoicePostingRulesService', () => {
       );
     });
   });
+
+  describe('onCancel', () => {
+    it('allows cancelling an invoice with no payments at all', async () => {
+      const repositories = { payment: createMockRepository() };
+
+      repositories.payment.findOneBy.mockResolvedValue(null);
+      const { service } = createService();
+
+      await expect(
+        service.onCancel(createContext(repositories), invoice()),
+      ).resolves.toBeUndefined();
+      expect(repositories.payment.findOneBy).toHaveBeenCalledWith({
+        salesInvoiceId: INVOICE_ID,
+        docStatus: 'POSTED',
+      });
+    });
+
+    it('allows cancelling an invoice whose only payment is cancelled', async () => {
+      const repositories = { payment: createMockRepository() };
+
+      // The docStatus:POSTED filter itself excludes a CANCELLED payment;
+      // simulated here by the mock returning no match.
+      repositories.payment.findOneBy.mockResolvedValue(null);
+      const { service } = createService();
+
+      await expect(
+        service.onCancel(createContext(repositories), invoice()),
+      ).resolves.toBeUndefined();
+    });
+
+    it('blocks cancelling an invoice with a posted payment still linked', async () => {
+      const repositories = { payment: createMockRepository() };
+
+      repositories.payment.findOneBy.mockResolvedValue({
+        id: 'payment-1',
+        salesInvoiceId: INVOICE_ID,
+        docStatus: 'POSTED',
+      });
+      const { service } = createService();
+
+      await expect(
+        service.onCancel(createContext(repositories), invoice()),
+      ).rejects.toThrow(ErpPostingException);
+    });
+  });
 });

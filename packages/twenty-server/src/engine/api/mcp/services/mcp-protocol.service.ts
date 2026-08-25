@@ -43,6 +43,7 @@ import { type McpToolAnnotations } from 'src/engine/api/mcp/types/mcp-tool-annot
 import { wrapJsonRpcResponse } from 'src/engine/api/mcp/utils/wrap-jsonrpc-response.util';
 import { ApiKeyRoleService } from 'src/engine/core-modules/api-key/services/api-key-role.service';
 import { DadataService } from 'src/engine/core-modules/dadata/services/dadata.service';
+import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { type FlatApiKey } from 'src/engine/core-modules/api-key/types/flat-api-key.type';
 import { type WorkspaceAuthContext } from 'src/engine/core-modules/auth/types/workspace-auth-context.type';
@@ -114,6 +115,7 @@ export class McpProtocolService {
     private readonly flatEntityMapsCacheService: WorkspaceManyOrAllFlatEntityMapsCacheService,
     private readonly workspaceCacheService: WorkspaceCacheService,
     private readonly postingService: PostingService,
+    private readonly erpObjectPermissionGuardService: ErpObjectPermissionGuardService,
     private readonly dadataService: DadataService,
   ) {}
 
@@ -240,6 +242,16 @@ export class McpProtocolService {
       toolContext,
     );
 
+    // Posting/cancelling writes the document's own records, so it requires
+    // the same permission as updating that object's records directly; shared
+    // with ErpPostingResolver so the check isn't duplicated per caller.
+    const assertCanUpdateObjectRecords = (objectNameSingular: string) =>
+      this.erpObjectPermissionGuardService.assertCanUpdateObjectRecords({
+        workspaceId: workspace.id,
+        roleId,
+        objectNameSingular,
+      });
+
     return {
       ...annotatePreloadedMcpTools(preloadedTools),
       [GET_TOOL_CATALOG_TOOL_NAME]: {
@@ -294,12 +306,20 @@ export class McpProtocolService {
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
       [POST_DOCUMENT_TOOL_NAME]: {
-        ...createPostDocumentTool(this.postingService, workspace.id),
+        ...createPostDocumentTool(
+          this.postingService,
+          workspace.id,
+          assertCanUpdateObjectRecords,
+        ),
         inputSchema: zodSchema(postDocumentInputSchema),
         annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
       [CANCEL_DOCUMENT_TOOL_NAME]: {
-        ...createCancelDocumentTool(this.postingService, workspace.id),
+        ...createCancelDocumentTool(
+          this.postingService,
+          workspace.id,
+          assertCanUpdateObjectRecords,
+        ),
         inputSchema: zodSchema(cancelDocumentInputSchema),
         annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,

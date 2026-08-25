@@ -7,15 +7,14 @@ import { CoreResolver } from 'src/engine/api/graphql/graphql-config/decorators/c
 import { UUIDScalarType } from 'src/engine/api/graphql/workspace-schema-builder/graphql-types/scalars';
 import { ApiKeyRoleService } from 'src/engine/core-modules/api-key/services/api-key-role.service';
 import { type FlatApiKey } from 'src/engine/core-modules/api-key/types/flat-api-key.type';
+import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { AuthApiKey } from 'src/engine/decorators/auth/auth-api-key.decorator';
 import { AuthUserWorkspaceId } from 'src/engine/decorators/auth/auth-user-workspace-id.decorator';
 import { AuthWorkspace } from 'src/engine/decorators/auth/auth-workspace.decorator';
 import { WorkspaceAuthGuard } from 'src/engine/guards/workspace-auth.guard';
-import { WorkspaceManyOrAllFlatEntityMapsCacheService } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.service';
-import { PermissionsService } from 'src/engine/metadata-modules/permissions/permissions.service';
-import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
+import { UserRoleService } from 'src/engine/metadata-modules/user-role/user-role.service';
 
 // CoreResolver puts the mutations into the /graphql core schema scope:
 // unscoped resolvers default to the metadata scope and would land nowhere.
@@ -24,10 +23,9 @@ import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/works
 export class ErpPostingResolver {
   constructor(
     private readonly postingService: PostingService,
-    private readonly permissionsService: PermissionsService,
+    private readonly erpObjectPermissionGuardService: ErpObjectPermissionGuardService,
+    private readonly userRoleService: UserRoleService,
     private readonly apiKeyRoleService: ApiKeyRoleService,
-    private readonly workspaceCacheService: WorkspaceCacheService,
-    private readonly flatEntityMapsCacheService: WorkspaceManyOrAllFlatEntityMapsCacheService,
   ) {}
 
   @Mutation(() => Boolean)
@@ -73,7 +71,10 @@ export class ErpPostingResolver {
   }
 
   // Posting writes the document and its registers, so it requires the same
-  // permission as updating the document's records directly.
+  // permission as updating the document's records directly. The actual
+  // metadata-lookup + rolesPermissions check lives in
+  // ErpObjectPermissionGuardService, shared with the MCP post/cancel_document
+  // tools so the rule isn't duplicated per caller.
   private async assertCanUpdateObjectRecords({
     workspaceId,
     userWorkspaceId,
@@ -85,42 +86,20 @@ export class ErpPostingResolver {
     apiKey: FlatApiKey | undefined;
     objectNameSingular: string;
   }): Promise<void> {
-    const { flatObjectMetadataMaps } =
-      await this.flatEntityMapsCacheService.getOrRecomputeManyOrAllFlatEntityMaps(
-        {
-          workspaceId,
-          flatMapsKeys: ['flatObjectMetadataMaps'],
-        },
-      );
-
-    const objectMetadata = Object.values(
-      flatObjectMetadataMaps.byUniversalIdentifier,
-    ).find(
-      (flatObject) =>
-        isDefined(flatObject) &&
-        flatObject.nameSingular === objectNameSingular,
-    );
-
-    if (!isDefined(objectMetadata)) {
-      throw new ForbiddenException(
-        `Unknown document object "${objectNameSingular}"`,
-      );
-    }
-
-    const objectsPermissions = await this.resolveObjectsPermissions({
+    const roleId = await this.resolveRoleId({
       workspaceId,
       userWorkspaceId,
       apiKey,
     });
 
-    if (objectsPermissions[objectMetadata.id]?.canUpdateObjectRecords !== true) {
-      throw new ForbiddenException(
-        `Недостаточно прав: проведение документов «${objectNameSingular}» требует права на изменение записей этого объекта.`,
-      );
-    }
+    await this.erpObjectPermissionGuardService.assertCanUpdateObjectRecords({
+      workspaceId,
+      roleId,
+      objectNameSingular,
+    });
   }
 
-  private async resolveObjectsPermissions({
+  private async resolveRoleId({
     workspaceId,
     userWorkspaceId,
     apiKey,
@@ -128,28 +107,19 @@ export class ErpPostingResolver {
     workspaceId: string;
     userWorkspaceId: string | undefined;
     apiKey: FlatApiKey | undefined;
-  }): Promise<Record<string, { canUpdateObjectRecords?: boolean | null }>> {
+  }): Promise<string> {
     if (isDefined(userWorkspaceId)) {
-      const { objectsPermissions } =
-        await this.permissionsService.getUserWorkspacePermissions({
-          userWorkspaceId,
-          workspaceId,
-        });
-
-      return objectsPermissions;
+      return this.userRoleService.getRoleIdForUserWorkspace({
+        workspaceId,
+        userWorkspaceId,
+      });
     }
 
     if (isDefined(apiKey)) {
-      const roleId = await this.apiKeyRoleService.getRoleIdForApiKeyId(
+      return this.apiKeyRoleService.getRoleIdForApiKeyId(
         apiKey.id,
         workspaceId,
       );
-      const { rolesPermissions } = await this.workspaceCacheService.getOrRecompute(
-        workspaceId,
-        ['rolesPermissions'],
-      );
-
-      return rolesPermissions[roleId] ?? {};
     }
 
     throw new ForbiddenException(

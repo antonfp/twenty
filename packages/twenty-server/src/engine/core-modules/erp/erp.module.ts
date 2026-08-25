@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 
 import { ErpPostingResolver } from 'src/engine/core-modules/erp/erp-posting.resolver';
 import { WorkspaceManyOrAllFlatEntityMapsCacheModule } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.module';
-import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permissions.module';
+import { UserRoleModule } from 'src/engine/metadata-modules/user-role/user-role.module';
 import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
 import { PostingRulesRegistry } from 'src/engine/core-modules/erp/posting-rules.registry';
+import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { DocumentNumberingService } from 'src/engine/core-modules/erp/services/document-numbering.service';
 import { PeriodLockService } from 'src/engine/core-modules/erp/services/period-lock.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
@@ -12,12 +13,17 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
 // GlobalWorkspaceOrmManager comes from the @Global()
 // GlobalWorkspaceDatasourceModule, so no imports are needed.
 @Module({
-  imports: [PermissionsModule, WorkspaceCacheModule, WorkspaceManyOrAllFlatEntityMapsCacheModule],
+  imports: [
+    UserRoleModule,
+    WorkspaceCacheModule,
+    WorkspaceManyOrAllFlatEntityMapsCacheModule,
+  ],
   providers: [
     PostingRulesRegistry,
     PeriodLockService,
     DocumentNumberingService,
     PostingService,
+    ErpObjectPermissionGuardService,
     ErpPostingResolver,
   ],
   exports: [
@@ -25,6 +31,7 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
     PeriodLockService,
     DocumentNumberingService,
     PostingService,
+    ErpObjectPermissionGuardService,
   ],
 })
 export class ErpModule {}
