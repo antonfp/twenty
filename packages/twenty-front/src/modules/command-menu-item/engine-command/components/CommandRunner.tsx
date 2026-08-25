@@ -4,6 +4,7 @@ import { useUnmountCommand } from '@/command-menu-item/engine-command/hooks/useU
 import { CommandComponentInstanceContext } from '@/command-menu-item/engine-command/states/contexts/CommandComponentInstanceContext';
 import { headlessCommandContextApisState } from '@/command-menu-item/engine-command/states/headlessCommandContextApisState';
 import { ContextStoreComponentInstanceContext } from '@/context-store/states/contexts/ContextStoreComponentInstanceContext';
+import { ERP_ENGINE_COMPONENT_KEY_COMPONENT_MAP } from '@/erp-documents/constants/ErpEngineComponentKeyComponentMap';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 
 export const CommandRunner = () => {
@@ -27,7 +28,12 @@ export const CommandRunner = () => {
                 shouldReportToSentry
                 onError={() => unmountCommand(commandMenuItemId)}
               >
-                {ENGINE_COMPONENT_KEY_COMPONENT_MAP[context.engineComponentKey]}
+                {ERP_ENGINE_COMPONENT_KEY_COMPONENT_MAP[
+                  context.engineComponentKey
+                ] ??
+                  ENGINE_COMPONENT_KEY_COMPONENT_MAP[
+                    context.engineComponentKey
+                  ]}
               </CommandMenuItemErrorBoundary>
             </CommandComponentInstanceContext.Provider>
           </ContextStoreComponentInstanceContext.Provider>

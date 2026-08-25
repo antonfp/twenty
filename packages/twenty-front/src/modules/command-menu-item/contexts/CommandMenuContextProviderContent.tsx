@@ -8,6 +8,7 @@ import { doesCommandMenuItemMatchObjectMetadataId } from '@/command-menu-item/ut
 import { doesCommandMenuItemMatchPageLayoutId } from '@/command-menu-item/utils/doesCommandMenuItemMatchPageLayoutId';
 import { doesCommandMenuItemMatchPageType } from '@/command-menu-item/utils/doesCommandMenuItemMatchPageType';
 import { doesCommandMenuItemMatchSelectionState } from '@/command-menu-item/utils/doesCommandMenuItemMatchSelectionState';
+import { buildErpDocumentCommandMenuItems } from '@/erp-documents/utils/buildErpDocumentCommandMenuItems';
 import { currentPageLayoutIdState } from '@/page-layout/states/currentPageLayoutIdState';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { useMemo } from 'react';
@@ -42,7 +43,15 @@ export const CommandMenuContextProviderContent = ({
       ? (commandMenuItemsDraft ?? commandMenuItems)
       : commandMenuItems;
 
-    return commandMenuItemsToDisplay
+    // Client-injected ERP document actions; kept out of preview mode so the
+    // pin-editing flow never tries to persist them.
+    const erpDocumentCommandMenuItems = isInPreviewMode
+      ? []
+      : buildErpDocumentCommandMenuItems(
+          commandMenuContextApi.objectMetadataItem,
+        );
+
+    return [...commandMenuItemsToDisplay, ...erpDocumentCommandMenuItems]
       .filter(
         doesCommandMenuItemMatchObjectMetadataId(currentObjectMetadataItemId),
       )
