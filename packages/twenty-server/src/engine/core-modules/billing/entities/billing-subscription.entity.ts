@@ -1,42 +1,18 @@
-/* @license Enterprise */
-
 import { Field, ObjectType, registerEnumType } from '@nestjs/graphql';
 import graphqlTypeJson from 'graphql-type-json';
 import {
   Column,
-  CreateDateColumn,
   Entity,
-  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   type Relation,
-  UpdateDateColumn,
 } from 'typeorm';
 
-import type Stripe from 'stripe';
-
-// Serialized types for JSONB storage - uses Stripe's enum types but normalizes expandable fields
-// These avoid TypeORM's DeepPartialEntity issues with Stripe's expandable object types (e.g. Stripe.Account)
-export type AutomaticTaxJson = {
-  disabled_reason: Stripe.Subscription.AutomaticTax['disabled_reason'];
-  enabled: boolean;
-  liability: {
-    type: Stripe.Subscription.AutomaticTax.Liability.Type;
-    account?: string; // Normalized: always string ID, never expanded Stripe.Account
-  } | null;
-};
-
-export type CancellationDetailsJson = {
-  comment: string | null;
-  feedback: Stripe.Subscription.CancellationDetails.Feedback | null;
-  reason: Stripe.Subscription.CancellationDetails.Reason | null;
-};
-
 import { UUIDScalarType } from 'src/engine/api/graphql/workspace-schema-builder/graphql-types/scalars';
-import { BillingSubscriptionSchedulePhaseDTO } from 'src/engine/core-modules/billing/dtos/billing-subscription-schedule-phase.dto';
 import { BillingSubscriptionItemDTO } from 'src/engine/core-modules/billing/dtos/billing-subscription-item.dto';
+import { BillingSubscriptionSchedulePhaseDTO } from 'src/engine/core-modules/billing/dtos/billing-subscription-schedule-phase.dto';
 import { BillingCustomerEntity } from 'src/engine/core-modules/billing/entities/billing-customer.entity';
 import { BillingSubscriptionItemEntity } from 'src/engine/core-modules/billing/entities/billing-subscription-item.entity';
 import { BillingSubscriptionCollectionMethod } from 'src/engine/core-modules/billing/enums/billing-subscription-collection-method.enum';
@@ -47,25 +23,15 @@ import { WorkspaceRelatedEntity } from 'src/engine/workspace-manager/types/works
 registerEnumType(SubscriptionStatus, { name: 'SubscriptionStatus' });
 registerEnumType(SubscriptionInterval, { name: 'SubscriptionInterval' });
 
+// Compile-time stub: billing is removed from this fork. The entity is excluded
+// from the TypeORM datasource when IS_BILLING_ENABLED is not 'true', so only
+// the class shape and the GraphQL type it declares are ever used.
 @Entity({ name: 'billingSubscription', schema: 'core' })
-@Index('IDX_BILLING_SUBSCRIPTION_WORKSPACE_ID_UNIQUE', ['workspaceId'], {
-  unique: true,
-  where: `status IN ('trialing', 'active', 'past_due', 'incomplete', 'incomplete_expired', 'unpaid', 'paused')`,
-})
 @ObjectType('BillingSubscription')
 export class BillingSubscriptionEntity extends WorkspaceRelatedEntity {
   @Field(() => UUIDScalarType)
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @Column({ nullable: true, type: 'timestamptz' })
-  deletedAt?: Date;
-
-  @CreateDateColumn({ type: 'timestamptz' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ type: 'timestamptz' })
-  updatedAt: Date;
 
   @Column({ nullable: false })
   stripeCustomerId: string;
@@ -74,19 +40,11 @@ export class BillingSubscriptionEntity extends WorkspaceRelatedEntity {
   stripeSubscriptionId: string;
 
   @Field(() => SubscriptionStatus)
-  @Column({
-    type: 'enum',
-    enum: Object.values(SubscriptionStatus),
-    nullable: false,
-  })
+  @Column({ type: 'text', nullable: false })
   status: SubscriptionStatus;
 
   @Field(() => SubscriptionInterval, { nullable: true })
-  @Column({
-    type: 'enum',
-    enum: Object.values(SubscriptionInterval),
-    nullable: true,
-  })
+  @Column({ type: 'text', nullable: true })
   interval: SubscriptionInterval;
 
   @Field(() => [BillingSubscriptionItemDTO], { nullable: true })
@@ -99,11 +57,7 @@ export class BillingSubscriptionEntity extends WorkspaceRelatedEntity {
   @ManyToOne(
     () => BillingCustomerEntity,
     (billingCustomer) => billingCustomer.billingSubscriptions,
-    {
-      nullable: false,
-      onDelete: 'CASCADE',
-      createForeignKeyConstraints: false,
-    },
+    { nullable: false, createForeignKeyConstraints: false },
   )
   @JoinColumn({
     referencedColumnName: 'stripeCustomerId',
@@ -118,32 +72,15 @@ export class BillingSubscriptionEntity extends WorkspaceRelatedEntity {
   currency: string;
 
   @Field(() => Date, { nullable: true })
-  @Column({
-    nullable: false,
-    type: 'timestamptz',
-    default: () => 'CURRENT_TIMESTAMP',
-  })
+  @Column({ nullable: false, type: 'timestamptz' })
   currentPeriodEnd: Date;
 
-  @Column({
-    nullable: false,
-    type: 'timestamptz',
-    default: () => 'CURRENT_TIMESTAMP',
-  })
+  @Column({ nullable: false, type: 'timestamptz' })
   currentPeriodStart: Date;
-
-  // Where the period before the current one began. Stripe only ever reports the
-  // current window, so once currentPeriodStart advances the previous boundary
-  // is unrecoverable: calendar arithmetic clamps month-end anchors, and the
-  // ledger only shows it when the last transition happened to close a grant.
-  // Written whenever the period moves, and read by the rollover to bound the
-  // usage it settles.
-  @Column({ nullable: true, type: 'timestamptz' })
-  previousPeriodStart: Date | null;
 
   @Field(() => graphqlTypeJson)
   @Column({ nullable: false, type: 'jsonb', default: {} })
-  metadata: Stripe.Metadata;
+  metadata: Record<string, string>;
 
   @Field(() => [BillingSubscriptionSchedulePhaseDTO])
   @Column({ nullable: false, type: 'jsonb', default: [] })
@@ -153,24 +90,10 @@ export class BillingSubscriptionEntity extends WorkspaceRelatedEntity {
   @Column({ nullable: true, type: 'timestamptz' })
   cancelAt: Date | null;
 
-  @Column({
-    nullable: true,
-    type: 'timestamptz',
-  })
+  @Column({ nullable: true, type: 'timestamptz' })
   canceledAt: Date | null;
 
-  @Column({ nullable: true, type: 'jsonb' })
-  automaticTax: AutomaticTaxJson | null;
-
-  @Column({ nullable: true, type: 'jsonb' })
-  cancellationDetails: CancellationDetailsJson | null;
-
-  @Column({
-    nullable: false,
-    type: 'enum',
-    enum: Object.values(BillingSubscriptionCollectionMethod),
-    default: BillingSubscriptionCollectionMethod.CHARGE_AUTOMATICALLY,
-  })
+  @Column({ type: 'text', nullable: false })
   collectionMethod: BillingSubscriptionCollectionMethod;
 
   @Column({ nullable: true, type: 'timestamptz' })

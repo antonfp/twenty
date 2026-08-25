@@ -41,7 +41,6 @@ import { SecureHttpClientModule } from 'src/engine/core-modules/secure-http-clie
 import { TelemetryModule } from 'src/engine/core-modules/telemetry/telemetry.module';
 import { TwoFactorAuthenticationModule } from 'src/engine/core-modules/two-factor-authentication/two-factor-authentication.module';
 import { UpgradeModule } from 'src/engine/core-modules/upgrade/upgrade.module';
-import { UsageModule } from 'src/engine/core-modules/usage/usage.module';
 import { UserWorkspaceEntity } from 'src/engine/core-modules/user-workspace/user-workspace.entity';
 import { UserVarsModule } from 'src/engine/core-modules/user/user-vars/user-vars.module';
 import { UserEntity } from 'src/engine/core-modules/user/user.entity';
@@ -76,7 +75,6 @@ import { provideWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspac
     PermissionsModule,
     SecureHttpClientModule,
     ApplicationRegistrationModule,
-    UsageModule,
     KeyValuePairModule,
     UserVarsModule,
     UpgradeModule,

@@ -6,7 +6,6 @@ import { isDefined } from 'twenty-shared/utils';
 import { MarketplaceCatalogSyncCronCommand } from 'src/engine/core-modules/application/application-marketplace/crons/commands/marketplace-catalog-sync.cron.command';
 import { StaleRegistrationCleanupCronCommand } from 'src/engine/core-modules/application/application-oauth/stale-registration-cleanup/commands/stale-registration-cleanup.cron.command';
 import { ApplicationVersionCheckCronCommand } from 'src/engine/core-modules/application/application-upgrade/crons/commands/application-version-check.cron.command';
-import { BillingReminderCronCommand } from 'src/engine/core-modules/billing/reminders/crons/commands/billing-reminder.cron.command';
 import { EnterpriseKeyValidationCronCommand } from 'src/engine/core-modules/enterprise/cron/command/enterprise-key-validation.cron.command';
 import { EventLogCleanupCronCommand } from 'src/engine/core-modules/event-logs/cleanup/commands/event-log-cleanup.cron.command';
 import { PendingFileCleanupCronCommand } from 'src/engine/core-modules/file/file-upload/crons/commands/pending-file-cleanup.cron.command';
@@ -73,7 +72,6 @@ export class CronRegisterAllCommand extends CommandRunner {
     private readonly applicationVersionCheckCronCommand: ApplicationVersionCheckCronCommand,
     private readonly staleRegistrationCleanupCronCommand: StaleRegistrationCleanupCronCommand,
     private readonly pendingFileCleanupCronCommand: PendingFileCleanupCronCommand,
-    private readonly billingReminderCronCommand: BillingReminderCronCommand,
     private readonly userSessionCleanupCronCommand: UserSessionCleanupCronCommand,
     private readonly twentyConfigService: TwentyConfigService,
   ) {
@@ -90,8 +88,6 @@ export class CronRegisterAllCommand extends CommandRunner {
     const isMarketplaceCatalogSyncEnabled = this.twentyConfigService.get(
       'MARKETPLACE_CATALOG_SYNC_CRON_ENABLED',
     );
-
-    const isBillingEnabled = this.twentyConfigService.get('IS_BILLING_ENABLED');
 
     const allCommands = [
       {
@@ -203,11 +199,6 @@ export class CronRegisterAllCommand extends CommandRunner {
       {
         name: 'PendingFileCleanup',
         command: this.pendingFileCleanupCronCommand,
-      },
-      {
-        name: 'BillingReminder',
-        command: this.billingReminderCronCommand,
-        isEnabled: isBillingEnabled,
       },
       {
         name: 'UserSessionCleanup',

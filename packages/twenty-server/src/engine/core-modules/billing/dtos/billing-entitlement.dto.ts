@@ -1,5 +1,3 @@
-/* @license Enterprise */
-
 import { Field, ObjectType, registerEnumType } from '@nestjs/graphql';
 
 import { BillingEntitlementKey } from 'src/engine/core-modules/billing/enums/billing-entitlement-key.enum';

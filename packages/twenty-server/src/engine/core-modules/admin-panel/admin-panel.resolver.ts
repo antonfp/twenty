@@ -83,8 +83,6 @@ import { type ConfigVariables } from 'src/engine/core-modules/twenty-config/conf
 import { ConfigVariableGraphqlApiExceptionFilter } from 'src/engine/core-modules/twenty-config/filters/config-variable-graphql-api-exception.filter';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { TwoFactorAuthenticationExceptionFilter } from 'src/engine/core-modules/two-factor-authentication/two-factor-authentication-exception.filter';
-import { UsageBreakdownItemDTO } from 'src/engine/core-modules/usage/dtos/usage-breakdown-item.dto';
-import { UsageAnalyticsService } from 'src/engine/core-modules/usage/services/usage-analytics.service';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { AuthUser } from 'src/engine/decorators/auth/auth-user.decorator';
 import { AuthWorkspace } from 'src/engine/decorators/auth/auth-workspace.decorator';
@@ -148,7 +146,6 @@ export class AdminPanelResolver {
     private readonly aiModelPreferencesService: AiModelPreferencesService,
     private readonly defaultAiCatalogService: DefaultAiCatalogService,
     private readonly modelsDevCatalogService: ModelsDevCatalogService,
-    private readonly usageAnalyticsService: UsageAnalyticsService,
     private readonly maintenanceModeService: MaintenanceModeService,
     private readonly upgradeStatusService: UpgradeStatusService,
     @InjectRepository(WorkspaceEntity)
@@ -707,49 +704,6 @@ export class AdminPanelResolver {
     await this.twentyConfigService.set('AI_PROVIDERS', customProviders);
 
     return true;
-  }
-
-  @UseGuards(AdminPanelGuard)
-  @Query(() => [UsageBreakdownItemDTO])
-  async getAdminAiUsageByWorkspace(
-    @Args('periodStart', { type: () => Date, nullable: true })
-    periodStart?: Date,
-    @Args('periodEnd', { type: () => Date, nullable: true })
-    periodEnd?: Date,
-  ): Promise<UsageBreakdownItemDTO[]> {
-    const defaultEnd = new Date();
-    const defaultStart = new Date();
-
-    defaultStart.setDate(defaultStart.getDate() - 30);
-
-    const useDollarMode = !this.twentyConfigService.get('IS_BILLING_ENABLED');
-
-    const items = await this.usageAnalyticsService.getAdminAiUsageByWorkspace({
-      periodStart: periodStart ?? defaultStart,
-      periodEnd: periodEnd ?? defaultEnd,
-      useDollarMode,
-    });
-
-    if (items.length === 0) {
-      return items;
-    }
-
-    const workspaceIds = items.map((item) => item.key);
-    const workspaces = await this.workspaceRepository.find({
-      where: { id: In(workspaceIds) },
-      select: { id: true, displayName: true },
-    });
-
-    const nameMap = new Map(
-      workspaces
-        .filter((workspace) => isDefined(workspace.displayName))
-        .map((workspace) => [workspace.id, workspace.displayName!]),
-    );
-
-    return items.map((item) => ({
-      ...item,
-      label: nameMap.get(item.key),
-    }));
   }
 
   @UseGuards(AdminPanelGuard)

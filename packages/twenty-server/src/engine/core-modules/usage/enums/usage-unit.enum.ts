@@ -1,5 +1,3 @@
-/* @license Enterprise */
-
 export enum UsageUnit {
   CREDIT = 'CREDIT',
   TOKEN = 'TOKEN',

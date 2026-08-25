@@ -1,5 +1,3 @@
-/* @license Enterprise */
-
 import { Field, ObjectType } from '@nestjs/graphql';
 
 import { Min } from 'class-validator';

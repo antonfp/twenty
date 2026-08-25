@@ -1,94 +1,41 @@
-/* @license Enterprise */
+import { Injectable } from '@nestjs/common';
 
-import { Injectable, Logger } from '@nestjs/common';
-
-import { isDefined } from 'twenty-shared/utils';
-
-import { BillingCustomerEntity } from 'src/engine/core-modules/billing/entities/billing-customer.entity';
-import { BillingSubscriptionEntity } from 'src/engine/core-modules/billing/entities/billing-subscription.entity';
 import { type BillingEntitlementKey } from 'src/engine/core-modules/billing/enums/billing-entitlement-key.enum';
-import { BillingProductService } from 'src/engine/core-modules/billing/services/billing-product.service';
-import { BillingSubscriptionService } from 'src/engine/core-modules/billing/services/billing-subscription.service';
-import { StripeCustomerService } from 'src/engine/core-modules/billing/stripe/services/stripe-customer.service';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
-import { InjectWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/inject-workspace-scoped-repository.decorator';
-import { WorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/workspace-scoped-repository';
+
+// Clean-room stub preserving the billing-disabled semantics of the removed
+// Enterprise billing module: every check answers as if the workspace is fully
+// entitled and subscribed.
 @Injectable()
 export class BillingService {
-  protected readonly logger = new Logger(BillingService.name);
-  constructor(
-    private readonly twentyConfigService: TwentyConfigService,
-    private readonly billingSubscriptionService: BillingSubscriptionService,
-    private readonly billingProductService: BillingProductService,
-    private readonly stripeCustomerService: StripeCustomerService,
-    @InjectWorkspaceScopedRepository(BillingSubscriptionEntity)
-    private readonly billingSubscriptionRepository: WorkspaceScopedRepository<BillingSubscriptionEntity>,
-    @InjectWorkspaceScopedRepository(BillingCustomerEntity)
-    private readonly billingCustomerRepository: WorkspaceScopedRepository<BillingCustomerEntity>,
-  ) {}
+  constructor(private readonly twentyConfigService: TwentyConfigService) {}
 
   isBillingEnabled() {
     return this.twentyConfigService.get('IS_BILLING_ENABLED');
   }
 
-  async ensureBillingCustomer({
-    userEmail,
-    workspaceId,
-    workspaceDisplayName,
-  }: {
+  async ensureBillingCustomer(_params: {
     userEmail: string;
     workspaceId: string;
     workspaceDisplayName: string | undefined;
   }): Promise<void> {
-    const existingBillingCustomer =
-      await this.billingCustomerRepository.findOne(workspaceId, { where: {} });
-
-    if (isDefined(existingBillingCustomer)) {
-      return;
-    }
-
-    await this.stripeCustomerService.createStripeCustomer(
-      userEmail,
-      workspaceId,
-      workspaceDisplayName,
-    );
+    // No billing backend on this fork.
   }
 
-  async hasWorkspaceAnySubscription(workspaceId: string) {
-    const isBillingEnabled = this.isBillingEnabled();
-
-    if (!isBillingEnabled) {
-      return true;
-    }
-
-    const subscription = await this.billingSubscriptionRepository.findOne(
-      workspaceId,
-      { where: {} },
-    );
-
-    return isDefined(subscription);
+  async hasWorkspaceAnySubscription(_workspaceId: string): Promise<boolean> {
+    return true;
   }
 
   async hasEntitlement(
-    workspaceId: string,
-    entitlementKey: BillingEntitlementKey,
-  ) {
-    const isBillingEnabled = this.isBillingEnabled();
-
-    if (!isBillingEnabled) {
-      return true;
-    }
-
-    return this.billingSubscriptionService.getWorkspaceEntitlementByKey(
-      workspaceId,
-      entitlementKey,
-    );
+    _workspaceId: string,
+    _entitlementKey: BillingEntitlementKey,
+  ): Promise<boolean> {
+    return true;
   }
 
-  async isSubscriptionIncompleteOnboardingStatus(workspaceId: string) {
-    const hasAnySubscription =
-      await this.hasWorkspaceAnySubscription(workspaceId);
-
-    return !hasAnySubscription;
+  async isSubscriptionIncompleteOnboardingStatus(
+    _workspaceId: string,
+  ): Promise<boolean> {
+    return false;
   }
 }

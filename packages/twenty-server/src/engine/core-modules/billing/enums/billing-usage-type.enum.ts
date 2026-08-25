@@ -1,5 +1,3 @@
-/* @license Enterprise */
-
 import { registerEnumType } from '@nestjs/graphql';
 
 export enum BillingUsageType {

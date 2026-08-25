@@ -1,5 +1,3 @@
-/* @license Enterprise */
-
 export enum UsageResourceType {
   AI = 'AI',
   WORKFLOW = 'WORKFLOW',
