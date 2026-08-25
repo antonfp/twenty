@@ -3,6 +3,8 @@
 export const ERP_DOCUMENT_OBJECT_NAME_SINGULARS: readonly string[] = [
   'salesInvoice',
   'payment',
+  'supplierInvoice',
+  'supplierPayment',
 ];
 
 export const ERP_SALES_INVOICE_OBJECT_NAME_SINGULAR = 'salesInvoice';
