@@ -62,7 +62,7 @@ export const BillingTrialConvertingEmail = ({
         )}
         <br />
         <br />
-        <Trans id="If Twenty is working for you, you're all set — there's nothing to do. If it's not the right fit, you can cancel in one click before then and you won't be charged." />
+        <Trans id="If ERPilot is working for you, you're all set — there's nothing to do. If it's not the right fit, you can cancel in one click before then and you won't be charged." />
       </MainText>
       <br />
       <CallToAction href={link} value={i18n._('Manage subscription')} />
@@ -77,7 +77,7 @@ BillingTrialConvertingEmail.PreviewProps = {
   workspaceDisplayName: 'Acme Inc.',
   trialEndsAt: new Date('2026-07-02'),
   interval: 'month',
-  link: 'https://acme.twenty.com/settings/billing',
+  link: 'https://acme.erpilot.ru/settings/billing',
   locale: 'en',
 } as BillingTrialConvertingEmailProps;
 

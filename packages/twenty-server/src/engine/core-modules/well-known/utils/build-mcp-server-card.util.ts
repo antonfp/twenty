@@ -11,13 +11,13 @@ export const buildMcpServerCard = ({
 }: BuildMcpServerCardArgs) => ({
   $schema:
     'https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json',
-  name: 'com.twenty/twenty',
+  name: 'ru.erpilot/erpilot',
   version,
-  title: 'Twenty CRM',
+  title: 'ERPilot',
   description:
-    'Read and write your Twenty CRM data - companies, people, opportunities, tasks, notes and any custom objects - from AI assistants. Tools are discovered at runtime and scoped to the authenticated workspace.',
-  websiteUrl: 'https://twenty.com',
+    'Read and write your ERPilot data - companies, people, opportunities, tasks, notes and any custom objects - from AI assistants. Tools are discovered at runtime and scoped to the authenticated workspace.',
   repository: {
+    // ERPilot is a private fork; this points at the public upstream it's built on.
     url: 'https://github.com/twentyhq/twenty',
     source: 'github',
   },
