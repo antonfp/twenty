@@ -3,7 +3,7 @@ import { QueryRunner } from 'typeorm';
 import { RegisteredInstanceCommand } from 'src/engine/core-modules/upgrade/decorators/registered-instance-command.decorator';
 import { FastInstanceCommand } from 'src/engine/core-modules/upgrade/interfaces/fast-instance-command.interface';
 
-@RegisteredInstanceCommand('2.35.0', 1787571779598)
+@RegisteredInstanceCommand('2.36.0', 1787571779598)
 export class AddUsageLimitFastInstanceCommand implements FastInstanceCommand {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query('CREATE TABLE "core"."usageLimit" ("workspaceId" uuid NOT NULL, "id" uuid NOT NULL DEFAULT uuid_generate_v4(), "resourceType" text NOT NULL, "operationType" text NOT NULL, "spenderType" text NOT NULL, "spenderId" text NOT NULL DEFAULT \'\', "limitKind" text NOT NULL, "windowSeconds" integer NOT NULL DEFAULT \'0\', "limitType" text NOT NULL DEFAULT \'absolute\', "limitValue" bigint NOT NULL, "burstValue" bigint, "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "UQ_USAGE_LIMIT_SCOPE" UNIQUE ("workspaceId", "resourceType", "operationType", "spenderType", "spenderId", "limitKind", "windowSeconds"), CONSTRAINT "PK_aa789af8757d2ef28a0416df290" PRIMARY KEY ("id"))');
