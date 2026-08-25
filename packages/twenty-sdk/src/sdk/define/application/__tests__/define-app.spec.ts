@@ -150,4 +150,79 @@ describe('defineApplication', () => {
       'Application must have a universalIdentifier',
     );
   });
+
+  it('should accept a valid dependencies array', () => {
+    const config = {
+      universalIdentifier: 'a9faf5f8-cf7e-4f24-9d37-fd523c30febe',
+      displayName: 'My App',
+      description: 'My app description',
+      dependencies: [
+        '68bb56f3-8300-4cb5-8cc3-8da9ee66f1b2',
+        '3a327392-3a0f-4605-9223-0633f063eaf6',
+      ],
+    };
+
+    const result = defineApplication(config);
+
+    expect(result.success).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.config?.dependencies).toEqual(config.dependencies);
+  });
+
+  it('should not require dependencies to be set', () => {
+    const result = defineApplication({
+      universalIdentifier: 'a9faf5f8-cf7e-4f24-9d37-fd523c30febe',
+      displayName: 'My App',
+      description: 'My app description',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.config?.dependencies).toBeUndefined();
+  });
+
+  it('should return error when a dependency is not a valid UUID', () => {
+    const result = defineApplication({
+      universalIdentifier: 'a9faf5f8-cf7e-4f24-9d37-fd523c30febe',
+      displayName: 'My App',
+      description: 'My app description',
+      dependencies: ['not-a-uuid'],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errors).toContain(
+      'Application dependencies must be valid UUID strings, found: not-a-uuid',
+    );
+  });
+
+  it('should return error when dependencies contain duplicates', () => {
+    const result = defineApplication({
+      universalIdentifier: 'a9faf5f8-cf7e-4f24-9d37-fd523c30febe',
+      displayName: 'My App',
+      description: 'My app description',
+      dependencies: [
+        '68bb56f3-8300-4cb5-8cc3-8da9ee66f1b2',
+        '68bb56f3-8300-4cb5-8cc3-8da9ee66f1b2',
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errors).toContain(
+      'Application dependencies must not contain duplicates',
+    );
+  });
+
+  it('should return error when an application depends on itself', () => {
+    const result = defineApplication({
+      universalIdentifier: 'a9faf5f8-cf7e-4f24-9d37-fd523c30febe',
+      displayName: 'My App',
+      description: 'My app description',
+      dependencies: ['a9faf5f8-cf7e-4f24-9d37-fd523c30febe'],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errors).toContain(
+      'Application cannot declare itself as a dependency',
+    );
+  });
 });

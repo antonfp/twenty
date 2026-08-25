@@ -11,6 +11,7 @@ export const EXPECTED_MANIFEST: Manifest = {
     description: 'An app with all entities at root level',
     galleryImages: [],
     defaultRoleUniversalIdentifier: 'e1e2e3e4-e5e6-4000-8000-000000000002',
+    dependencies: ['f1f2f3f4-f5f6-4000-8000-000000000099'],
     packageJsonChecksum: '[checksum]',
     yarnLockChecksum: '[checksum]',
     requiredServerVersionRange: null,

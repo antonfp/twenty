@@ -4,7 +4,7 @@ import {
   isKnownApplicationCategory,
 } from 'twenty-shared/application';
 import { FieldMetadataType } from 'twenty-shared/types';
-import { isNonEmptyArray } from 'twenty-shared/utils';
+import { isDefined, isNonEmptyArray, isValidUuid } from 'twenty-shared/utils';
 
 import { type ApplicationConfig } from '@/sdk/define/application/application-config';
 import { normalizeApplicationAssets } from '@/sdk/define/application/utils/normalize-application-assets';
@@ -51,6 +51,26 @@ export const defineApplication: DefineEntity<ApplicationConfig> = (config) => {
     warnings.push(
       '`defaultRoleUniversalIdentifier` on defineApplication() is deprecated. Use defineApplicationRole() in your role file instead.',
     );
+  }
+
+  if (isDefined(config.dependencies)) {
+    const invalidDependencies = config.dependencies.filter(
+      (dependency) => !isValidUuid(dependency),
+    );
+
+    if (invalidDependencies.length > 0) {
+      errors.push(
+        `Application dependencies must be valid UUID strings, found: ${invalidDependencies.join(', ')}`,
+      );
+    }
+
+    if (new Set(config.dependencies).size !== config.dependencies.length) {
+      errors.push('Application dependencies must not contain duplicates');
+    }
+
+    if (config.dependencies.includes(config.universalIdentifier)) {
+      errors.push('Application cannot declare itself as a dependency');
+    }
   }
 
   const { category } = config;

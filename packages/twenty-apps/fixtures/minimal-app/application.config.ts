@@ -5,4 +5,5 @@ export default defineApplication({
   displayName: 'Root App',
   description: 'An app with all entities at root level',
   defaultRoleUniversalIdentifier: 'e1e2e3e4-e5e6-4000-8000-000000000002',
+  dependencies: ['f1f2f3f4-f5f6-4000-8000-000000000099'],
 });

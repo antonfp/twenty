@@ -36,6 +36,8 @@ export type ApplicationManifest = SyncableEntityOptions & {
   uninstallLogicFunction?: UninstallLogicFunctionApplicationManifest;
   settingsFrontComponent?: SettingsFrontComponentApplicationManifest;
   frontComponentSharedDependencies?: FrontComponentSharedDependenciesManifest;
+  // universalIdentifiers of applications that must be installed before this one
+  dependencies?: string[];
   /**
    * @deprecated Use `defineSettingsFrontComponent()` (exposed on the manifest
    * as `settingsFrontComponent`) instead. This property is ignored.
