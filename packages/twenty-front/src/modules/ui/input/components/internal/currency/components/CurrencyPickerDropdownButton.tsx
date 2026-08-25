@@ -62,7 +62,7 @@ export const CurrencyPickerDropdownButton = ({
     ({ value }) => value === selectedCurrencyCode,
   );
 
-  const currencyCode = currency?.value ?? CurrencyCode.USD;
+  const currencyCode = currency?.value ?? CurrencyCode.RUB;
 
   return (
     <Dropdown

@@ -79,7 +79,7 @@ export const SETTINGS_COMPOSITE_FIELD_TYPE_CONFIGS = {
     exampleValues: [
       {
         amountMicros: 2000000000,
-        currencyCode: CurrencyCode.USD,
+        currencyCode: CurrencyCode.RUB,
       },
       {
         amountMicros: 3000000000,

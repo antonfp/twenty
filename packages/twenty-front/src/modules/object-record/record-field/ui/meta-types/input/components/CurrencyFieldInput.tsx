@@ -46,7 +46,7 @@ export const CurrencyFieldInput = () => {
     ? draftCurrencyCode
     : defaultCurrencyCodeIsNotEmpty
       ? defaultCurrencyCodeWithoutSQLQuotes
-      : CurrencyCode.USD;
+      : CurrencyCode.RUB;
 
   const getNewCurrencyValue = ({
     amountText,
