@@ -37,6 +37,7 @@ const MOCK_FLAT_APPLICATION: FlatApplication = {
   yarnLockFileId: null,
   availablePackages: {},
   logicFunctionLayerId: null,
+  dependencies: null,
   defaultRoleId: null,
   defaultRole: null,
   settingsCustomTabFrontComponentId: null,

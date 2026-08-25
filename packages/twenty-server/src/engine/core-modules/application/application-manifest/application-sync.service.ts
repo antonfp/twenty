@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { type Manifest } from 'twenty-shared/application';
 import { Repository } from 'typeorm';
 import { ALL_METADATA_NAME } from 'twenty-shared/metadata';
+import { isNonEmptyString } from '@sniptt/guards';
 import { FileFolder } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 import { PackageJson } from 'type-fest';
@@ -12,6 +13,8 @@ import { v4 } from 'uuid';
 import { ApplicationRegistrationSourceType } from 'src/engine/core-modules/application/application-registration/enums/application-registration-source-type.enum';
 import { ApplicationManifestMigrationService } from 'src/engine/core-modules/application/application-manifest/application-manifest-migration.service';
 import { ApplicationUninstallService } from 'src/engine/core-modules/application/application-manifest/services/application-uninstall.service';
+import { assertApplicationDependenciesInstalledAndAcyclic } from 'src/engine/core-modules/application/application-manifest/utils/assert-application-dependencies-installed-and-acyclic.util';
+import { assertApplicationHasNoInstalledDependents } from 'src/engine/core-modules/application/application-manifest/utils/assert-application-has-no-installed-dependents.util';
 import { enrichApplicationManifestSyncError } from 'src/engine/core-modules/application/application-manifest/utils/enrich-application-manifest-sync-error.util';
 import { buildFromToAllUniversalFlatEntityMaps } from 'src/engine/core-modules/application/application-manifest/utils/build-from-to-all-universal-flat-entity-maps.util';
 import { ApplicationTranslationSyncService } from 'src/engine/core-modules/application/application-translation/application-translation-sync.service';
@@ -69,6 +72,8 @@ export class ApplicationSyncService {
     workspaceMigration: WorkspaceMigration;
     hasSchemaMetadataChanged: boolean;
   }> {
+    await this.validateManifestDependenciesOrThrow({ workspaceId, manifest });
+
     const ownerFlatApplication: FlatApplication = dryRun
       ? await this.resolveDryRunOwnerFlatApplication({ workspaceId, manifest })
       : await this.syncApplication({
@@ -121,6 +126,47 @@ export class ApplicationSyncService {
     return syncResult;
   }
 
+  private async validateManifestDependenciesOrThrow({
+    workspaceId,
+    manifest,
+  }: {
+    workspaceId: string;
+    manifest: Manifest;
+  }): Promise<void> {
+    const declaredDependencies = manifest.application.dependencies;
+
+    if (!isDefined(declaredDependencies)) {
+      return;
+    }
+
+    // The manifest is parsed from an uploaded package without a strict runtime
+    // schema, so the declared type cannot be trusted here.
+    if (
+      !Array.isArray(declaredDependencies) ||
+      declaredDependencies.some((entry) => !isNonEmptyString(entry))
+    ) {
+      throw new ApplicationException(
+        `Manifest field "dependencies" of application "${manifest.application.universalIdentifier}" must be an array of application universalIdentifier strings`,
+        ApplicationExceptionCode.INVALID_INPUT,
+      );
+    }
+
+    if (declaredDependencies.length === 0) {
+      return;
+    }
+
+    const installedFlatApplications =
+      await this.applicationService.findManyInstalledFlatApplications(
+        workspaceId,
+      );
+
+    assertApplicationDependenciesInstalledAndAcyclic({
+      applicationUniversalIdentifier: manifest.application.universalIdentifier,
+      declaredDependencies,
+      installedApplications: installedFlatApplications,
+    });
+  }
+
   private async resolveDryRunOwnerFlatApplication({
     workspaceId,
     manifest,
@@ -166,6 +212,7 @@ export class ApplicationSyncService {
       yarnLockFileId: null,
       availablePackages: {},
       logicFunctionLayerId: null,
+      dependencies: manifest.application.dependencies ?? null,
       defaultRoleId: null,
       defaultRole: null,
       settingsCustomTabFrontComponentId: null,
@@ -201,6 +248,8 @@ export class ApplicationSyncService {
     if (!isDefined(manifest.application.preInstallLogicFunction)) {
       return;
     }
+
+    await this.validateManifestDependenciesOrThrow({ workspaceId, manifest });
 
     const application = await this.syncApplication({
       workspaceId,
@@ -272,6 +321,7 @@ export class ApplicationSyncService {
         yarnLockChecksum: manifest.application.yarnLockChecksum,
         frontComponentSharedDependenciesChecksum,
         frontComponentSharedDependenciesBuiltPath,
+        dependencies: manifest.application.dependencies ?? null,
         applicationRegistrationId: resolvedRegistrationId,
         workspaceId,
       },
@@ -348,6 +398,16 @@ export class ApplicationSyncService {
         ApplicationExceptionCode.FORBIDDEN,
       );
     }
+
+    const installedFlatApplications =
+      await this.applicationService.findManyInstalledFlatApplications(
+        workspaceId,
+      );
+
+    assertApplicationHasNoInstalledDependents({
+      applicationUniversalIdentifier,
+      installedApplications: installedFlatApplications,
+    });
 
     if (shouldRunUninstallHook) {
       await this.applicationUninstallService.runUninstallHookBestEffort({

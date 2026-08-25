@@ -130,6 +130,17 @@ export class ApplicationEntity extends WorkspaceRelatedEntity {
   })
   uninstallHookCompletedForRequestedAt: Date | null;
 
+  // universalIdentifiers of applications this application declares as
+  // dependencies in its manifest; copied verbatim at sync time so uninstall
+  // guards and migration dependency sets can resolve them without re-reading
+  // the stored manifest
+  @Column({ nullable: true, type: 'jsonb' })
+  @WasIntroducedInUpgrade({
+    upgradeCommandName:
+      '2.34.0_ApplicationDependenciesFastInstanceCommand_1787690477904',
+  })
+  dependencies: string[] | null;
+
   @Column({ nullable: false, type: 'boolean', default: true })
   canBeUninstalled: boolean;
 

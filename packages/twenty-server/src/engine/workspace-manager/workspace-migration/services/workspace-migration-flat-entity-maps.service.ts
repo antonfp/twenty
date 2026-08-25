@@ -4,6 +4,7 @@ import { AllMetadataName } from 'twenty-shared/metadata';
 import { isDefined } from 'twenty-shared/utils';
 
 import { FlatApplicationCacheMaps } from 'src/engine/core-modules/application/types/flat-application-cache-maps.type';
+import { resolveInstalledDependencyApplicationIds } from 'src/engine/core-modules/application/utils/resolve-installed-dependency-application-ids.util';
 import { ALL_MANY_TO_ONE_METADATA_RELATIONS } from 'src/engine/metadata-modules/flat-entity/constant/all-many-to-one-metadata-relations.constant';
 import {
   FlatEntityMapsException,
@@ -256,6 +257,19 @@ export class WorkspaceMigrationFlatEntityMapsService {
 
     if (isDefined(applicationId)) {
       applicationIds.add(applicationId);
+
+      // Applications declared as dependencies in the syncing application's
+      // manifest (persisted on its entity at sync time) must be visible to the
+      // migration builder even when no operation references them directly.
+      const declaredDependencyApplicationIds =
+        resolveInstalledDependencyApplicationIds({
+          dependencies: flatApplicationMaps.byId[applicationId]?.dependencies,
+          flatApplicationMaps,
+        });
+
+      for (const dependencyApplicationId of declaredDependencyApplicationIds) {
+        applicationIds.add(dependencyApplicationId);
+      }
     }
 
     const isBuildingTwentyStandardApplication =

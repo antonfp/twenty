@@ -15,6 +15,7 @@ import {
 } from 'src/engine/core-modules/application/application.exception';
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
 import { type FlatApplication } from 'src/engine/core-modules/application/types/flat-application.type';
+import { resolveInstalledDependencyApplicationIds } from 'src/engine/core-modules/application/utils/resolve-installed-dependency-application-ids.util';
 import { LoggerService } from 'src/engine/core-modules/logger/logger.service';
 import { getMetadataFlatEntityMapsKey } from 'src/engine/metadata-modules/flat-entity/utils/get-metadata-flat-entity-maps-key.util';
 import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
@@ -97,10 +98,15 @@ export class ApplicationManifestMigrationService {
       [
         ...Object.values(ALL_METADATA_NAME).map(getMetadataFlatEntityMapsKey),
         'featureFlagsMap',
+        'flatApplicationMaps',
       ],
     );
 
-    const { featureFlagsMap, ...existingAllFlatEntityMaps } = cacheResult;
+    const {
+      featureFlagsMap,
+      flatApplicationMaps,
+      ...existingAllFlatEntityMaps
+    } = cacheResult;
 
     const fromAllFlatEntityMaps = getApplicationSubAllFlatEntityMaps({
       applicationIds: [ownerFlatApplication.id],
@@ -116,11 +122,18 @@ export class ApplicationManifestMigrationService {
       });
 
     const dependencyAllFlatEntityMaps = getApplicationSubAllFlatEntityMaps({
-      applicationIds:
-        ownerFlatApplication.universalIdentifier ===
-        TWENTY_STANDARD_APPLICATION.universalIdentifier
-          ? [twentyStandardFlatApplication.id]
-          : [ownerFlatApplication.id, twentyStandardFlatApplication.id],
+      applicationIds: [
+        ...new Set([
+          ...(ownerFlatApplication.universalIdentifier ===
+          TWENTY_STANDARD_APPLICATION.universalIdentifier
+            ? [twentyStandardFlatApplication.id]
+            : [ownerFlatApplication.id, twentyStandardFlatApplication.id]),
+          ...resolveInstalledDependencyApplicationIds({
+            dependencies: manifest.application.dependencies,
+            flatApplicationMaps,
+          }),
+        ]),
+      ],
       fromAllFlatEntityMaps: existingAllFlatEntityMaps,
     });
 
