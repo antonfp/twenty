@@ -295,12 +295,21 @@ export class PostingService {
       return;
     }
 
+    // Register rows are system-written; the createdBy actor composite is
+    // NOT NULL on workspace tables, so stamp it centrally for every register.
+    const systemActor = { source: 'SYSTEM', name: 'ERPilot', context: {} };
+    const stampedRows = rows.map((row) => ({
+      createdBy: systemActor,
+      updatedBy: systemActor,
+      ...row,
+    }));
+
     await transactionScope
       .getRepository<Record<string, unknown>>(
         registerObjectName,
         BYPASS_PERMISSIONS,
       )
-      .insert(rows);
+      .insert(stampedRows);
   }
 
   // Convention: document lines live in `${objectName}Line` with a

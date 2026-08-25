@@ -1,8 +1,30 @@
-# ERPilot Справочники (erp-directories)
+# ERPilot ERP (erp)
 
-Блок базовых справочников ERPilot для Twenty — приложение на Twenty SDK.
+Модульное ERP-приложение ERPilot для Twenty на Twenty SDK: справочники + продажи.
 
-Что даёт после установки в workspace:
+## Структура (модули)
+
+Платформенное ограничение: приложение Twenty **не может ссылаться на объекты другого
+приложения**, поэтому все блоки ERPilot живут в одном app — «один app, модули внутри —
+до появления межприложенческих зависимостей». Модули — это слайсы внутри `src/modules/`
+(по образцу `internal/twenty-partners`):
+
+```
+src/
+  application-config.ts          # конфиг приложения (universalIdentifier неизменен)
+  roles/                         # роль для logic-функций (общая для app)
+  modules/
+    directories/                 # модуль «Справочники»
+      objects/  fields/  navigation-menu-items/  logic-functions/
+    sales/                       # модуль «Продажи»
+      objects/  fields/  navigation-menu-items/
+```
+
+Ранее приложение называлось `erp-directories` («ERPilot Справочники») и содержало только
+справочники; переименовано в `@erpilot/erp` с сохранением `universalIdentifier`
+приложения и всех сущностей — установленный app обновляется на месте, без пересоздания.
+
+## Модуль «Справочники» (directories)
 
 - **Объекты** (RU-лейблы, латинские имена в metadata):
   - `organization` «Организации» — своя фирма-продавец: реквизиты (ИНН/КПП/ОГРН),
@@ -21,6 +43,30 @@
   и склад «Основной склад» (isDefault=true). Организация намеренно не сидится —
   первый шаг настройки блока: «заполните реквизиты организации».
 
+## Модуль «Продажи» (sales)
+
+- **Объекты**:
+  - `salesInvoice` «Счета покупателям» — номер, дата счёта, статус документа
+    (Черновик/Проведён/Отменён), дата проведения, `postedAt`/`cancelledAt`,
+    итого, в т.ч. НДС, статус оплаты (Не оплачен/Частично оплачен/Оплачен),
+    оплачено, комментарий; связи: `organization`, `customer` (стандартная Компания).
+    `name` заполняется сервером при проведении («Счёт № 7 от 25.08.2026»);
+  - `salesInvoiceLine` «Строки счёта» — наименование позиции, кол-во, цена,
+    ставка НДС, сумма (с НДС); связи: `salesInvoice` (**CASCADE**), `item`;
+  - `payment` «Поступления оплат» — номер, дата оплаты, сумма, статус документа,
+    дата проведения, `postedAt`/`cancelledAt`, комментарий; связи: `organization`,
+    `payer` (Компания), `salesInvoice`;
+  - `partyLedgerEntry` «Взаиморасчёты» — **регистр** (append-only, записи создаёт
+    только сервер): документ-основание (тип/id), знаковая сумма (+ долг покупателя,
+    − оплата), дата, флаги «Сторнирована»/«Сторно-запись»; связи: `company`,
+    `organization`.
+- **Контракт ядра проведения**: строки документа `${objectName}` живут в объекте
+  `${objectName}Line` с join-колонкой `${objectName}Id` — поэтому
+  `salesInvoiceLine.salesInvoice` имеет `joinColumnName: 'salesInvoiceId'`
+  и `onDelete: CASCADE`. Не переименовывать.
+- **Навигация**: папка «Продажи» (после «Справочников») с пунктами
+  Счета покупателям / Поступления оплат / Взаиморасчёты.
+
 ## Требования
 
 - Node.js 24.5+, Yarn 4 (`packageManager: yarn@4.13.0`), сервер Twenty ≥ 2.30
@@ -33,7 +79,7 @@
 ## Установка (CLI)
 
 ```bash
-cd packages/twenty-apps/internal/erp-directories
+cd packages/twenty-apps/internal/erp
 yarn install
 yarn twenty dev:build                      # сборка манифеста + typecheck
 
@@ -76,7 +122,7 @@ mutation {
 ## Удаление
 
 - CLI: `yarn twenty app:uninstall` из каталога приложения (флаг `-y` — без подтверждения).
-- UI: Settings → Applications → ERPilot Справочники → Uninstall.
+- UI: Settings → Applications → ERPilot ERP → Uninstall.
 
 Данные записей объектов приложения при удалении удаляются вместе с объектами — выгружайте
 заранее, если нужны.
@@ -84,7 +130,7 @@ mutation {
 ## Как сделать блок предустановленным для всех workspace
 
 1. В admin-panel (пользователь с правами Admin Panel): Applications → регистрация
-   «ERPilot Справочники» → включить флаг **isPreInstalled** (GraphQL:
+   «ERPilot ERP» → включить флаг **isPreInstalled** (GraphQL:
    `updateApplicationRegistration(input: {id: "<registrationId>", update: {isPreInstalled: true}})`).
 2. Новые workspace получат приложение автоматически при провижининге.
 3. Для уже существующих workspace — backfill-команда на сервере (идемпотентна):
@@ -104,7 +150,7 @@ npx nx run twenty-server:command install-pre-installed-apps
 - Русские лейблы — обычные строки в манифесте (`isLabelSyncedWithName=false`
   проставляют конвертеры движка); имена объектов/полей — латиница camelCase.
 - Двусторонние RELATION-поля (`itemPrice.item` ↔ `item.itemPrices`,
-  `itemPrice.priceType` ↔ `priceType.itemPrices`) описаны парами файлов в `src/fields/`
+  `itemPrice.priceType` ↔ `priceType.itemPrices`) описаны парами файлов в `fields/` модуля
   по образцу `internal/real-estate` (buyer-* поля); у MANY_TO_ONE-стороны задаётся
   `joinColumnName` и `onDelete` (item — CASCADE, priceType — SET_NULL).
 - `universalIdentifier` всех сущностей должны оставаться стабильными между версиями —

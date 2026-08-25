@@ -60,3 +60,38 @@ describe('buildReversalRows', () => {
     ).toBe(true);
   });
 });
+
+describe('buildReversalRows currency composites', () => {
+  it('negates CURRENCY composite measures', () => {
+    const [row] = buildReversalRows([
+      {
+        amount: { amountMicros: '90000000000', currencyCode: 'RUB' },
+        companyId: 'c1',
+      },
+    ]);
+
+    expect(row.amount).toEqual({
+      amountMicros: '-90000000000',
+      currencyCode: 'RUB',
+    });
+    expect(row.companyId).toBe('c1');
+    expect(row.isCancellation).toBe(true);
+  });
+
+  it('negates flattened amountMicros columns, both string and number', () => {
+    const [row] = buildReversalRows([
+      { amountAmountMicros: '40000000000', creditAmountMicros: 250 },
+    ]);
+
+    expect(row.amountAmountMicros).toBe('-40000000000');
+    expect(row.creditAmountMicros).toBe(-250);
+  });
+
+  it('keeps negative composite negation symmetric', () => {
+    const [row] = buildReversalRows([
+      { amount: { amountMicros: -5000, currencyCode: 'RUB' } },
+    ]);
+
+    expect(row.amount).toEqual({ amountMicros: 5000, currencyCode: 'RUB' });
+  });
+});
