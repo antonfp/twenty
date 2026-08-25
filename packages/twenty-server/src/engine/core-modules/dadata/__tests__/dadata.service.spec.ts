@@ -6,6 +6,7 @@ import {
   DADATA_FIND_PARTY_BY_INN_URL,
   DadataService,
 } from 'src/engine/core-modules/dadata/services/dadata.service';
+import { type TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 
 const VALID_LEGAL_INN = '7707083893';
 const VALID_INDIVIDUAL_INN = '500100732259';
@@ -109,7 +110,10 @@ const individualPartyResponseFixture = {
 describe('DadataService', () => {
   const fetchMock = jest.fn();
   const originalFetch = global.fetch;
-  const originalApiKey = process.env.DADATA_API_KEY;
+  const configGetMock = jest.fn();
+  const twentyConfigServiceMock = {
+    get: configGetMock,
+  } as unknown as TwentyConfigService;
 
   let service: DadataService;
 
@@ -122,19 +126,14 @@ describe('DadataService', () => {
   };
 
   beforeEach(() => {
-    service = new DadataService();
-    process.env.DADATA_API_KEY = 'test-api-key';
+    service = new DadataService(twentyConfigServiceMock);
+    configGetMock.mockReturnValue('test-api-key');
     global.fetch = fetchMock as unknown as typeof fetch;
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
-
-    if (originalApiKey === undefined) {
-      delete process.env.DADATA_API_KEY;
-    } else {
-      process.env.DADATA_API_KEY = originalApiKey;
-    }
+    configGetMock.mockReset();
   });
 
   it('maps a LEGAL suggestion to DadataPartyResult', async () => {
@@ -214,7 +213,7 @@ describe('DadataService', () => {
   });
 
   it('throws API_KEY_NOT_CONFIGURED when DADATA_API_KEY is missing', async () => {
-    delete process.env.DADATA_API_KEY;
+    configGetMock.mockReturnValue(undefined);
 
     await expect(
       service.findPartyByInn(VALID_LEGAL_INN),

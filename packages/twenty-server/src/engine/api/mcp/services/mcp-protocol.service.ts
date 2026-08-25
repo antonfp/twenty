@@ -25,6 +25,11 @@ import {
   listObjectMetadataNamesInputSchema,
 } from 'src/engine/api/mcp/tools/list-object-metadata-names.tool';
 import {
+  createLookupPartyByInnTool,
+  LOOKUP_PARTY_BY_INN_TOOL_NAME,
+  lookupPartyByInnInputSchema,
+} from 'src/engine/api/mcp/tools/lookup-party-by-inn.tool';
+import {
   createPostDocumentTool,
   POST_DOCUMENT_TOOL_NAME,
   postDocumentInputSchema,
@@ -37,6 +42,7 @@ import {
 import { type McpToolAnnotations } from 'src/engine/api/mcp/types/mcp-tool-annotations.type';
 import { wrapJsonRpcResponse } from 'src/engine/api/mcp/utils/wrap-jsonrpc-response.util';
 import { ApiKeyRoleService } from 'src/engine/core-modules/api-key/services/api-key-role.service';
+import { DadataService } from 'src/engine/core-modules/dadata/services/dadata.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { type FlatApiKey } from 'src/engine/core-modules/api-key/types/flat-api-key.type';
 import { type WorkspaceAuthContext } from 'src/engine/core-modules/auth/types/workspace-auth-context.type';
@@ -108,6 +114,7 @@ export class McpProtocolService {
     private readonly flatEntityMapsCacheService: WorkspaceManyOrAllFlatEntityMapsCacheService,
     private readonly workspaceCacheService: WorkspaceCacheService,
     private readonly postingService: PostingService,
+    private readonly dadataService: DadataService,
   ) {}
 
   async handleInitialize(requestId: string | number, workspaceId: string) {
@@ -295,6 +302,11 @@ export class McpProtocolService {
         ...createCancelDocumentTool(this.postingService, workspace.id),
         inputSchema: zodSchema(cancelDocumentInputSchema),
         annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [LOOKUP_PARTY_BY_INN_TOOL_NAME]: {
+        ...createLookupPartyByInnTool(this.dadataService),
+        inputSchema: zodSchema(lookupPartyByInnInputSchema),
+        annotations: MCP_OPEN_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
     };
   }

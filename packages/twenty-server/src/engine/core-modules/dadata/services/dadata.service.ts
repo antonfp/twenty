@@ -13,6 +13,7 @@ import {
   type DadataPartyType,
 } from 'src/engine/core-modules/dadata/types/dadata.types';
 import { isValidInn } from 'src/engine/core-modules/dadata/utils/is-valid-inn.util';
+import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 
 export const DADATA_FIND_PARTY_BY_INN_URL =
   'https://suggestions.dadata.ru/suggestions/api/4_1/rs/findById/party';
@@ -50,6 +51,8 @@ type DadataFindPartyResponse = {
 
 @Injectable()
 export class DadataService {
+  constructor(private readonly twentyConfigService: TwentyConfigService) {}
+
   async findPartyByInn(inn: string): Promise<DadataPartyResult | null> {
     if (!isValidInn(inn)) {
       throw new DadataException(
@@ -58,12 +61,11 @@ export class DadataService {
       );
     }
 
-    // ponytail: env read directly; migrate to TwentyConfigService when wiring (avoids concurrent edit of twenty-config)
-    const apiKey = process.env.DADATA_API_KEY;
+    const apiKey = this.twentyConfigService.get('DADATA_API_KEY');
 
     if (!isNonEmptyString(apiKey)) {
       throw new DadataException(
-        'DADATA_API_KEY environment variable is not set',
+        'DADATA_API_KEY is not configured',
         DadataExceptionCode.API_KEY_NOT_CONFIGURED,
       );
     }

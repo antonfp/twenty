@@ -2089,6 +2089,16 @@ export class ConfigVariables {
 
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    isSensitive: true,
+    description:
+      'DaData API key for Russian company requisites lookup by INN. When unset, lookup is unavailable.',
+    type: ConfigVariableType.STRING,
+  })
+  @IsOptional()
+  DADATA_API_KEY?: string;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
     description:
       'Enable or disable the AI chat that helps set up the workspace at the end of onboarding',
     type: ConfigVariableType.BOOLEAN,
