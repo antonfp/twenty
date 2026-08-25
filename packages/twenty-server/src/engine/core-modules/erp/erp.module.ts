@@ -6,8 +6,8 @@ import { DocumentNumberingService } from 'src/engine/core-modules/erp/services/d
 import { PeriodLockService } from 'src/engine/core-modules/erp/services/period-lock.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 
-// Not imported anywhere yet — see WIRING.md. GlobalWorkspaceOrmManager comes
-// from the @Global() GlobalWorkspaceDatasourceModule, so no imports are needed.
+// GlobalWorkspaceOrmManager comes from the @Global()
+// GlobalWorkspaceDatasourceModule, so no imports are needed.
 @Module({
   providers: [
     PostingRulesRegistry,

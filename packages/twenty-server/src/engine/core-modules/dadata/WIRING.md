@@ -2,7 +2,9 @@
 
 Standalone company-lookup module (`findPartyByInn`) for the DaData Suggestions
 API. Written for Phase 2 («автозаполнение по ИНН» in `erp-directories`,
-docs/PLAN.md). Not imported anywhere yet — the steps below wire it in.
+docs/PLAN.md). Status (2026-08-25): step 1 DONE — registered in
+`core-engine.module.ts`. Steps 2 (TwentyConfigService migration) and 3 (AI
+agent tool) remain for Phase 2.
 
 ## 1. Register the module
 

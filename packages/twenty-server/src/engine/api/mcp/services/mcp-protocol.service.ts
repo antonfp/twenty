@@ -15,10 +15,20 @@ import { JsonRpc } from 'src/engine/api/mcp/dtos/json-rpc';
 import { McpInstructionBuilderService } from 'src/engine/api/mcp/services/mcp-instruction-builder.service';
 import { McpToolExecutorService } from 'src/engine/api/mcp/services/mcp-tool-executor.service';
 import {
+  CANCEL_DOCUMENT_TOOL_NAME,
+  cancelDocumentInputSchema,
+  createCancelDocumentTool,
+} from 'src/engine/api/mcp/tools/cancel-document.tool';
+import {
   createListObjectMetadataNamesTool,
   LIST_OBJECT_METADATA_NAMES_TOOL_NAME,
   listObjectMetadataNamesInputSchema,
 } from 'src/engine/api/mcp/tools/list-object-metadata-names.tool';
+import {
+  createPostDocumentTool,
+  POST_DOCUMENT_TOOL_NAME,
+  postDocumentInputSchema,
+} from 'src/engine/api/mcp/tools/post-document.tool';
 import {
   createListSkillsTool,
   LIST_SKILLS_TOOL_NAME,
@@ -27,6 +37,7 @@ import {
 import { type McpToolAnnotations } from 'src/engine/api/mcp/types/mcp-tool-annotations.type';
 import { wrapJsonRpcResponse } from 'src/engine/api/mcp/utils/wrap-jsonrpc-response.util';
 import { ApiKeyRoleService } from 'src/engine/core-modules/api-key/services/api-key-role.service';
+import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { type FlatApiKey } from 'src/engine/core-modules/api-key/types/flat-api-key.type';
 import { type WorkspaceAuthContext } from 'src/engine/core-modules/auth/types/workspace-auth-context.type';
 import { buildApiKeyAuthContext } from 'src/engine/core-modules/auth/utils/build-api-key-auth-context.util';
@@ -96,6 +107,7 @@ export class McpProtocolService {
     private readonly mcpInstructionBuilderService: McpInstructionBuilderService,
     private readonly flatEntityMapsCacheService: WorkspaceManyOrAllFlatEntityMapsCacheService,
     private readonly workspaceCacheService: WorkspaceCacheService,
+    private readonly postingService: PostingService,
   ) {}
 
   async handleInitialize(requestId: string | number, workspaceId: string) {
@@ -273,6 +285,16 @@ export class McpProtocolService {
         }),
         inputSchema: zodSchema(learnToolsInputSchema),
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [POST_DOCUMENT_TOOL_NAME]: {
+        ...createPostDocumentTool(this.postingService, workspace.id),
+        inputSchema: zodSchema(postDocumentInputSchema),
+        annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [CANCEL_DOCUMENT_TOOL_NAME]: {
+        ...createCancelDocumentTool(this.postingService, workspace.id),
+        inputSchema: zodSchema(cancelDocumentInputSchema),
+        annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
     };
   }

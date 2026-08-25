@@ -1,8 +1,16 @@
 # ERP posting module — wiring guide
 
-Everything in `src/engine/core-modules/erp/` is self-contained and currently
-**inert**: `ErpModule` is not imported anywhere. This file lists the exact
-steps to wire it in, in order.
+Status (2026-08-25): steps 1, 2 and 6 are DONE — `ErpModule` is registered in
+`core-engine.module.ts`, the resolver is live on `/graphql`
+(`postDocument`/`cancelDocument`, verified end-to-end), and the MCP tools
+`post_document`/`cancel_document` are registered in `mcp-protocol.service.ts`.
+IMPORTANT correction to step 2: a plain `@Resolver()` is NOT enough — the
+patched @nestjs/graphql defaults unscoped resolvers to the 'metadata' schema
+scope; core-schema resolvers must use `@CoreResolver()`
+(`src/engine/api/graphql/graphql-config/decorators/core-resolver.decorator.ts`).
+Remaining: step 2 follow-ups (permission check, exception filter), step 3/4
+(block registration + metadata contract, Phase 2), step 5 (query-runner guard,
+at block install).
 
 ## 1. Register the module
 
