@@ -2732,6 +2732,7 @@ export type Mutation = {
   deleteSkill: Skill;
   deleteTwoFactorAuthenticationMethod: DeleteTwoFactorAuthenticationMethod;
   deleteUnsubscribeTopic: Scalars['Boolean']['output'];
+  deleteUsageLimit: Scalars['Boolean']['output'];
   deleteUser: User;
   deleteUserFromWorkspace: UserWorkspace;
   deleteView: Scalars['Boolean']['output'];
@@ -2887,6 +2888,7 @@ export type Mutation = {
   upsertObjectPermissions: Array<ObjectPermission>;
   upsertPermissionFlags: Array<RolePermissionFlag>;
   upsertRowLevelPermissionPredicates: UpsertRowLevelPermissionPredicatesResult;
+  upsertUsageLimit: UsageLimit;
   upsertViewWidget: View;
   validateApprovedAccessDomain: ApprovedAccessDomain;
   verifyEmailAndGetLoginToken: VerifyEmailAndGetLoginToken;
@@ -3311,6 +3313,11 @@ export type MutationDeleteTwoFactorAuthenticationMethodArgs = {
 
 export type MutationDeleteUnsubscribeTopicArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteUsageLimitArgs = {
+  usageLimitId: Scalars['UUID']['input'];
 };
 
 
@@ -4079,6 +4086,11 @@ export type MutationUpsertRowLevelPermissionPredicatesArgs = {
 };
 
 
+export type MutationUpsertUsageLimitArgs = {
+  input: UpsertUsageLimitInput;
+};
+
+
 export type MutationUpsertViewWidgetArgs = {
   input: UpsertViewWidgetInput;
 };
@@ -4733,6 +4745,7 @@ export type Query = {
   skills: Array<Skill>;
   timelineActivityTypes: Array<TimelineActivityType>;
   unsubscribeTopics: Array<UnsubscribeTopic>;
+  usageLimits: Array<UsageLimit>;
   validatePasswordResetToken: ValidatePasswordResetToken;
   webhook?: Maybe<Webhook>;
   webhooks: Array<Webhook>;
@@ -6233,6 +6246,17 @@ export type UpsertRowLevelPermissionPredicatesResult = {
   predicates: Array<RowLevelPermissionPredicate>;
 };
 
+export type UpsertUsageLimitInput = {
+  burstValue?: InputMaybe<Scalars['Float']['input']>;
+  limitKind: Scalars['String']['input'];
+  limitValue: Scalars['Float']['input'];
+  operationType: Scalars['String']['input'];
+  resourceType: Scalars['String']['input'];
+  spenderId?: InputMaybe<Scalars['String']['input']>;
+  spenderType: Scalars['String']['input'];
+  windowSeconds?: Scalars['Float']['input'];
+};
+
 export type UpsertViewWidgetInput = {
   /** View-level settings (layout type, group by, kanban and calendar settings) to apply to the widget view. */
   view?: InputMaybe<UpsertViewWidgetViewSettingsInput>;
@@ -6323,9 +6347,26 @@ export type UsageBreakdownItem = {
   label?: Maybe<Scalars['String']['output']>;
 };
 
+export type UsageLimit = {
+  __typename?: 'UsageLimit';
+  burstValue?: Maybe<Scalars['Float']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['UUID']['output'];
+  limitKind: Scalars['String']['output'];
+  limitType: Scalars['String']['output'];
+  limitValue: Scalars['Float']['output'];
+  operationType: Scalars['String']['output'];
+  resourceType: Scalars['String']['output'];
+  spenderId: Scalars['String']['output'];
+  spenderType: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  windowSeconds: Scalars['Float']['output'];
+};
+
 export enum UsageOperationType {
   AI_CHAT_TOKEN = 'AI_CHAT_TOKEN',
   AI_WORKFLOW_TOKEN = 'AI_WORKFLOW_TOKEN',
+  API_REQUEST = 'API_REQUEST',
   CALL_RECORDING = 'CALL_RECORDING',
   CODE_EXECUTION = 'CODE_EXECUTION',
   EMAIL_SEND = 'EMAIL_SEND',
