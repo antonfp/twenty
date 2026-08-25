@@ -1,6 +1,6 @@
 # ERPilot ERP (erp)
 
-Модульное ERP-приложение ERPilot для Twenty на Twenty SDK: справочники + продажи.
+Модульное ERP-приложение ERPilot для Twenty на Twenty SDK: справочники + продажи + закупки.
 
 ## Структура (модули)
 
@@ -17,6 +17,8 @@ src/
     directories/                 # модуль «Справочники»
       objects/  fields/  navigation-menu-items/  logic-functions/
     sales/                       # модуль «Продажи»
+      objects/  fields/  navigation-menu-items/
+    purchases/                   # модуль «Закупки»
       objects/  fields/  navigation-menu-items/
 ```
 
@@ -66,6 +68,25 @@ src/
   и `onDelete: CASCADE`. Не переименовывать.
 - **Навигация**: папка «Продажи» (после «Справочников») с пунктами
   Счета покупателям / Поступления оплат / Взаиморасчёты.
+
+## Модуль «Закупки» (purchases)
+
+- **Объекты**:
+  - `supplierInvoice` «Счета поставщиков» — номер, дата счёта, статус документа
+    (Черновик/Проведён/Отменён), дата проведения, `postedAt`/`cancelledAt`,
+    итого, в т.ч. НДС, статус оплаты (Не оплачен/Частично оплачен/Оплачен),
+    оплачено, комментарий; связи: `organization`, `supplier` (стандартная Компания);
+  - `supplierInvoiceLine` «Строки счетов поставщиков» — наименование позиции, кол-во,
+    цена, ставка НДС, сумма (с НДС); связи: `supplierInvoice` (**CASCADE**), `item`;
+  - `supplierPayment` «Оплаты поставщикам» — номер, дата оплаты, сумма, статус документа,
+    дата проведения, `postedAt`/`cancelledAt`, комментарий; связи: `organization`,
+    `supplier` (Компания), `supplierInvoice`.
+- **Контракт ядра проведения**: та же схема, что в «Продажах» — join-колонка
+  `supplierInvoiceLine.supplierInvoice` РОВНО `supplierInvoiceId`, `onDelete: CASCADE`.
+- **Навигация**: папка «Закупки» (после «Продаж», position 12) с пунктами
+  Счета поставщиков / Оплаты поставщикам.
+- Регистр взаиморасчётов отдельный для закупок не заводится — используется общий
+  `partyLedgerEntry` из модуля «Продажи».
 
 ## Требования
 
