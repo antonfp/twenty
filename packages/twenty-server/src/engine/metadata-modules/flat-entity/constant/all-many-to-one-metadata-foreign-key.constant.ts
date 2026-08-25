@@ -241,38 +241,6 @@ export const ALL_MANY_TO_ONE_METADATA_FOREIGN_KEY = {
     },
     application: null,
   },
-  rowLevelPermissionPredicate: {
-    workspace: null,
-    role: {
-      foreignKey: 'roleId',
-    },
-    fieldMetadata: {
-      foreignKey: 'fieldMetadataId',
-    },
-    workspaceMemberFieldMetadata: {
-      foreignKey: 'workspaceMemberFieldMetadataId',
-    },
-    objectMetadata: {
-      foreignKey: 'objectMetadataId',
-    },
-    rowLevelPermissionPredicateGroup: {
-      foreignKey: 'rowLevelPermissionPredicateGroupId',
-    },
-    application: null,
-  },
-  rowLevelPermissionPredicateGroup: {
-    objectMetadata: {
-      foreignKey: 'objectMetadataId',
-    },
-    role: {
-      foreignKey: 'roleId',
-    },
-    parentRowLevelPermissionPredicateGroup: {
-      foreignKey: 'parentRowLevelPermissionPredicateGroupId',
-    },
-    workspace: null,
-    application: null,
-  },
   viewFilterGroup: {
     application: null,
     parentViewFilterGroup: {

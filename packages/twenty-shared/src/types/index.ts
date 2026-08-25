@@ -289,14 +289,6 @@ export type { RelationUpdatePayload } from './RelationUpdatePayload';
 export type { RemoveSuffix } from './RemoveSuffix.type';
 export type { RestrictedFieldPermissions } from './RestrictedFieldPermissions';
 export type { RestrictedFieldsPermissions } from './RestrictedFieldsPermissions';
-export type { RowLevelPermissionPredicate } from './RowLevelPermissionPredicate';
-export type { RowLevelPermissionPredicateGroup } from './RowLevelPermissionPredicateGroup';
-export { RowLevelPermissionPredicateGroupLogicalOperator } from './RowLevelPermissionPredicateGroupLogicalOperator';
-export { RowLevelPermissionPredicateOperand } from './RowLevelPermissionPredicateOperand';
-export type {
-  RelationPredicateValue,
-  RowLevelPermissionPredicateValue,
-} from './RowLevelPermissionPredicateValue';
 export type { SerializedRelation } from './SerializedRelation.type';
 export { SERIALIZED_RELATION_BRAND } from './SerializedRelation.type';
 export { ServerFileFolder } from './ServerFileFolder';

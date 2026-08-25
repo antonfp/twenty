@@ -139,16 +139,6 @@ describe('WorkspaceRepository', () => {
         universalIdentifierById: {},
         universalIdentifiersByApplicationId: {},
       },
-      flatRowLevelPermissionPredicateMaps: {
-        byUniversalIdentifier: {},
-        universalIdentifierById: {},
-        universalIdentifiersByApplicationId: {},
-      },
-      flatRowLevelPermissionPredicateGroupMaps: {
-        byUniversalIdentifier: {},
-        universalIdentifierById: {},
-        universalIdentifiersByApplicationId: {},
-      },
       objectIdByNameSingular: {},
       featureFlagsMap: {} as FeatureFlagMap,
       userWorkspaceRoleMap: {},
@@ -166,8 +156,6 @@ describe('WorkspaceRepository', () => {
         canSoftDeleteObjectRecords: false,
         canDestroyObjectRecords: false,
         restrictedFields: {},
-        rowLevelPermissionPredicates: [],
-        rowLevelPermissionPredicateGroups: [],
       },
     };
     mockQueryRunner = {} as QueryRunner;

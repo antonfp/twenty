@@ -33,8 +33,6 @@ import { findFlatEntityByIdInFlatEntityMaps } from 'src/engine/metadata-modules/
 import { type FlatFieldMetadata } from 'src/engine/metadata-modules/flat-field-metadata/types/flat-field-metadata.type';
 import { type FlatObjectMetadata } from 'src/engine/metadata-modules/flat-object-metadata/types/flat-object-metadata.type';
 import { UserWorkspaceRoleMap } from 'src/engine/metadata-modules/role-target/types/user-workspace-role-map';
-import { type FlatRowLevelPermissionPredicateGroupMaps } from 'src/engine/metadata-modules/row-level-permission-predicate/types/flat-row-level-permission-predicate-group-maps.type';
-import { type FlatRowLevelPermissionPredicateMaps } from 'src/engine/metadata-modules/row-level-permission-predicate/types/flat-row-level-permission-predicate-maps.type';
 import { EventStreamService } from 'src/engine/subscriptions/event-stream.service';
 import { SubscriptionService } from 'src/engine/subscriptions/subscription.service';
 import {
@@ -45,17 +43,13 @@ import { type EventStreamPayload } from 'src/engine/subscriptions/types/event-st
 import { ObjectRecordSubscriptionEvent } from 'src/engine/subscriptions/types/object-record-subscription-event.type';
 import { GlobalWorkspaceOrmManager } from 'src/engine/twenty-orm/global-workspace-datasource/global-workspace-orm.manager';
 import { RolePermissionConfig } from 'src/engine/twenty-orm/types/role-permission-config';
-import { buildRowLevelPermissionRecordFilter } from 'src/engine/twenty-orm/utils/build-row-level-permission-record-filter.util';
 import { computePermissionIntersection } from 'src/engine/twenty-orm/utils/compute-permission-intersection.util';
-import { isRecordMatchingRLSRowLevelPermissionPredicate } from 'src/engine/twenty-orm/utils/is-record-matching-rls-row-level-permission-predicate.util';
 import { resolveRoleIdsForUser } from 'src/engine/twenty-orm/utils/resolve-role-ids-for-user.util';
 import { WorkspaceCacheService } from 'src/engine/workspace-cache/services/workspace-cache.service';
 import { WorkspaceEventBatch } from 'src/engine/workspace-event-emitter/types/workspace-event-batch.type';
 import { parseEventNameOrThrow } from 'src/engine/workspace-event-emitter/utils/parse-event-name';
 
 type StreamPermissionsContext = {
-  flatRowLevelPermissionPredicateMaps: FlatRowLevelPermissionPredicateMaps;
-  flatRowLevelPermissionPredicateGroupMaps: FlatRowLevelPermissionPredicateGroupMaps;
   flatFieldMetadataMaps: FlatEntityMaps<FlatFieldMetadata>;
   userWorkspaceRoleMap: UserWorkspaceRoleMap;
   rolesPermissions: ObjectsPermissionsByRoleId;
@@ -178,14 +172,6 @@ export class ObjectRecordEventPublisher {
 
     const objectNameSingular = workspaceEventBatch.objectMetadata.nameSingular;
 
-    const subscriberRLSFilter = this.buildSubscriberRLSFilter(
-      streamData.authContext,
-      roleIds,
-      workspaceEventBatch.objectMetadata,
-      permissionsContext,
-      flatWorkspaceMemberMaps,
-    );
-
     const restrictedFields = objectPermissions.restrictedFields;
 
     for (const event of workspaceEventBatch.events) {
@@ -217,9 +203,6 @@ export class ObjectRecordEventPublisher {
       const matchedQueryIds = this.getMatchingObjectRecordQueryIds(
         streamData.queries,
         filteredEvent,
-        subscriberRLSFilter,
-        workspaceEventBatch.objectMetadata,
-        permissionsContext.flatFieldMetadataMaps,
       );
 
       if (matchedQueryIds.length === 0) {
@@ -403,33 +386,6 @@ export class ObjectRecordEventPublisher {
     return computePermissionIntersection(allRolePermissions);
   }
 
-  private buildSubscriberRLSFilter(
-    subscriberAuthContext: SerializableAuthContext,
-    roleIds: string[],
-    objectMetadata: FlatObjectMetadata,
-    permissionsContext: {
-      flatRowLevelPermissionPredicateMaps: FlatRowLevelPermissionPredicateMaps;
-      flatRowLevelPermissionPredicateGroupMaps: FlatRowLevelPermissionPredicateGroupMaps;
-      flatFieldMetadataMaps: FlatEntityMaps<FlatFieldMetadata>;
-    },
-    flatWorkspaceMemberMaps: FlatWorkspaceMemberMaps,
-  ): RecordGqlOperationFilter | null {
-    const workspaceMember = isDefined(subscriberAuthContext.workspaceMemberId)
-      ? flatWorkspaceMemberMaps.byId[subscriberAuthContext.workspaceMemberId]
-      : undefined;
-
-    return buildRowLevelPermissionRecordFilter({
-      flatRowLevelPermissionPredicateMaps:
-        permissionsContext.flatRowLevelPermissionPredicateMaps,
-      flatRowLevelPermissionPredicateGroupMaps:
-        permissionsContext.flatRowLevelPermissionPredicateGroupMaps,
-      flatFieldMetadataMaps: permissionsContext.flatFieldMetadataMaps,
-      objectMetadata,
-      roleIds,
-      workspaceMember,
-    });
-  }
-
   private filterRestrictedFieldsFromEvent(
     event: ObjectRecordSubscriptionEvent,
     restrictedFields: RestrictedFieldsPermissions | undefined,
@@ -499,9 +455,6 @@ export class ObjectRecordEventPublisher {
   private getMatchingObjectRecordQueryIds(
     queries: Record<string, RecordOrMetadataGqlOperationSignature>,
     event: ObjectRecordSubscriptionEvent,
-    subscriberRLSFilter: RecordGqlOperationFilter | null,
-    objectMetadata: FlatObjectMetadata,
-    flatFieldMetadataMaps: FlatEntityMaps<FlatFieldMetadata>,
   ): string[] {
     const matchedQueryIds: string[] = [];
 
@@ -510,15 +463,7 @@ export class ObjectRecordEventPublisher {
         continue;
       }
 
-      if (
-        this.isQueryMatchingObjectRecordEvent(
-          operationSignature,
-          event,
-          subscriberRLSFilter,
-          objectMetadata,
-          flatFieldMetadataMaps,
-        )
-      ) {
+      if (this.isQueryMatchingObjectRecordEvent(operationSignature, event)) {
         matchedQueryIds.push(queryId);
       }
     }
@@ -526,12 +471,12 @@ export class ObjectRecordEventPublisher {
     return matchedQueryIds;
   }
 
+  // Server-side evaluation of the subscriber's query filter went away with the
+  // Enterprise record-filter evaluator: every event on a readable object is
+  // delivered and the client applies its own filters.
   private isQueryMatchingObjectRecordEvent(
     operationSignature: RecordGqlOperationSignature,
     event: ObjectRecordSubscriptionEvent,
-    subscriberRLSFilter: RecordGqlOperationFilter | null,
-    objectMetadata: FlatObjectMetadata,
-    flatFieldMetadataMaps: FlatEntityMaps<FlatFieldMetadata>,
   ): boolean {
     if (operationSignature.objectNameSingular !== event.objectNameSingular) {
       return false;
@@ -544,63 +489,18 @@ export class ObjectRecordEventPublisher {
 
     const deliveredRecord = properties?.after ?? properties?.before;
 
-    if (!isDefined(deliveredRecord)) {
-      return false;
-    }
-
-    const shouldIgnoreSoftDeleteDefaultFilter =
-      event.action === DatabaseEventAction.DELETED ||
-      event.action === DatabaseEventAction.RESTORED;
-
-    if (
-      isDefined(subscriberRLSFilter) &&
-      Object.keys(subscriberRLSFilter).length > 0 &&
-      !isRecordMatchingRLSRowLevelPermissionPredicate({
-        record: deliveredRecord,
-        filter: subscriberRLSFilter,
-        flatObjectMetadata: objectMetadata,
-        flatFieldMetadataMaps,
-        shouldIgnoreSoftDeleteDefaultFilter,
-      })
-    ) {
-      return false;
-    }
-
-    const queryFilter = operationSignature.variables?.filter ?? {};
-
-    if (Object.keys(queryFilter).length === 0) {
-      return true;
-    }
-
-    const candidateRecords =
-      event.action === DatabaseEventAction.UPDATED
-        ? [properties?.after, properties?.before].filter(isDefined)
-        : [deliveredRecord];
-
-    return candidateRecords.some((record) =>
-      isRecordMatchingRLSRowLevelPermissionPredicate({
-        record,
-        filter: queryFilter,
-        flatObjectMetadata: objectMetadata,
-        flatFieldMetadataMaps,
-        shouldIgnoreSoftDeleteDefaultFilter,
-      }),
-    );
+    return isDefined(deliveredRecord);
   }
 
   private async fetchPermissionsContext(
     workspaceId: string,
   ): Promise<StreamPermissionsContext> {
     const {
-      flatRowLevelPermissionPredicateMaps,
-      flatRowLevelPermissionPredicateGroupMaps,
       flatFieldMetadataMaps,
       userWorkspaceRoleMap,
       rolesPermissions,
       flatApplicationMaps,
     } = await this.workspaceCacheService.getOrRecompute(workspaceId, [
-      'flatRowLevelPermissionPredicateMaps',
-      'flatRowLevelPermissionPredicateGroupMaps',
       'flatFieldMetadataMaps',
       'userWorkspaceRoleMap',
       'rolesPermissions',
@@ -608,8 +508,6 @@ export class ObjectRecordEventPublisher {
     ]);
 
     return {
-      flatRowLevelPermissionPredicateMaps,
-      flatRowLevelPermissionPredicateGroupMaps,
       flatFieldMetadataMaps,
       userWorkspaceRoleMap,
       rolesPermissions,

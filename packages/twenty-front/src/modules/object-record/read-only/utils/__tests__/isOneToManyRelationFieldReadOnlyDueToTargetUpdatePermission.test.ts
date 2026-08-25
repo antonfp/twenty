@@ -19,8 +19,6 @@ const buildObjectPermissions = (opts: {
   canSoftDeleteObjectRecords: true,
   canDestroyObjectRecords: true,
   restrictedFields: opts.restrictedFields ?? {},
-  rowLevelPermissionPredicates: [],
-  rowLevelPermissionPredicateGroups: [],
 });
 
 const buildObjectPermissionsMap = (opts: {

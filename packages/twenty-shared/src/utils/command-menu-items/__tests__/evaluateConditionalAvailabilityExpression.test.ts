@@ -19,8 +19,6 @@ const buildContext = (
     canSoftDeleteObjectRecords: true,
     canDestroyObjectRecords: false,
     restrictedFields: {},
-    rowLevelPermissionPredicates: [],
-    rowLevelPermissionPredicateGroups: [],
   },
   selectedRecords: [],
   featureFlags: {},
@@ -353,8 +351,6 @@ describe('evaluateConditionalAvailabilityExpression', () => {
           canSoftDeleteObjectRecords: true,
           canDestroyObjectRecords: false,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       });
 

@@ -98,8 +98,6 @@ export const useCurrentCommandMenuContextApi = (): CommandMenuContextApi => {
         canDestroyObjectRecords: false,
         restrictedFields: {},
         objectMetadataId: '',
-        rowLevelPermissionPredicates: [],
-        rowLevelPermissionPredicateGroups: [],
       };
 
   const contextStoreCurrentViewId = useAtomComponentStateValue(

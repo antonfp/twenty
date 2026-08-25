@@ -18,7 +18,6 @@ export const buildMutationQueryBuilderV2 = ({
   commonQueryParser,
 }: BuildMutationQueryBuilderV2Args): {
   selectQueryBuilder: WorkspaceSelectQueryBuilderV2;
-  rowLevelPermissionsApplied: boolean;
 } => {
   const filteredQueryBuilder = repository.createQueryBuilder(alias);
 
@@ -30,7 +29,6 @@ export const buildMutationQueryBuilderV2 = ({
   if (!hasRelationTraversal) {
     return {
       selectQueryBuilder: filteredQueryBuilder,
-      rowLevelPermissionsApplied: false,
     };
   }
 
@@ -38,12 +36,10 @@ export const buildMutationQueryBuilderV2 = ({
     .select(`${alias}.id`)
     .withDeleted();
 
-  repository.applyWriteRowLevelPermissions(idSubQueryBuilder);
-
   const selectQueryBuilder = repository
     .createQueryBuilder(alias)
     .where(`"${alias}"."id" IN (${idSubQueryBuilder.getQuery()})`)
     .setParameters(idSubQueryBuilder.getParameters());
 
-  return { selectQueryBuilder, rowLevelPermissionsApplied: true };
+  return { selectQueryBuilder };
 };

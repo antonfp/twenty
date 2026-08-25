@@ -21,8 +21,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: false,
           canDestroyObjectRecords: false,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -41,8 +39,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: true,
           canDestroyObjectRecords: true,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -53,8 +49,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: true,
           canDestroyObjectRecords: true,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -69,8 +63,6 @@ describe('computePermissionIntersection', () => {
         canSoftDeleteObjectRecords: true,
         canDestroyObjectRecords: true,
         restrictedFields: {},
-        rowLevelPermissionPredicates: [],
-        rowLevelPermissionPredicateGroups: [],
       });
     });
 
@@ -82,8 +74,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: true,
           canDestroyObjectRecords: true,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -94,8 +84,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: false,
           canDestroyObjectRecords: true,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -110,8 +98,6 @@ describe('computePermissionIntersection', () => {
         canSoftDeleteObjectRecords: false,
         canDestroyObjectRecords: true,
         restrictedFields: {},
-        rowLevelPermissionPredicates: [],
-        rowLevelPermissionPredicateGroups: [],
       });
     });
 
@@ -123,8 +109,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: true,
           canDestroyObjectRecords: true,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -141,8 +125,6 @@ describe('computePermissionIntersection', () => {
         canSoftDeleteObjectRecords: false,
         canDestroyObjectRecords: false,
         restrictedFields: {},
-        rowLevelPermissionPredicates: [],
-        rowLevelPermissionPredicateGroups: [],
       });
     });
   });
@@ -156,8 +138,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: false,
           canDestroyObjectRecords: false,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
         [objectMetadataId2]: {
           canReadObjectRecords: true,
@@ -165,8 +145,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: false,
           canDestroyObjectRecords: false,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -177,8 +155,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: true,
           canDestroyObjectRecords: false,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
         [objectMetadataId2]: {
           canReadObjectRecords: true,
@@ -186,8 +162,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: false,
           canDestroyObjectRecords: false,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -202,8 +176,6 @@ describe('computePermissionIntersection', () => {
         canSoftDeleteObjectRecords: false,
         canDestroyObjectRecords: false,
         restrictedFields: {},
-        rowLevelPermissionPredicates: [],
-        rowLevelPermissionPredicateGroups: [],
       });
 
       expect(result[objectMetadataId2]).toEqual({
@@ -212,8 +184,6 @@ describe('computePermissionIntersection', () => {
         canSoftDeleteObjectRecords: false,
         canDestroyObjectRecords: false,
         restrictedFields: {},
-        rowLevelPermissionPredicates: [],
-        rowLevelPermissionPredicateGroups: [],
       });
     });
   });
@@ -236,8 +206,6 @@ describe('computePermissionIntersection', () => {
               canUpdate: null,
             },
           },
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -257,8 +225,6 @@ describe('computePermissionIntersection', () => {
               canUpdate: false,
             },
           },
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -292,8 +258,6 @@ describe('computePermissionIntersection', () => {
               canUpdate: false,
             },
           },
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -309,8 +273,6 @@ describe('computePermissionIntersection', () => {
               canUpdate: false,
             },
           },
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -341,8 +303,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: true,
           canDestroyObjectRecords: true,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -353,8 +313,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: false,
           canDestroyObjectRecords: true,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -365,8 +323,6 @@ describe('computePermissionIntersection', () => {
           canSoftDeleteObjectRecords: true,
           canDestroyObjectRecords: true,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       };
 
@@ -378,84 +334,8 @@ describe('computePermissionIntersection', () => {
         canSoftDeleteObjectRecords: false,
         canDestroyObjectRecords: true,
         restrictedFields: {},
-        rowLevelPermissionPredicates: [],
-        rowLevelPermissionPredicateGroups: [],
       });
     });
   });
 
-  describe('row-level permission predicates', () => {
-    const buildPermissions = (
-      roleId: string,
-      constrainedFieldMetadataIds: string[],
-    ): ObjectsPermissions => ({
-      [objectMetadataId1]: {
-        canReadObjectRecords: true,
-        canUpdateObjectRecords: true,
-        canSoftDeleteObjectRecords: true,
-        canDestroyObjectRecords: true,
-        restrictedFields: {},
-        rowLevelPermissionPredicates: constrainedFieldMetadataIds.map(
-          (fieldMetadataId) =>
-            ({
-              id: `${roleId}-${fieldMetadataId}`,
-              roleId,
-              fieldMetadataId,
-            }) as never,
-        ),
-        rowLevelPermissionPredicateGroups: [
-          { id: `${roleId}-group`, roleId } as never,
-        ],
-      },
-    });
-
-    const constrainedFieldMetadataIdsOf = (permissions: ObjectsPermissions) =>
-      permissions[objectMetadataId1].rowLevelPermissionPredicates.map(
-        (predicate) => predicate.fieldMetadataId,
-      );
-
-    it('should keep a field every role constrains', () => {
-      const result = computePermissionIntersection([
-        buildPermissions('user-role-id', ['field-1']),
-        buildPermissions('application-role-id', ['field-1']),
-      ]);
-
-      expect(constrainedFieldMetadataIdsOf(result)).toEqual(['field-1']);
-    });
-
-    it('should drop a field only one role constrains', () => {
-      const result = computePermissionIntersection([
-        buildPermissions('user-role-id', ['field-1', 'field-2']),
-        buildPermissions('application-role-id', ['field-1']),
-      ]);
-
-      expect(constrainedFieldMetadataIdsOf(result)).toEqual(['field-1']);
-    });
-
-    it('should drop every field when a role constrains none', () => {
-      const result = computePermissionIntersection([
-        buildPermissions('user-role-id', ['field-1']),
-        buildPermissions('application-role-id', []),
-      ]);
-
-      expect(constrainedFieldMetadataIdsOf(result)).toEqual([]);
-    });
-
-    it('should not expose a combined predicate group tree', () => {
-      const result = computePermissionIntersection([
-        buildPermissions('user-role-id', ['field-1']),
-        buildPermissions('application-role-id', ['field-1']),
-      ]);
-
-      expect(
-        result[objectMetadataId1].rowLevelPermissionPredicateGroups,
-      ).toEqual([]);
-    });
-
-    it('should leave a single role untouched', () => {
-      const permissions = buildPermissions('user-role-id', ['field-1']);
-
-      expect(computePermissionIntersection([permissions])).toBe(permissions);
-    });
-  });
 });

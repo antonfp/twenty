@@ -20,8 +20,6 @@ const allObjectPermissions: ObjectPermissions = {
   canSoftDeleteObjectRecords: true,
   canDestroyObjectRecords: true,
   restrictedFields: {},
-  rowLevelPermissionPredicates: [],
-  rowLevelPermissionPredicateGroups: [],
 };
 
 const createFlatObject = (

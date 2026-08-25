@@ -13,8 +13,6 @@ import {
 import { type PermissionsService } from 'src/engine/metadata-modules/permissions/permissions.service';
 import { type RoleService } from 'src/engine/metadata-modules/role/role.service';
 import { RoleToolWorkspaceService } from 'src/engine/metadata-modules/role/tools/services/role-tool.workspace-service';
-import { type RowLevelPermissionPredicateGroupService } from 'src/engine/metadata-modules/row-level-permission-predicate/services/row-level-permission-predicate-group.service';
-import { type RowLevelPermissionPredicateService } from 'src/engine/metadata-modules/row-level-permission-predicate/services/row-level-permission-predicate.service';
 import { type UserRoleService } from 'src/engine/metadata-modules/user-role/user-role.service';
 import { WorkspaceMigrationBuilderException } from 'src/engine/workspace-manager/workspace-migration/exceptions/workspace-migration-builder-exception';
 
@@ -42,15 +40,6 @@ const buildProvider = (options?: { hasRolesPermission?: boolean }) => {
   const objectPermissionService = {
     upsertObjectPermissions: jest.fn().mockResolvedValue([]),
   };
-  const rowLevelPermissionPredicateService = {
-    findByWorkspaceId: jest.fn().mockResolvedValue([]),
-    upsertRowLevelPermissionPredicates: jest
-      .fn()
-      .mockResolvedValue({ predicates: [], predicateGroups: [] }),
-  };
-  const rowLevelPermissionPredicateGroupService = {
-    findByWorkspaceId: jest.fn().mockResolvedValue([]),
-  };
   const applicationService = {
     findWorkspaceTwentyStandardAndCustomApplicationOrThrow: jest
       .fn()
@@ -71,8 +60,6 @@ const buildProvider = (options?: { hasRolesPermission?: boolean }) => {
     roleService as unknown as RoleService,
     userRoleService as unknown as UserRoleService,
     objectPermissionService as unknown as ObjectPermissionService,
-    rowLevelPermissionPredicateService as unknown as RowLevelPermissionPredicateService,
-    rowLevelPermissionPredicateGroupService as unknown as RowLevelPermissionPredicateGroupService,
     applicationService as unknown as ApplicationService,
   );
 
@@ -86,8 +73,6 @@ const buildProvider = (options?: { hasRolesPermission?: boolean }) => {
     roleService,
     userRoleService,
     objectPermissionService,
-    rowLevelPermissionPredicateService,
-    rowLevelPermissionPredicateGroupService,
     permissionsService,
   };
 };
@@ -143,7 +128,6 @@ describe('RoleToolProvider', () => {
           'delete_role',
           'assign_role_to_workspace_member',
           'upsert_object_permissions',
-          'upsert_row_level_permission_rules',
         ]),
       );
 
@@ -178,81 +162,6 @@ describe('RoleToolProvider', () => {
       expect(roleService.getWorkspaceRoles).toHaveBeenCalledWith(workspaceId);
     });
 
-    it('includes row-level permission rules when requested', async () => {
-      const {
-        provider,
-        roleService,
-        rowLevelPermissionPredicateService,
-        rowLevelPermissionPredicateGroupService,
-      } = buildProvider();
-
-      roleService.getWorkspaceRoles.mockResolvedValue([
-        { id: 'role-1', label: 'Support', isEditable: true },
-      ]);
-      rowLevelPermissionPredicateService.findByWorkspaceId.mockResolvedValue([
-        { id: 'predicate-1', roleId: 'role-1' },
-        { id: 'predicate-2', roleId: 'other-role' },
-      ]);
-      rowLevelPermissionPredicateGroupService.findByWorkspaceId.mockResolvedValue(
-        [
-          { id: 'group-1', roleId: 'role-1' },
-          { id: 'group-2', roleId: 'other-role' },
-        ],
-      );
-
-      const output = await provider.executeStaticTool(
-        'list_roles',
-        { includeRowLevelPermissionRules: true },
-        context,
-      );
-
-      expect(output.success).toBe(true);
-
-      const { roles } = output.result as {
-        roles: {
-          rowLevelPermissionPredicates: { id: string }[];
-          rowLevelPermissionPredicateGroups: { id: string }[];
-        }[];
-      };
-
-      expect(roles[0].rowLevelPermissionPredicates).toEqual([
-        { id: 'predicate-1', roleId: 'role-1' },
-      ]);
-      expect(roles[0].rowLevelPermissionPredicateGroups).toEqual([
-        { id: 'group-1', roleId: 'role-1' },
-      ]);
-    });
-
-    it('fetches predicates and groups once for the workspace, not per role', async () => {
-      const {
-        provider,
-        roleService,
-        rowLevelPermissionPredicateService,
-        rowLevelPermissionPredicateGroupService,
-      } = buildProvider();
-
-      roleService.getWorkspaceRoles.mockResolvedValue([
-        { id: 'role-1', label: 'Support', isEditable: true },
-        { id: 'role-2', label: 'Sales', isEditable: true },
-        { id: 'role-3', label: 'Guest', isEditable: true },
-      ]);
-
-      await provider.executeStaticTool(
-        'list_roles',
-        { includeRowLevelPermissionRules: true },
-        context,
-      );
-
-      expect(
-        rowLevelPermissionPredicateService.findByWorkspaceId,
-      ).toHaveBeenCalledTimes(1);
-      expect(
-        rowLevelPermissionPredicateGroupService.findByWorkspaceId,
-      ).toHaveBeenCalledTimes(1);
-      expect(
-        rowLevelPermissionPredicateGroupService.findByWorkspaceId,
-      ).toHaveBeenCalledWith(workspaceId);
-    });
   });
 
   describe('create_role', () => {
@@ -513,70 +422,4 @@ describe('RoleToolProvider', () => {
     });
   });
 
-  describe('upsert_row_level_permission_rules', () => {
-    it('upserts predicates and injects the object metadata id into groups', async () => {
-      const { provider, rowLevelPermissionPredicateService } = buildProvider();
-
-      const output = await provider.executeStaticTool(
-        'upsert_row_level_permission_rules',
-        {
-          roleId: 'support-role-id',
-          objectMetadataId: 'object-metadata-id',
-          predicates: [
-            {
-              fieldMetadataId: 'owner-field-metadata-id',
-              operand: 'IS',
-              workspaceMemberFieldMetadataId:
-                'workspace-member-id-field-metadata-id',
-              rowLevelPermissionPredicateGroupId: 'group-id',
-            },
-          ],
-          predicateGroups: [{ id: 'group-id', logicalOperator: 'AND' }],
-        },
-        context,
-      );
-
-      expect(output.success).toBe(true);
-      expect(
-        rowLevelPermissionPredicateService.upsertRowLevelPermissionPredicates,
-      ).toHaveBeenCalledWith({
-        workspaceId,
-        input: expect.objectContaining({
-          roleId: 'support-role-id',
-          objectMetadataId: 'object-metadata-id',
-          predicateGroups: [
-            expect.objectContaining({
-              id: 'group-id',
-              logicalOperator: 'AND',
-              objectMetadataId: 'object-metadata-id',
-            }),
-          ],
-        }),
-      });
-    });
-
-    it('surfaces service rejections such as cross-role ownership violations', async () => {
-      const { provider, rowLevelPermissionPredicateService } = buildProvider();
-
-      rowLevelPermissionPredicateService.upsertRowLevelPermissionPredicates.mockRejectedValue(
-        new Error(
-          'Predicate "foreign-predicate-id" belongs to a different role or object and cannot be modified here.',
-        ),
-      );
-
-      const output = await provider.executeStaticTool(
-        'upsert_row_level_permission_rules',
-        {
-          roleId: 'support-role-id',
-          objectMetadataId: 'object-metadata-id',
-          predicates: [],
-          predicateGroups: [],
-        },
-        context,
-      );
-
-      expect(output.success).toBe(false);
-      expect(output.error).toContain('different role or object');
-    });
-  });
 });

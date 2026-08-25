@@ -41,8 +41,6 @@ export const useMetadataErrorHandler = () => {
     pageLayout: t`page layout`,
     pageLayoutTab: t`page layout tab`,
     pageLayoutWidget: t`page layout widget`,
-    rowLevelPermissionPredicate: t`row level permission predicate`,
-    rowLevelPermissionPredicateGroup: t`row level permission predicate group`,
     viewFilterGroup: t`view filter group`,
     commandMenuItem: t`command menu item`,
     frontComponent: t`front component`,

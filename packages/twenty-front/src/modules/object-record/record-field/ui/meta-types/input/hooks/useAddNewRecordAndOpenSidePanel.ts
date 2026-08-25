@@ -5,7 +5,6 @@ import { useOpenRecordInSidePanel } from '@/side-panel/hooks/useOpenRecordInSide
 import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient';
 import { type FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
 import { type EnrichedObjectMetadataItem } from '@/object-metadata/types/EnrichedObjectMetadataItem';
-import { useBuildRecordInputFromRLSPredicates } from '@/object-record/hooks/useBuildRecordInputFromRLSPredicates';
 import { useCreateOneRecord } from '@/object-record/hooks/useCreateOneRecord';
 import { useObjectPermissionsForObject } from '@/object-record/hooks/useObjectPermissionsForObject';
 import { canCreateRecordsForObjectMetadataItem } from '@/object-record/utils/canCreateRecordsForObjectMetadataItem';
@@ -50,11 +49,6 @@ export const useAddNewRecordAndOpenSidePanel = ({
 
   const { updateOneRecord } = useUpdateOneRecord();
 
-  const { buildRecordInputFromRLSPredicates } =
-    useBuildRecordInputFromRLSPredicates({
-      objectMetadataItem: relationObjectMetadataItem,
-    });
-
   const { openRecordInSidePanel } = useOpenRecordInSidePanel();
 
   const apolloCoreClient = useApolloCoreClient();
@@ -82,7 +76,6 @@ export const useAddNewRecordAndOpenSidePanel = ({
       const newRecordId = v4();
 
       const createRecordPayload = {
-        ...buildRecordInputFromRLSPredicates(),
         ...buildRecordLabelPayload({
           id: newRecordId,
           searchInput,

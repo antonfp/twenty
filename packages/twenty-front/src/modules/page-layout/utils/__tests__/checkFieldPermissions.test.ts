@@ -8,8 +8,6 @@ describe('checkFieldPermissions', () => {
     canSoftDeleteObjectRecords: true,
     canDestroyObjectRecords: true,
     restrictedFields: {},
-    rowLevelPermissionPredicates: [],
-    rowLevelPermissionPredicateGroups: [],
   };
 
   it('should return true when no fields are restricted', () => {

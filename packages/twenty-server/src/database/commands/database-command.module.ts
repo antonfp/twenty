@@ -23,7 +23,6 @@ import { StaleRegistrationCleanupModule } from 'src/engine/core-modules/applicat
 import { ApplicationUpgradeModule } from 'src/engine/core-modules/application/application-upgrade/application-upgrade.module';
 import { ApplicationModule } from 'src/engine/core-modules/application/application.module';
 import { PreInstalledAppsModule } from 'src/engine/core-modules/application/pre-installed-apps/pre-installed-apps.module';
-import { EventLogCleanupModule } from 'src/engine/core-modules/event-logs/cleanup/event-log-cleanup.module';
 import { FeatureFlagModule } from 'src/engine/core-modules/feature-flag/feature-flag.module';
 import { FileModule } from 'src/engine/core-modules/file/file.module';
 import { PublicDomainModule } from 'src/engine/core-modules/public-domain/public-domain.module';
@@ -79,7 +78,6 @@ import { WorkflowCoreConsistencyModule } from 'src/modules/workflow/workflow-cor
     TrashCleanupModule,
     CodeInterpreterSessionCleanupModule,
     PublicDomainModule,
-    EventLogCleanupModule,
     TwentyConfigModule,
     MarketplaceModule,
     ApplicationInstallModule,

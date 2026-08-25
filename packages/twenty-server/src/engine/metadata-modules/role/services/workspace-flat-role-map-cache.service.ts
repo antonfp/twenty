@@ -15,8 +15,6 @@ import { ObjectPermissionEntity } from 'src/engine/metadata-modules/object-permi
 import { RolePermissionFlagEntity } from 'src/engine/metadata-modules/role-permission-flag/role-permission-flag.entity';
 import { RoleTargetEntity } from 'src/engine/metadata-modules/role-target/role-target.entity';
 import { RoleEntity } from 'src/engine/metadata-modules/role/role.entity';
-import { RowLevelPermissionPredicateGroupEntity } from 'src/engine/metadata-modules/row-level-permission-predicate/entities/row-level-permission-predicate-group.entity';
-import { RowLevelPermissionPredicateEntity } from 'src/engine/metadata-modules/row-level-permission-predicate/entities/row-level-permission-predicate.entity';
 import { InjectWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/inject-workspace-scoped-repository.decorator';
 import { WorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/workspace-scoped-repository';
 import { WorkspaceCache } from 'src/engine/workspace-cache/decorators/workspace-cache.decorator';
@@ -42,10 +40,6 @@ export class WorkspaceFlatRoleMapCacheService extends WorkspaceCacheProvider<
     private readonly rolePermissionFlagRepository: Repository<RolePermissionFlagEntity>,
     @InjectWorkspaceScopedRepository(FieldPermissionEntity)
     private readonly fieldPermissionRepository: WorkspaceScopedRepository<FieldPermissionEntity>,
-    @InjectWorkspaceScopedRepository(RowLevelPermissionPredicateEntity)
-    private readonly rowLevelPermissionPredicateRepository: WorkspaceScopedRepository<RowLevelPermissionPredicateEntity>,
-    @InjectWorkspaceScopedRepository(RowLevelPermissionPredicateGroupEntity)
-    private readonly rowLevelPermissionPredicateGroupRepository: WorkspaceScopedRepository<RowLevelPermissionPredicateGroupEntity>,
   ) {
     super();
   }
@@ -60,8 +54,6 @@ export class WorkspaceFlatRoleMapCacheService extends WorkspaceCacheProvider<
       objectPermissions,
       rolePermissionFlags,
       fieldPermissions,
-      rowLevelPermissionPredicates,
-      rowLevelPermissionPredicateGroups,
     ] = await Promise.all([
       this.roleRepository.find(workspaceId, {
         withDeleted: true,
@@ -88,14 +80,6 @@ export class WorkspaceFlatRoleMapCacheService extends WorkspaceCacheProvider<
         select: ['id', 'universalIdentifier', 'roleId'],
         withDeleted: true,
       }),
-      this.rowLevelPermissionPredicateRepository.find(workspaceId, {
-        select: ['id', 'universalIdentifier', 'roleId'],
-        withDeleted: true,
-      }),
-      this.rowLevelPermissionPredicateGroupRepository.find(workspaceId, {
-        select: ['id', 'universalIdentifier', 'roleId'],
-        withDeleted: true,
-      }),
     ]);
 
     const [
@@ -103,8 +87,6 @@ export class WorkspaceFlatRoleMapCacheService extends WorkspaceCacheProvider<
       objectPermissionsByRoleId,
       rolePermissionFlagsByRoleId,
       fieldPermissionsByRoleId,
-      rowLevelPermissionPredicatesByRoleId,
-      rowLevelPermissionPredicateGroupsByRoleId,
     ] = (
       [
         {
@@ -121,14 +103,6 @@ export class WorkspaceFlatRoleMapCacheService extends WorkspaceCacheProvider<
         },
         {
           entities: fieldPermissions,
-          foreignKey: 'roleId',
-        },
-        {
-          entities: rowLevelPermissionPredicates,
-          foreignKey: 'roleId',
-        },
-        {
-          entities: rowLevelPermissionPredicateGroups,
           foreignKey: 'roleId',
         },
       ] as const
@@ -148,10 +122,6 @@ export class WorkspaceFlatRoleMapCacheService extends WorkspaceCacheProvider<
           rolePermissionFlags:
             rolePermissionFlagsByRoleId.get(roleEntity.id) || [],
           fieldPermissions: fieldPermissionsByRoleId.get(roleEntity.id) || [],
-          rowLevelPermissionPredicates:
-            rowLevelPermissionPredicatesByRoleId.get(roleEntity.id) || [],
-          rowLevelPermissionPredicateGroups:
-            rowLevelPermissionPredicateGroupsByRoleId.get(roleEntity.id) || [],
         },
         applicationIdToUniversalIdentifierMap,
       });

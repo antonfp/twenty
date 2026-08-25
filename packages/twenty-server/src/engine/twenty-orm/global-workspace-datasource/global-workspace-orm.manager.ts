@@ -123,8 +123,6 @@ export class GlobalWorkspaceOrmManager {
       rolesPermissions: permissionsPerRoleId,
       userWorkspaceRoleMap,
       apiKeyRoleMap,
-      flatRowLevelPermissionPredicateMaps,
-      flatRowLevelPermissionPredicateGroupMaps,
     } = await this.workspaceCacheService.getOrRecompute(workspaceId, [
       'flatObjectMetadataMaps',
       'flatFieldMetadataMaps',
@@ -133,8 +131,6 @@ export class GlobalWorkspaceOrmManager {
       'rolesPermissions',
       'userWorkspaceRoleMap',
       'apiKeyRoleMap',
-      'flatRowLevelPermissionPredicateMaps',
-      'flatRowLevelPermissionPredicateGroupMaps',
     ]);
 
     const { idByNameSingular: objectIdByNameSingular } =
@@ -145,8 +141,6 @@ export class GlobalWorkspaceOrmManager {
       flatObjectMetadataMaps,
       flatFieldMetadataMaps,
       flatIndexMaps,
-      flatRowLevelPermissionPredicateMaps,
-      flatRowLevelPermissionPredicateGroupMaps,
       objectIdByNameSingular,
       featureFlagsMap,
       permissionsPerRoleId,
@@ -175,16 +169,6 @@ export class GlobalWorkspaceOrmManager {
       flatObjectMetadataMaps,
       flatFieldMetadataMaps,
       flatIndexMaps: {
-        byUniversalIdentifier: {},
-        universalIdentifierById: {},
-        universalIdentifiersByApplicationId: {},
-      },
-      flatRowLevelPermissionPredicateMaps: {
-        byUniversalIdentifier: {},
-        universalIdentifierById: {},
-        universalIdentifiersByApplicationId: {},
-      },
-      flatRowLevelPermissionPredicateGroupMaps: {
         byUniversalIdentifier: {},
         universalIdentifierById: {},
         universalIdentifiersByApplicationId: {},

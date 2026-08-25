@@ -1667,8 +1667,6 @@ export const Catalog: CatalogStory<Story, typeof WidgetRenderer> = {
             canSoftDeleteObjectRecords: false,
             canDestroyObjectRecords: false,
             restrictedFields: {},
-            rowLevelPermissionPredicates: [],
-            rowLevelPermissionPredicateGroups: [],
           },
         ],
       });
@@ -1684,8 +1682,6 @@ export const Catalog: CatalogStory<Story, typeof WidgetRenderer> = {
             canSoftDeleteObjectRecords: true,
             canDestroyObjectRecords: true,
             restrictedFields: {},
-            rowLevelPermissionPredicates: [],
-            rowLevelPermissionPredicateGroups: [],
           },
         ],
       });

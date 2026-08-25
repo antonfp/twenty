@@ -21,9 +21,6 @@ import {
   getUpdateEventRecords,
   mergeRecordsWithUpdateValues,
 } from 'src/engine/twenty-orm/utils/merge-records-with-update-values.util';
-import { renderRowLevelPermissionFilterToSql } from 'src/engine/twenty-orm/utils/render-row-level-permission-filter-to-sql.util';
-import { resolveRowLevelPermissionRecordFilter } from 'src/engine/twenty-orm/utils/resolve-row-level-permission-record-filter.util';
-import { validateRLSPredicatesForRecords } from 'src/engine/twenty-orm/utils/validate-rls-predicates-for-records.util';
 import {
   TwentyOrmV2Exception,
   TwentyOrmV2ExceptionCode,
@@ -176,12 +173,6 @@ export class WorkspaceRepositoryV2 {
       this.options.flatObjectMetadata,
       this.options.internalContext.flatFieldMetadataMaps,
     );
-  }
-
-  applyWriteRowLevelPermissions(
-    queryBuilder: WorkspaceSelectQueryBuilderV2,
-  ): void {
-    this.applyRowLevelPermissionPredicates(queryBuilder);
   }
 
   getInternalContext(): WorkspaceInternalContext {
@@ -566,7 +557,6 @@ export class WorkspaceRepositoryV2 {
         this.createQueryBuilder(),
         criteria,
       ),
-      rowLevelPermissionsApplied: false,
       kind: 'update',
       columnsToReturn: ['id'],
       data: partialEntity,
@@ -609,7 +599,6 @@ export class WorkspaceRepositoryV2 {
         this.createQueryBuilder(),
         criteria,
       ),
-      rowLevelPermissionsApplied: false,
       kind: 'delete',
       columnsToReturn: ['id'],
     });
@@ -628,7 +617,6 @@ export class WorkspaceRepositoryV2 {
         this.createQueryBuilder(),
         criteria,
       ),
-      rowLevelPermissionsApplied: false,
       kind: 'soft-delete',
       columnsToReturn: ['id'],
     });
@@ -642,7 +630,6 @@ export class WorkspaceRepositoryV2 {
         this.createQueryBuilder(),
         criteria,
       ),
-      rowLevelPermissionsApplied: false,
       kind: 'restore',
       columnsToReturn: ['id'],
     });
@@ -906,10 +893,6 @@ export class WorkspaceRepositoryV2 {
       updatedColumns: insertedColumns,
     });
 
-    this.validateRLSPredicatesForWrittenRecords(
-      this.formatResult<ObjectRecord[]>(formattedRecords),
-    );
-
     const sql = buildInsertStatement({
       tableShape: this.options.tableShape,
       columnNames,
@@ -1014,18 +997,9 @@ export class WorkspaceRepositoryV2 {
 
       recordsBefore.push(...rawBeforeForInput);
 
-      this.validateRLSPredicatesForWrittenRecords(
-        this.formatResult<ObjectRecord[]>(
-          rawBeforeForInput.map((record) => ({ ...record, ...setColumns })),
-        ),
-        'Updated record does not satisfy row-level security constraints of your current role',
-      );
-
       const selectQueryBuilder = this.createQueryBuilder().where({
         id: input.id,
       });
-
-      this.applyRowLevelPermissionPredicates(selectQueryBuilder);
 
       const result = await selectQueryBuilder
         .update()
@@ -1184,21 +1158,15 @@ export class WorkspaceRepositoryV2 {
 
   async runMutation({
     selectQueryBuilder,
-    rowLevelPermissionsApplied,
     kind,
     columnsToReturn,
     data,
   }: {
     selectQueryBuilder: WorkspaceSelectQueryBuilderV2;
-    rowLevelPermissionsApplied: boolean;
     kind: MutationKind;
     columnsToReturn: string[];
     data?: Partial<ObjectRecord>;
   }): Promise<ObjectRecord[]> {
-    if (!rowLevelPermissionsApplied) {
-      this.applyRowLevelPermissionPredicates(selectQueryBuilder);
-    }
-
     const eventSelectQueryBuilder =
       this.buildEventSnapshotQueryBuilder(selectQueryBuilder);
 
@@ -1259,15 +1227,6 @@ export class WorkspaceRepositoryV2 {
       columnsToReturn,
       updatedColumns: isDefined(setColumns) ? Object.keys(setColumns) : [],
     });
-
-    if (kind === 'update' && isDefined(setColumns)) {
-      this.validateRLSPredicatesForWrittenRecords(
-        this.formatResult<ObjectRecord[]>(
-          recordsBefore.map((record) => ({ ...record, ...setColumns })),
-        ),
-        'Updated record does not satisfy row-level security constraints of your current role',
-      );
-    }
 
     const mutationResult = await this.morphAndExecute({
       selectQueryBuilder,
@@ -1375,20 +1334,6 @@ export class WorkspaceRepositoryV2 {
     });
   }
 
-  private validateRLSPredicatesForWrittenRecords(
-    records: ObjectRecord[],
-    errorMessage?: string,
-  ): void {
-    validateRLSPredicatesForRecords({
-      records,
-      objectMetadata: this.options.flatObjectMetadata,
-      internalContext: this.options.internalContext,
-      authContext: this.options.authContext,
-      shouldBypassPermissionChecks: this.options.shouldBypassPermissionChecks,
-      ...(isDefined(errorMessage) ? { errorMessage } : {}),
-    });
-  }
-
   private emitMutationEvent({
     kind,
     recordsBefore,
@@ -1426,7 +1371,6 @@ export class WorkspaceRepositoryV2 {
   }
 
   private onBeforeExecute(queryBuilder: WorkspaceSelectQueryBuilderV2): void {
-    this.applyRowLevelPermissionPredicates(queryBuilder);
     this.validateQueryIsPermitted(queryBuilder);
   }
 
@@ -1466,82 +1410,4 @@ export class WorkspaceRepositoryV2 {
     }
   }
 
-  private applyRowLevelPermissionPredicates(
-    queryBuilder: WorkspaceSelectQueryBuilderV2,
-  ): void {
-    if (this.options.shouldBypassPermissionChecks) {
-      return;
-    }
-
-    this.applyRowLevelPermissionPredicateForAlias({
-      queryBuilder,
-      alias: queryBuilder.alias,
-      flatObjectMetadata: this.options.flatObjectMetadata,
-    });
-
-    for (const joinAttribute of queryBuilder.expressionMap.joinAttributes) {
-      const joinedTableShape = queryBuilder.getJoinedTableShape(
-        joinAttribute.alias.name,
-      );
-
-      if (!isDefined(joinedTableShape)) {
-        continue;
-      }
-
-      this.applyRowLevelPermissionPredicateForAlias({
-        queryBuilder,
-        alias: joinAttribute.alias.name,
-        flatObjectMetadata: this.options.flatObjectMetadataByObjectMetadataId(
-          joinedTableShape.objectMetadataId,
-        ),
-      });
-    }
-  }
-
-  private applyRowLevelPermissionPredicateForAlias({
-    queryBuilder,
-    alias,
-    flatObjectMetadata,
-  }: {
-    queryBuilder: WorkspaceSelectQueryBuilderV2;
-    alias: string;
-    flatObjectMetadata: FlatObjectMetadata;
-  }): void {
-    if (!queryBuilder.markRowLevelPermissionApplied(alias)) {
-      return;
-    }
-
-    const recordFilter = resolveRowLevelPermissionRecordFilter({
-      internalContext: this.options.internalContext,
-      authContext: this.options.authContext,
-      objectMetadata: flatObjectMetadata,
-    });
-
-    if (!isDefined(recordFilter)) {
-      return;
-    }
-
-    const renderedCondition = renderRowLevelPermissionFilterToSql({
-      recordFilter,
-      tableAlias: alias,
-      objectMetadata: flatObjectMetadata,
-      flatFieldMetadataMaps: this.options.internalContext.flatFieldMetadataMaps,
-    });
-
-    if (!isDefined(renderedCondition)) {
-      return;
-    }
-
-    if (alias === queryBuilder.alias) {
-      queryBuilder.andWhere(
-        renderedCondition.sql,
-        renderedCondition.parameters,
-      );
-
-      return;
-    }
-
-    queryBuilder.addJoinCondition(alias, renderedCondition.sql);
-    queryBuilder.setParameters(renderedCondition.parameters);
-  }
 }

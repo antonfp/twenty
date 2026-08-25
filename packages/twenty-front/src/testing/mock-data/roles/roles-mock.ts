@@ -81,8 +81,6 @@ export const BASE_ROLE_MOCK_GRANTS_ALL: Role = {
     MOCK_OBJECT_PERMISSION_2_GRANTS_ALL,
     MOCK_OBJECT_PERMISSION_3_NULL_ALL,
   ],
-  rowLevelPermissionPredicateGroups: [],
-  rowLevelPermissionPredicates: [],
 };
 
 export const BASE_ROLE_MOCK_REVOKES_ALL: Role = {
@@ -113,8 +111,6 @@ export const BASE_ROLE_MOCK_REVOKES_ALL: Role = {
     MOCK_OBJECT_PERMISSION_2_GRANTS_ALL,
     MOCK_OBJECT_PERMISSION_3_NULL_ALL,
   ],
-  rowLevelPermissionPredicateGroups: [],
-  rowLevelPermissionPredicates: [],
 };
 
 export const initializeRolesMockJotaiStore = () => {

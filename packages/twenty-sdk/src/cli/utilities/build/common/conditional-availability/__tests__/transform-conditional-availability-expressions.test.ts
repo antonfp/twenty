@@ -31,8 +31,6 @@ const buildMockCommandMenuContextApi = (
     canSoftDeleteObjectRecords: true,
     canDestroyObjectRecords: false,
     restrictedFields: {},
-    rowLevelPermissionPredicates: [],
-    rowLevelPermissionPredicateGroups: [],
   },
   selectedRecords: [],
   featureFlags: {},

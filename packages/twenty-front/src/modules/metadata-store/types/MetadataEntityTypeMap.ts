@@ -12,8 +12,6 @@ import { type FlatPageLayoutTab } from '@/metadata-store/types/FlatPageLayoutTab
 import { type FlatPageLayoutWidget } from '@/metadata-store/types/FlatPageLayoutWidget';
 import { type FlatRole } from '@/metadata-store/types/FlatRole';
 import { type FlatRoleTarget } from '@/metadata-store/types/FlatRoleTarget';
-import { type FlatRowLevelPermissionPredicate } from '@/metadata-store/types/FlatRowLevelPermissionPredicate';
-import { type FlatRowLevelPermissionPredicateGroup } from '@/metadata-store/types/FlatRowLevelPermissionPredicateGroup';
 import { type FlatSkill } from '@/metadata-store/types/FlatSkill';
 import { type FlatView } from '@/metadata-store/types/FlatView';
 import { type FlatViewField } from '@/metadata-store/types/FlatViewField';
@@ -47,7 +45,5 @@ export type MetadataEntityTypeMap = {
   roleTargets: FlatRoleTarget;
   agents: FlatAgent;
   skills: FlatSkill;
-  rowLevelPermissionPredicates: FlatRowLevelPermissionPredicate;
-  rowLevelPermissionPredicateGroups: FlatRowLevelPermissionPredicateGroup;
   agentChatThreads: FlatAgentChatThread;
 };

@@ -13,8 +13,6 @@ import { FieldPermissionEntity } from 'src/engine/metadata-modules/object-permis
 import { ObjectPermissionEntity } from 'src/engine/metadata-modules/object-permission/object-permission.entity';
 import { RolePermissionFlagEntity } from 'src/engine/metadata-modules/role-permission-flag/role-permission-flag.entity';
 import { RoleTargetEntity } from 'src/engine/metadata-modules/role-target/role-target.entity';
-import { RowLevelPermissionPredicateGroupEntity } from 'src/engine/metadata-modules/row-level-permission-predicate/entities/row-level-permission-predicate-group.entity';
-import { RowLevelPermissionPredicateEntity } from 'src/engine/metadata-modules/row-level-permission-predicate/entities/row-level-permission-predicate.entity';
 import { SyncableEntity } from 'src/engine/workspace-manager/types/syncable-entity.interface';
 
 @Entity('role')
@@ -92,20 +90,4 @@ export class RoleEntity extends SyncableEntity implements Required<RoleEntity> {
   )
   fieldPermissions: Relation<FieldPermissionEntity[]>;
 
-  @OneToMany(
-    () => RowLevelPermissionPredicateEntity,
-    (rowLevelPermissionPredicate: RowLevelPermissionPredicateEntity) =>
-      rowLevelPermissionPredicate.role,
-  )
-  rowLevelPermissionPredicates: Relation<RowLevelPermissionPredicateEntity[]>;
-
-  @OneToMany(
-    () => RowLevelPermissionPredicateGroupEntity,
-    (
-      rowLevelPermissionPredicateGroup: RowLevelPermissionPredicateGroupEntity,
-    ) => rowLevelPermissionPredicateGroup.role,
-  )
-  rowLevelPermissionPredicateGroups: Relation<
-    RowLevelPermissionPredicateGroupEntity[]
-  >;
 }

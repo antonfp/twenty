@@ -23,7 +23,6 @@ import { PermissionsGraphqlApiExceptionFilter } from 'src/engine/metadata-module
 import { CacheStorageModule } from 'src/engine/core-modules/cache-storage/cache-storage.module';
 import { TimelineCalendarEventModule } from 'src/engine/core-modules/calendar/timeline-calendar-event.module';
 import { CaptchaModule } from 'src/engine/core-modules/captcha/captcha.module';
-import { CloudflareModule } from 'src/engine/core-modules/cloudflare/cloudflare.module';
 import { CodeInterpreterModule } from 'src/engine/core-modules/code-interpreter/code-interpreter.module';
 import { DnsManagerModule } from 'src/engine/core-modules/dns-manager/dns-manager.module';
 import { DpaModule } from 'src/engine/core-modules/dpa/dpa.module';
@@ -67,7 +66,6 @@ import { AiBillingModule } from 'src/engine/metadata-modules/ai/ai-billing/ai-bi
 import { AiModelsModule } from 'src/engine/metadata-modules/ai/ai-models/ai-models.module';
 import { PageLayoutModule } from 'src/engine/metadata-modules/page-layout/page-layout.module';
 import { RoleModule } from 'src/engine/metadata-modules/role/role.module';
-import { RowLevelPermissionModule } from 'src/engine/metadata-modules/row-level-permission-predicate/row-level-permission.module';
 import { SubscriptionsModule } from 'src/engine/subscriptions/subscriptions.module';
 import { CodeInterpreterSessionCleanupModule } from 'src/engine/core-modules/code-interpreter/crons/code-interpreter-session-cleanup.module';
 import { TrashCleanupModule } from 'src/engine/trash-cleanup/trash-cleanup.module';
@@ -77,7 +75,6 @@ import { CreateCalendarEventModule } from 'src/modules/calendar/calendar-event-c
 import { DashboardModule } from 'src/modules/dashboard/dashboard.module';
 import { SendEmailModule } from 'src/modules/messaging/message-outbound-manager/send-email.module';
 import { ClientConfigModule } from './client-config/client-config.module';
-import { EventLogsViewerModule } from './event-logs/event-logs-viewer.module';
 import { FileModule } from './file/file.module';
 
 @Module({
@@ -92,7 +89,6 @@ import { FileModule } from './file/file.module';
     ClientConfigModule,
     FeatureFlagModule,
     FileModule,
-    RowLevelPermissionModule,
     OpenApiModule,
     WellKnownModule,
     ApplicationRegistrationModule,
@@ -113,7 +109,6 @@ import { FileModule } from './file/file.module';
     EmailingDomainModule,
     EmailingModule,
     PublicDomainModule,
-    CloudflareModule,
     DnsManagerModule,
     WorkflowApiModule,
     WorkspaceEventEmitterModule,
@@ -162,7 +157,6 @@ import { FileModule } from './file/file.module';
     TrashCleanupModule,
     CodeInterpreterSessionCleanupModule,
     DashboardModule,
-    EventLogsViewerModule,
     PreInstalledAppsModule,
   ],
   providers: [
@@ -172,7 +166,6 @@ import { FileModule } from './file/file.module';
     },
   ],
   exports: [
-    EventLogsViewerModule,
     AuthModule,
     FeatureFlagModule,
     TimelineMessagingModule,

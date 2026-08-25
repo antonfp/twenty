@@ -3,11 +3,8 @@ import { useLingui } from '@lingui/react/macro';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { currentWorkspaceState } from '@/auth/states/currentWorkspaceState';
-import { isClickHouseConfiguredState } from '@/client-config/states/isClickHouseConfiguredState';
 import { isMultiWorkspaceEnabledState } from '@/client-config/states/isMultiWorkspaceEnabledState';
 import { Separator } from '@/settings/components/Separator';
-import { SettingsEnterpriseFeatureGateCard } from '@/settings/components/SettingsEnterpriseFeatureGateCard';
-import { SettingsOptionCardContentButton } from '@/settings/components/SettingsOptions/SettingsOptionCardContentButton';
 import { SettingsOptionCardContentCounter } from '@/settings/components/SettingsOptions/SettingsOptionCardContentCounter';
 import { SettingsOptionCardContentToggle } from '@/settings/components/SettingsOptions/SettingsOptionCardContentToggle';
 import { SettingsRoleDefaultRole } from '@/settings/roles/components/SettingsRolesDefaultRole';
@@ -21,18 +18,12 @@ import { useAtomState } from '@/ui/utilities/state/jotai/hooks/useAtomState';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { CombinedGraphQLErrors } from '@apollo/client/errors';
 import { useMutation } from '@apollo/client/react';
-import {
-  IconClockHour8,
-  IconHistory,
-  IconMail,
-  IconTrash,
-} from 'twenty-ui/icon';
+import { IconMail, IconTrash } from 'twenty-ui/icon';
 import { H2Title } from 'twenty-ui/typography';
 import { Section } from 'twenty-ui/layout';
 import { Card } from 'twenty-ui/surfaces';
 import { themeCssVariables } from 'twenty-ui/theme-constants';
 import { UpdateWorkspaceDocument } from '~/generated-metadata/graphql';
-import { OrganizationAdornment } from '~/pages/settings/enterprise/components/OrganizationAdornment';
 
 const StyledContainer = styled.div`
   width: 100%;
@@ -52,7 +43,6 @@ export const SettingsSecuritySettings = () => {
   const isMultiWorkspaceEnabled = useAtomStateValue(
     isMultiWorkspaceEnabledState,
   );
-  const isClickHouseConfigured = useAtomStateValue(isClickHouseConfiguredState);
   const [currentWorkspace, setCurrentWorkspace] = useAtomState(
     currentWorkspaceState,
   );
@@ -64,22 +54,6 @@ export const SettingsSecuritySettings = () => {
         variables: {
           input: {
             trashRetentionDays: value,
-          },
-        },
-      });
-    } catch (err) {
-      enqueueErrorSnackBar({
-        apolloError: CombinedGraphQLErrors.is(err) ? err : undefined,
-      });
-    }
-  }, 500);
-
-  const saveEventLogRetention = useDebouncedCallback(async (value: number) => {
-    try {
-      await updateWorkspace({
-        variables: {
-          input: {
-            eventLogRetentionDays: value,
           },
         },
       });
@@ -134,28 +108,7 @@ export const SettingsSecuritySettings = () => {
     });
   };
 
-  const handleEventLogRetentionDaysChange = (value: number) => {
-    if (!currentWorkspace) {
-      return;
-    }
-
-    if (value === currentWorkspace.eventLogRetentionDays) {
-      return;
-    }
-
-    setCurrentWorkspace({
-      ...currentWorkspace,
-      eventLogRetentionDays: value,
-    });
-
-    saveEventLogRetention(value);
-  };
-
   const roles = useSettingsAllRoles();
-
-  const hasEnterpriseAccess =
-    currentWorkspace?.hasValidEnterpriseValidityToken === true;
-  const isEventLogsEnabled = hasEnterpriseAccess && isClickHouseConfigured;
 
   return (
     <>
@@ -189,41 +142,6 @@ export const SettingsSecuritySettings = () => {
             <ToggleImpersonate />
           </Section>
         )}
-        <Section>
-          <H2Title
-            title={t`Audit Logs`}
-            description={t`Configure how long audit logs are retained`}
-            adornment={<OrganizationAdornment />}
-          />
-          {hasEnterpriseAccess ? (
-            <Card rounded>
-              {isEventLogsEnabled ? (
-                <SettingsOptionCardContentCounter
-                  Icon={IconClockHour8}
-                  title={t`Log retention`}
-                  description={t`Number of days to retain audit logs (30-1095 days)`}
-                  value={currentWorkspace?.eventLogRetentionDays ?? 90}
-                  onChange={handleEventLogRetentionDaysChange}
-                  minValue={30}
-                  maxValue={1095}
-                  showButtons={false}
-                />
-              ) : (
-                <SettingsOptionCardContentButton
-                  Icon={IconHistory}
-                  title={t`Audit Logs`}
-                  description={t`ClickHouse is required for audit logs. Contact your administrator.`}
-                />
-              )}
-            </Card>
-          ) : (
-            <SettingsEnterpriseFeatureGateCard
-              title={t`Enterprise feature`}
-              description={t`Upgrade to Enterprise to access audit logs.`}
-              buttonTitle={t`Activate`}
-            />
-          )}
-        </Section>
         <Section>
           <H2Title title={t`Other`} description={t`Other security settings`} />
           <Card rounded>

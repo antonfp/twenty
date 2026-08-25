@@ -116,7 +116,6 @@ describe('addUniversalFlatEntityToUniversalFlatEntityAndRelatedEntityMapsThrough
       kanbanAggregateOperation: null,
       mainGroupByFieldMetadataUniversalIdentifier: null,
       viewFilterGroupUniversalIdentifiers: [],
-      rowLevelPermissionPredicateGroupUniversalIdentifiers: [],
     };
 
     const flatObjectMetadataMaps =
@@ -212,7 +211,6 @@ describe('addUniversalFlatEntityToUniversalFlatEntityAndRelatedEntityMapsThrough
       kanbanAggregateOperation: null,
       mainGroupByFieldMetadataUniversalIdentifier: null,
       viewFilterGroupUniversalIdentifiers: [],
-      rowLevelPermissionPredicateGroupUniversalIdentifiers: [],
     };
 
     const universalFlatEntityAndRelatedMapsToMutate = {

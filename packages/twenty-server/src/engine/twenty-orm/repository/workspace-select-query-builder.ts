@@ -29,37 +29,8 @@ import { WorkspaceDeleteQueryBuilder } from 'src/engine/twenty-orm/repository/wo
 import { WorkspaceInsertQueryBuilder } from 'src/engine/twenty-orm/repository/workspace-insert-query-builder';
 import { WorkspaceSoftDeleteQueryBuilder } from 'src/engine/twenty-orm/repository/workspace-soft-delete-query-builder';
 import { WorkspaceUpdateQueryBuilder } from 'src/engine/twenty-orm/repository/workspace-update-query-builder';
-import { applyRowLevelPermissionPredicates } from 'src/engine/twenty-orm/utils/apply-row-level-permission-predicates.util';
 import { formatResult } from 'src/engine/twenty-orm/utils/format-result.util';
 import { getObjectMetadataFromEntityTarget } from 'src/engine/twenty-orm/utils/get-object-metadata-from-entity-target.util';
-import { renderRowLevelPermissionFilterToSql } from 'src/engine/twenty-orm/utils/render-row-level-permission-filter-to-sql.util';
-import { resolveRowLevelPermissionRecordFilter } from 'src/engine/twenty-orm/utils/resolve-row-level-permission-record-filter.util';
-
-type JoinAttributeWithRowLevelPermissionMarker = JoinAttribute & {
-  hasRowLevelPermissionPredicateApplied?: true;
-};
-
-const hasRowLevelPermissionPredicateApplied = (
-  joinAttribute: JoinAttribute,
-): boolean =>
-  (joinAttribute as JoinAttributeWithRowLevelPermissionMarker)
-    .hasRowLevelPermissionPredicateApplied === true;
-
-const markRowLevelPermissionPredicateApplied = (
-  joinAttribute: JoinAttribute,
-): void => {
-  (
-    joinAttribute as JoinAttributeWithRowLevelPermissionMarker
-  ).hasRowLevelPermissionPredicateApplied = true;
-};
-
-const andWithExistingJoinCondition = (
-  existingJoinCondition: string | undefined,
-  rowLevelPermissionCondition: string,
-): string =>
-  isNonEmptyString(existingJoinCondition)
-    ? `(${existingJoinCondition}) AND (${rowLevelPermissionCondition})`
-    : rowLevelPermissionCondition;
 
 export class WorkspaceSelectQueryBuilder<
   T extends ObjectLiteral,
@@ -404,7 +375,6 @@ export class WorkspaceSelectQueryBuilder<
   }
 
   private validatePermissions(): void {
-    this.applyRowLevelPermissionPredicatesToMainAliasAndJoinedRelations();
     validateQueryIsPermittedOrThrow({
       expressionMap: this.expressionMap,
       objectsPermissions: this.objectRecordsPermissions,
@@ -414,11 +384,6 @@ export class WorkspaceSelectQueryBuilder<
       shouldBypassPermissionChecks: this.shouldBypassPermissionChecks,
       authContext: this.authContext,
     });
-  }
-
-  applyRowLevelPermissionPredicatesToMainAliasAndJoinedRelations(): void {
-    this.applyRowLevelPermissionPredicates();
-    this.applyRowLevelPermissionPredicatesToJoinedRelations();
   }
 
   private getMainAliasTarget(): EntityTarget<T> {
@@ -436,111 +401,4 @@ export class WorkspaceSelectQueryBuilder<
     return mainAliasTarget;
   }
 
-  private applyRowLevelPermissionPredicates(): void {
-    if (this.shouldBypassPermissionChecks) {
-      return;
-    }
-
-    // Subqueries don't have entity metadata, skip permission predicates
-    // Permissions are already applied on the original entity query
-    if (this.expressionMap.mainAlias?.subQuery) {
-      return;
-    }
-
-    const mainAliasTarget = this.getMainAliasTarget();
-
-    const objectMetadata = getObjectMetadataFromEntityTarget(
-      mainAliasTarget,
-      this.internalContext,
-    );
-
-    applyRowLevelPermissionPredicates({
-      queryBuilder: this,
-      objectMetadata,
-      internalContext: this.internalContext,
-      authContext: this.authContext,
-      featureFlagMap: this.featureFlagMap,
-    });
-  }
-
-  private applyRowLevelPermissionPredicatesToJoinedRelations(): void {
-    if (this.shouldBypassPermissionChecks) {
-      return;
-    }
-
-    for (const joinAttribute of this.expressionMap.joinAttributes) {
-      if (hasRowLevelPermissionPredicateApplied(joinAttribute)) {
-        continue;
-      }
-
-      const joinedObjectMetadata =
-        this.getJoinedObjectMetadataOrUndefined(joinAttribute);
-
-      if (!isDefined(joinedObjectMetadata)) {
-        continue;
-      }
-
-      const recordFilter = resolveRowLevelPermissionRecordFilter({
-        internalContext: this.internalContext,
-        authContext: this.authContext,
-        objectMetadata: joinedObjectMetadata,
-      });
-
-      if (!isDefined(recordFilter)) {
-        markRowLevelPermissionPredicateApplied(joinAttribute);
-        continue;
-      }
-
-      const renderedCondition = renderRowLevelPermissionFilterToSql({
-        recordFilter,
-        tableAlias: joinAttribute.alias.name,
-        objectMetadata: joinedObjectMetadata,
-        flatFieldMetadataMaps: this.internalContext.flatFieldMetadataMaps,
-      });
-
-      if (!isDefined(renderedCondition)) {
-        markRowLevelPermissionPredicateApplied(joinAttribute);
-        continue;
-      }
-
-      joinAttribute.condition = andWithExistingJoinCondition(
-        joinAttribute.condition,
-        renderedCondition.sql,
-      );
-
-      this.setParameters(renderedCondition.parameters);
-      markRowLevelPermissionPredicateApplied(joinAttribute);
-    }
-  }
-
-  private getJoinedObjectMetadataOrUndefined(
-    joinAttribute: JoinAttribute,
-  ): FlatObjectMetadata | undefined {
-    const joinedEntityMetadata = joinAttribute.metadata;
-    const isJoinOnSubQueryOrCustomTable =
-      isDefined(joinAttribute.alias?.subQuery) ||
-      !isDefined(joinedEntityMetadata);
-
-    if (isJoinOnSubQueryOrCustomTable) {
-      return undefined;
-    }
-
-    const joinedEntityTarget = joinedEntityMetadata.target;
-
-    if (typeof joinedEntityTarget !== 'string') {
-      return undefined;
-    }
-
-    const joinedObjectMetadataId =
-      this.internalContext.objectIdByNameSingular[joinedEntityTarget];
-
-    if (!isDefined(joinedObjectMetadataId)) {
-      return undefined;
-    }
-
-    return findFlatEntityByIdInFlatEntityMaps({
-      flatEntityId: joinedObjectMetadataId,
-      flatEntityMaps: this.internalContext.flatObjectMetadataMaps,
-    });
-  }
 }

@@ -198,18 +198,6 @@ export const ALL_ONE_TO_MANY_METADATA_RELATIONS = {
       universalFlatEntityForeignKeyAggregator:
         'fieldPermissionUniversalIdentifiers',
     },
-    rowLevelPermissionPredicates: {
-      metadataName: 'rowLevelPermissionPredicate',
-      flatEntityForeignKeyAggregator: 'rowLevelPermissionPredicateIds',
-      universalFlatEntityForeignKeyAggregator:
-        'rowLevelPermissionPredicateUniversalIdentifiers',
-    },
-    rowLevelPermissionPredicateGroups: {
-      metadataName: 'rowLevelPermissionPredicateGroup',
-      flatEntityForeignKeyAggregator: 'rowLevelPermissionPredicateGroupIds',
-      universalFlatEntityForeignKeyAggregator:
-        'rowLevelPermissionPredicateGroupUniversalIdentifiers',
-    },
   },
   roleTarget: {},
   rolePermissionFlag: {},
@@ -238,22 +226,6 @@ export const ALL_ONE_TO_MANY_METADATA_RELATIONS = {
     },
   },
   pageLayoutWidget: {},
-  rowLevelPermissionPredicate: {},
-  rowLevelPermissionPredicateGroup: {
-    childRowLevelPermissionPredicateGroups: {
-      metadataName: 'rowLevelPermissionPredicateGroup',
-      flatEntityForeignKeyAggregator:
-        'childRowLevelPermissionPredicateGroupIds',
-      universalFlatEntityForeignKeyAggregator:
-        'childRowLevelPermissionPredicateGroupUniversalIdentifiers',
-    },
-    rowLevelPermissionPredicates: {
-      metadataName: 'rowLevelPermissionPredicate',
-      flatEntityForeignKeyAggregator: 'rowLevelPermissionPredicateIds',
-      universalFlatEntityForeignKeyAggregator:
-        'rowLevelPermissionPredicateUniversalIdentifiers',
-    },
-  },
   viewFilterGroup: {
     childViewFilterGroups: {
       metadataName: 'viewFilterGroup',

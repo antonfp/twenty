@@ -1,6 +1,5 @@
 import { type EnrichedObjectMetadataItem } from '@/object-metadata/types/EnrichedObjectMetadataItem';
 import { getLabelIdentifierFieldMetadataItem } from '@/object-metadata/utils/getLabelIdentifierFieldMetadataItem';
-import { useBuildRecordInputFromRLSPredicates } from '@/object-record/hooks/useBuildRecordInputFromRLSPredicates';
 import { useCreateOneRecord } from '@/object-record/hooks/useCreateOneRecord';
 import { recordGroupDefinitionsComponentSelector } from '@/object-record/record-group/states/selectors/recordGroupDefinitionsComponentSelector';
 import { getFieldMetadataItemGqlFieldName } from '@/object-metadata/utils/getFieldMetadataItemGqlFieldName';
@@ -69,19 +68,12 @@ export const useCreateNewIndexRecord = ({
     instanceId,
   });
 
-  const { buildRecordInputFromRLSPredicates } =
-    useBuildRecordInputFromRLSPredicates({
-      objectMetadataItem,
-    });
-
   const createNewIndexRecord = useCallback(
     async (recordInput?: Partial<ObjectRecord>) => {
       const recordId = v4();
-      const recordInputFromRLSPredicates = buildRecordInputFromRLSPredicates();
       const recordInputFromFilters = buildRecordInputFromFilters();
 
       const mergedRecordInput = {
-        ...recordInputFromRLSPredicates,
         ...recordInputFromFilters,
         ...recordInput,
       };
@@ -156,7 +148,6 @@ export const useCreateNewIndexRecord = ({
     },
     [
       store,
-      buildRecordInputFromRLSPredicates,
       buildRecordInputFromFilters,
       createOneRecord,
       navigate,

@@ -228,16 +228,6 @@ describe('WorkspaceEntityManager', () => {
         universalIdentifierById: {},
         universalIdentifiersByApplicationId: {},
       },
-      flatRowLevelPermissionPredicateMaps: {
-        byUniversalIdentifier: {},
-        universalIdentifierById: {},
-        universalIdentifiersByApplicationId: {},
-      },
-      flatRowLevelPermissionPredicateGroupMaps: {
-        byUniversalIdentifier: {},
-        universalIdentifierById: {},
-        universalIdentifiersByApplicationId: {},
-      },
       objectIdByNameSingular: {
         'test-entity': 'test-entity-id',
       },
@@ -290,8 +280,6 @@ describe('WorkspaceEntityManager', () => {
           canSoftDeleteObjectRecords: false,
           canDestroyObjectRecords: false,
           restrictedFields: {},
-          rowLevelPermissionPredicates: [],
-          rowLevelPermissionPredicateGroups: [],
         },
       },
     };
@@ -309,10 +297,6 @@ describe('WorkspaceEntityManager', () => {
       flatObjectMetadataMaps,
       flatFieldMetadataMaps,
       flatIndexMaps: mockInternalContext.flatIndexMaps,
-      flatRowLevelPermissionPredicateMaps:
-        mockInternalContext.flatRowLevelPermissionPredicateMaps,
-      flatRowLevelPermissionPredicateGroupMaps:
-        mockInternalContext.flatRowLevelPermissionPredicateGroupMaps,
       objectIdByNameSingular: mockInternalContext.objectIdByNameSingular,
       featureFlagsMap: mockInternalContext.featureFlagsMap,
       permissionsPerRoleId: mockDataSource.permissionsPerRoleId,

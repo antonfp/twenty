@@ -103,17 +103,6 @@ export const computeOrderedMigrationActions = (
     ...aggregatedOrchestratorActionsReport.navigationMenuItem.create,
     ...aggregatedOrchestratorActionsReport.navigationMenuItem.update,
 
-    ...aggregatedOrchestratorActionsReport.rowLevelPermissionPredicateGroup
-      .delete,
-    ...aggregatedOrchestratorActionsReport.rowLevelPermissionPredicateGroup
-      .create,
-    ...aggregatedOrchestratorActionsReport.rowLevelPermissionPredicateGroup
-      .update,
-
-    ...aggregatedOrchestratorActionsReport.rowLevelPermissionPredicate.delete,
-    ...aggregatedOrchestratorActionsReport.rowLevelPermissionPredicate.create,
-    ...aggregatedOrchestratorActionsReport.rowLevelPermissionPredicate.update,
-
     ...aggregatedOrchestratorActionsReport.webhook.delete,
     ...aggregatedOrchestratorActionsReport.webhook.create,
     ...aggregatedOrchestratorActionsReport.webhook.update,

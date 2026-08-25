@@ -1,7 +1,6 @@
 import { FieldInputEventContext } from '@/object-record/record-field/ui/contexts/FieldInputEventContext';
 import { useAddSelectOption } from '@/object-record/record-field/ui/meta-types/hooks/useAddSelectOption';
 import { useCanAddSelectOption } from '@/object-record/record-field/ui/meta-types/hooks/useCanAddSelectOption';
-import { useFilteredSelectOptionsFromRLSPredicates } from '@/object-record/record-field/ui/meta-types/hooks/useFilteredSelectOptionsFromRLSPredicates';
 import { useMultiSelectField } from '@/object-record/record-field/ui/meta-types/hooks/useMultiSelectField';
 import { SELECT_FIELD_INPUT_SELECTABLE_LIST_COMPONENT_INSTANCE_ID } from '@/object-record/record-field/ui/meta-types/input/constants/SelectFieldInputSelectableListComponentInstanceId';
 import { RecordFieldComponentInstanceContext } from '@/object-record/record-field/ui/states/contexts/RecordFieldComponentInstanceContext';
@@ -21,13 +20,7 @@ export const MultiSelectFieldInput = () => {
 
   const { onSubmit } = useContext(FieldInputEventContext);
 
-  const { filteredOptions: selectOptions } =
-    useFilteredSelectOptionsFromRLSPredicates({
-      fieldMetadataId: fieldDefinition.fieldMetadataId,
-      objectMetadataNameSingular:
-        fieldDefinition.metadata.objectMetadataNameSingular,
-      options: fieldDefinition.metadata.options,
-    });
+  const selectOptions = fieldDefinition.metadata.options;
 
   const handleOptionSelected = (newDraftValue: FieldMultiSelectValue) => {
     setDraftValue(newDraftValue);

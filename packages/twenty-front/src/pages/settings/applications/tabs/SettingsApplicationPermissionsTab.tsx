@@ -106,8 +106,6 @@ const buildSyntheticRole = (
   workspaceMembers: [],
   agents: [],
   apiKeys: [],
-  rowLevelPermissionPredicates: [],
-  rowLevelPermissionPredicateGroups: [],
   objectPermissions: (defaultRole.objectPermissions ?? []).map(
     (permission) => ({
       __typename: 'ObjectPermission' as const,

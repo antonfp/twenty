@@ -15,8 +15,6 @@ import { type WorkflowAutomatedTriggerMaps } from 'src/engine/core-modules/workf
 import { type FlatRoleTargetByAgentIdMaps } from 'src/engine/metadata-modules/flat-agent/types/flat-role-target-by-agent-id-maps.type';
 import { type AllFlatEntityMaps } from 'src/engine/metadata-modules/flat-entity/types/all-flat-entity-maps.type';
 import { type UserWorkspaceRoleMap } from 'src/engine/metadata-modules/role-target/types/user-workspace-role-map';
-import { type FlatRowLevelPermissionPredicateGroupMaps } from 'src/engine/metadata-modules/row-level-permission-predicate/types/flat-row-level-permission-predicate-group-maps.type';
-import { type FlatRowLevelPermissionPredicateMaps } from 'src/engine/metadata-modules/row-level-permission-predicate/types/flat-row-level-permission-predicate-maps.type';
 
 export type AdditionalCacheDataMaps = {
   featureFlagsMap: Record<FeatureFlagKey, boolean>;
@@ -27,8 +25,6 @@ export type AdditionalCacheDataMaps = {
   flatApplicationMaps: FlatApplicationCacheMaps;
   ORMEntityMetadatas: EntityMetadata[];
   flatRoleTargetByAgentIdMaps: FlatRoleTargetByAgentIdMaps;
-  flatRowLevelPermissionPredicateMaps: FlatRowLevelPermissionPredicateMaps;
-  flatRowLevelPermissionPredicateGroupMaps: FlatRowLevelPermissionPredicateGroupMaps;
   flatWorkspaceMemberMaps: FlatWorkspaceMemberMaps;
   applicationVariableMaps: ApplicationVariableCacheMaps;
   graphQLResolverNameMap: Record<string, ResolverNameMapEntry>;

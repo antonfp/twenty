@@ -382,7 +382,6 @@ export class CommonMergeManyQueryRunnerService extends CommonBaseQueryRunnerServ
             selectQueryBuilder: relatedRepository
               .createQueryBuilder(relationField.objectMetadata.nameSingular)
               .where({ [relationField.joinColumnName]: In(idsToDelete) }),
-            rowLevelPermissionsApplied: false,
             kind: 'update',
             columnsToReturn: ['id'],
             data: { [relationField.joinColumnName]: priorityRecordId },
@@ -398,7 +397,6 @@ export class CommonMergeManyQueryRunnerService extends CommonBaseQueryRunnerServ
           selectQueryBuilder: objectRepository
             .createQueryBuilder(alias)
             .where({ id: In(idsToDelete) }),
-          rowLevelPermissionsApplied: false,
           kind: 'delete',
           columnsToReturn,
         });
@@ -413,7 +411,6 @@ export class CommonMergeManyQueryRunnerService extends CommonBaseQueryRunnerServ
           selectQueryBuilder: objectRepository
             .createQueryBuilder(alias)
             .where({ id: priorityRecordId }),
-          rowLevelPermissionsApplied: false,
           kind: 'update',
           columnsToReturn,
           data: resolvedMergedData,

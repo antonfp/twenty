@@ -22,8 +22,6 @@ export const getObjectPermissionsForObject = (
       canDestroyObjectRecords: true,
       restrictedFields: {},
       objectMetadataId,
-      rowLevelPermissionPredicates: [],
-      rowLevelPermissionPredicateGroups: [],
     };
   }
 
@@ -35,9 +33,5 @@ export const getObjectPermissionsForObject = (
     canDestroyObjectRecords: objectPermissions.canDestroyObjectRecords ?? true,
     restrictedFields: objectPermissions.restrictedFields ?? {},
     objectMetadataId,
-    rowLevelPermissionPredicates:
-      objectPermissions.rowLevelPermissionPredicates ?? [],
-    rowLevelPermissionPredicateGroups:
-      objectPermissions.rowLevelPermissionPredicateGroups ?? [],
   };
 };

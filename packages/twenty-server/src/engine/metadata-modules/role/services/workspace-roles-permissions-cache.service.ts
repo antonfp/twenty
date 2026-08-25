@@ -12,7 +12,7 @@ import {
   type RestrictedFieldsPermissions,
 } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
-import { IsNull, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 
 import { WorkspaceCacheProvider } from 'src/engine/workspace-cache/interfaces/workspace-cache-provider.service';
 
@@ -21,8 +21,6 @@ import { FieldPermissionEntity } from 'src/engine/metadata-modules/object-permis
 import { ObjectPermissionEntity } from 'src/engine/metadata-modules/object-permission/object-permission.entity';
 import { RolePermissionFlagEntity } from 'src/engine/metadata-modules/role-permission-flag/role-permission-flag.entity';
 import { RoleEntity } from 'src/engine/metadata-modules/role/role.entity';
-import { RowLevelPermissionPredicateGroupEntity } from 'src/engine/metadata-modules/row-level-permission-predicate/entities/row-level-permission-predicate-group.entity';
-import { RowLevelPermissionPredicateEntity } from 'src/engine/metadata-modules/row-level-permission-predicate/entities/row-level-permission-predicate.entity';
 import { InjectWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/inject-workspace-scoped-repository.decorator';
 import { WorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/workspace-scoped-repository';
 import { WorkspaceCache } from 'src/engine/workspace-cache/decorators/workspace-cache.decorator';
@@ -50,10 +48,6 @@ export class WorkspaceRolesPermissionsCacheService extends WorkspaceCacheProvide
     private readonly rolePermissionFlagRepository: Repository<RolePermissionFlagEntity>,
     @InjectWorkspaceScopedRepository(FieldPermissionEntity)
     private readonly fieldPermissionRepository: WorkspaceScopedRepository<FieldPermissionEntity>,
-    @InjectWorkspaceScopedRepository(RowLevelPermissionPredicateEntity)
-    private readonly rowLevelPermissionPredicateRepository: WorkspaceScopedRepository<RowLevelPermissionPredicateEntity>,
-    @InjectWorkspaceScopedRepository(RowLevelPermissionPredicateGroupEntity)
-    private readonly rowLevelPermissionPredicateGroupRepository: WorkspaceScopedRepository<RowLevelPermissionPredicateGroupEntity>,
   ) {
     super();
   }
@@ -66,8 +60,6 @@ export class WorkspaceRolesPermissionsCacheService extends WorkspaceCacheProvide
       objectPermissions,
       rolePermissionFlags,
       fieldPermissions,
-      rowLevelPermissionPredicates,
-      rowLevelPermissionPredicateGroups,
       workspaceObjectMetadataCollection,
     ] = await Promise.all([
       this.roleRepository.find(workspaceId),
@@ -77,12 +69,6 @@ export class WorkspaceRolesPermissionsCacheService extends WorkspaceCacheProvide
         relations: ['permissionFlag'],
       }),
       this.fieldPermissionRepository.find(workspaceId),
-      this.rowLevelPermissionPredicateRepository.find(workspaceId, {
-        where: { deletedAt: IsNull() },
-      }),
-      this.rowLevelPermissionPredicateGroupRepository.find(workspaceId, {
-        where: { deletedAt: IsNull() },
-      }),
       this.getWorkspaceObjectMetadataCollection(workspaceId),
     ]);
 
@@ -101,16 +87,6 @@ export class WorkspaceRolesPermissionsCacheService extends WorkspaceCacheProvide
         entities: fieldPermissions,
         foreignKey: 'roleId',
       });
-    const rowLevelPermissionPredicatesByRoleId =
-      regroupEntitiesByRelatedEntityId<'rowLevelPermissionPredicate'>({
-        entities: rowLevelPermissionPredicates,
-        foreignKey: 'roleId',
-      });
-    const rowLevelPermissionPredicateGroupsByRoleId =
-      regroupEntitiesByRelatedEntityId<'rowLevelPermissionPredicateGroup'>({
-        entities: rowLevelPermissionPredicateGroups,
-        foreignKey: 'roleId',
-      });
 
     const permissionsByRoleId: ObjectsPermissionsByRoleId = {};
 
@@ -120,10 +96,6 @@ export class WorkspaceRolesPermissionsCacheService extends WorkspaceCacheProvide
       const roleRolePermissionFlags =
         rolePermissionFlagsByRoleId.get(role.id) ?? [];
       const roleFieldPermissions = fieldPermissionsByRoleId.get(role.id) ?? [];
-      const roleRowLevelPermissionPredicates =
-        rowLevelPermissionPredicatesByRoleId.get(role.id) ?? [];
-      const roleRowLevelPermissionPredicateGroups =
-        rowLevelPermissionPredicateGroupsByRoleId.get(role.id) ?? [];
 
       const objectRecordsPermissions: ObjectsPermissions = {};
 
@@ -231,16 +203,6 @@ export class WorkspaceRolesPermissionsCacheService extends WorkspaceCacheProvide
           canSoftDeleteObjectRecords: canSoftDelete,
           canDestroyObjectRecords: canDestroy,
           restrictedFields,
-          rowLevelPermissionPredicates: roleRowLevelPermissionPredicates.filter(
-            (rowLevelPermissionPredicate) =>
-              rowLevelPermissionPredicate.objectMetadataId === objectMetadataId,
-          ),
-          rowLevelPermissionPredicateGroups:
-            roleRowLevelPermissionPredicateGroups.filter(
-              (rowLevelPermissionPredicateGroup) =>
-                rowLevelPermissionPredicateGroup.objectMetadataId ===
-                objectMetadataId,
-            ),
         };
       }
 

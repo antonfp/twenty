@@ -204,7 +204,7 @@ export class GroupByWithRecordsV2Service {
       'record_row_number',
     );
 
-    subQueryBuilder.applyRowLevelPermissions();
+    subQueryBuilder.validatePermissions();
 
     const groupByAliases = groupByDefinitions
       .map((groupByDefinition) => `"${groupByDefinition.alias}"`)

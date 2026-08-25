@@ -19,8 +19,6 @@ export const EMPTY_COMMAND_MENU_CONTEXT_API: CommandMenuContextApi = {
     canDestroyObjectRecords: false,
     restrictedFields: {},
     objectMetadataId: '',
-    rowLevelPermissionPredicates: [],
-    rowLevelPermissionPredicateGroups: [],
   },
   selectedRecords: [],
   featureFlags: {},

@@ -8,6 +8,4 @@ export type FlatRole = Omit<
   | 'fieldPermissions'
   | 'objectPermissions'
   | 'permissionFlags'
-  | 'rowLevelPermissionPredicateGroups'
-  | 'rowLevelPermissionPredicates'
 >;

@@ -91,7 +91,6 @@ export class WorkspaceSelectQueryBuilderV2 implements WhereExpressionLike {
   private offsetValue?: number;
   private includeDeleted = false;
   private explicitSelection?: string[];
-  private readonly aliasesWithRowLevelPermissionApplied = new Set<string>();
 
   constructor(alias: string, context: QueryBuilderV2Context) {
     this.alias = alias;
@@ -150,10 +149,6 @@ export class WorkspaceSelectQueryBuilderV2 implements WhereExpressionLike {
         ? undefined
         : [...this.explicitSelection];
 
-    for (const alias of this.aliasesWithRowLevelPermissionApplied) {
-      cloned.aliasesWithRowLevelPermissionApplied.add(alias);
-    }
-
     return cloned;
   }
 
@@ -162,7 +157,6 @@ export class WorkspaceSelectQueryBuilderV2 implements WhereExpressionLike {
     parameters?: Record<string, unknown>,
   ): this {
     this.whereClauses.length = 0;
-    this.aliasesWithRowLevelPermissionApplied.delete(this.alias);
 
     return this.appendWhere('and', condition, parameters);
   }
@@ -637,7 +631,7 @@ export class WorkspaceSelectQueryBuilderV2 implements WhereExpressionLike {
     return rows as T[];
   }
 
-  applyRowLevelPermissions(): this {
+  validatePermissions(): this {
     this.context.onBeforeExecute(this);
 
     return this;
@@ -681,16 +675,6 @@ export class WorkspaceSelectQueryBuilderV2 implements WhereExpressionLike {
         (existsFilterClause) => existsFilterClause.alias === alias,
       )?.targetTableShape
     );
-  }
-
-  markRowLevelPermissionApplied(alias: string): boolean {
-    if (this.aliasesWithRowLevelPermissionApplied.has(alias)) {
-      return false;
-    }
-
-    this.aliasesWithRowLevelPermissionApplied.add(alias);
-
-    return true;
   }
 
   getReferencedColumnNamesByAlias(): Record<string, string[]> {

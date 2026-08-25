@@ -59,9 +59,5 @@ export const fromCreateRoleInputToFlatRoleToCreate = ({
     rolePermissionFlagUniversalIdentifiers: [],
     fieldPermissionIds: [],
     fieldPermissionUniversalIdentifiers: [],
-    rowLevelPermissionPredicateIds: [],
-    rowLevelPermissionPredicateUniversalIdentifiers: [],
-    rowLevelPermissionPredicateGroupIds: [],
-    rowLevelPermissionPredicateGroupUniversalIdentifiers: [],
   };
 };

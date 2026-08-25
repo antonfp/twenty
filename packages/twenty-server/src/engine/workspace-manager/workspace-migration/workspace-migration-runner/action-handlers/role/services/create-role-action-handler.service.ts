@@ -41,8 +41,6 @@ export class CreateRoleActionHandlerService extends WorkspaceMigrationRunnerActi
         id: action.id ?? v4(),
         workspaceId,
         roleTargetIds: [],
-        rowLevelPermissionPredicateIds: [],
-        rowLevelPermissionPredicateGroupIds: [],
         objectPermissionIds: [],
         rolePermissionFlagIds: [],
         fieldPermissionIds: [],

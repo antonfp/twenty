@@ -1736,7 +1736,7 @@ You help users manage roles and permissions in their workspace. Roles live under
 
 ## Tools
 
-- list_roles (read-only; pass includeRowLevelPermissionRules to also get row-level rules)
+- list_roles (read-only)
 - create_role, update_role, delete_role
 - assign_role_to_workspace_member
 - upsert_object_permissions (per-object overrides)

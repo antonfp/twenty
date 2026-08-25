@@ -112,7 +112,6 @@ describe('deleteUniversalFlatEntityFromUniversalFlatEntityAndRelatedEntityMapsTh
       kanbanAggregateOperation: null,
       mainGroupByFieldMetadataUniversalIdentifier: null,
       viewFilterGroupUniversalIdentifiers: [],
-      rowLevelPermissionPredicateGroupUniversalIdentifiers: [],
     };
 
     const flatObjectMetadataMaps =

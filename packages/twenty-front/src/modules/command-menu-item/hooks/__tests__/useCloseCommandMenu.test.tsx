@@ -59,8 +59,6 @@ const getWrapper =
             canDestroyObjectRecords: false,
             restrictedFields: {},
             objectMetadataId: '',
-            rowLevelPermissionPredicates: [],
-            rowLevelPermissionPredicateGroups: [],
           },
           selectedRecords: [],
           featureFlags: {},

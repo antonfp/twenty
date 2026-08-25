@@ -222,20 +222,6 @@ const MANIFEST_ENTITY_REGISTRY: Record<
         toCandidates(role.fieldPermissions, () => undefined),
       ),
   },
-  rowLevelPermissionPredicate: {
-    entityKind: 'row-level permission predicate',
-    getCandidates: (manifest) =>
-      (manifest.roles ?? []).flatMap((role) =>
-        toCandidates(role.rowLevelPermissionPredicates, () => undefined),
-      ),
-  },
-  rowLevelPermissionPredicateGroup: {
-    entityKind: 'row-level permission predicate group',
-    getCandidates: (manifest) =>
-      (manifest.roles ?? []).flatMap((role) =>
-        toCandidates(role.rowLevelPermissionPredicateGroups, () => undefined),
-      ),
-  },
   roleTarget: {
     entityKind: 'role target',
     getCandidates: (manifest) =>

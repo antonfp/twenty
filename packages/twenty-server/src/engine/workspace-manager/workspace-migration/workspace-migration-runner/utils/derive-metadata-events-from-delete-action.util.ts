@@ -40,8 +40,6 @@ const deriveAllMetadataEventsFromDeleteAction = ({
     case 'viewField':
     case 'viewGroup':
     case 'viewFieldGroup':
-    case 'rowLevelPermissionPredicate':
-    case 'rowLevelPermissionPredicateGroup':
     case 'viewFilterGroup':
     case 'index':
     case 'logicFunction':

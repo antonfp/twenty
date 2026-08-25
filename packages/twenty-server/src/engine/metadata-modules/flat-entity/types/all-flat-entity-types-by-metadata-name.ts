@@ -57,10 +57,6 @@ import { type FlatWebhookMaps } from 'src/engine/metadata-modules/flat-webhook/t
 import { type FlatWebhook } from 'src/engine/metadata-modules/flat-webhook/types/flat-webhook.type';
 import { type FlatLogicFunction } from 'src/engine/metadata-modules/logic-function/types/flat-logic-function.type';
 import { type NavigationMenuItemEntity } from 'src/engine/metadata-modules/navigation-menu-item/entities/navigation-menu-item.entity';
-import { type FlatRowLevelPermissionPredicateGroupMaps } from 'src/engine/metadata-modules/row-level-permission-predicate/types/flat-row-level-permission-predicate-group-maps.type';
-import { type FlatRowLevelPermissionPredicateGroup } from 'src/engine/metadata-modules/row-level-permission-predicate/types/flat-row-level-permission-predicate-group.type';
-import { type FlatRowLevelPermissionPredicateMaps } from 'src/engine/metadata-modules/row-level-permission-predicate/types/flat-row-level-permission-predicate-maps.type';
-import { type FlatRowLevelPermissionPredicate } from 'src/engine/metadata-modules/row-level-permission-predicate/types/flat-row-level-permission-predicate.type';
 import { type UniversalFlatAgent } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/universal-flat-agent.type';
 import { type UniversalFlatCommandMenuItem } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/universal-flat-command-menu-item.type';
 import { type UniversalFlatConnectionProvider } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/universal-flat-connection-provider.type';
@@ -80,8 +76,6 @@ import { type UniversalFlatPermissionFlag } from 'src/engine/workspace-manager/w
 import { type UniversalFlatRolePermissionFlag } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/universal-flat-role-permission-flag.type';
 import { type UniversalFlatRoleTarget } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/universal-flat-role-target.type';
 import { type UniversalFlatRole } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/universal-flat-role.type';
-import { type UniversalFlatRowLevelPermissionPredicateGroup } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/universal-flat-row-level-permission-predicate-group.type';
-import { type UniversalFlatRowLevelPermissionPredicate } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/universal-flat-row-level-permission-predicate.type';
 import { type UniversalFlatSkill } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/universal-flat-skill.type';
 import { type UniversalFlatViewFieldGroup } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/universal-flat-view-field-group.type';
 import { type UniversalFlatViewField } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/universal-flat-view-field.type';
@@ -245,22 +239,6 @@ import {
   type UniversalDeleteRoleAction,
   type UniversalUpdateRoleAction,
 } from 'src/engine/workspace-manager/workspace-migration/workspace-migration-builder/builders/role/types/workspace-migration-role-action.type';
-import {
-  type FlatCreateRowLevelPermissionPredicateGroupAction,
-  type FlatDeleteRowLevelPermissionPredicateGroupAction,
-  type FlatUpdateRowLevelPermissionPredicateGroupAction,
-  type UniversalCreateRowLevelPermissionPredicateGroupAction,
-  type UniversalDeleteRowLevelPermissionPredicateGroupAction,
-  type UniversalUpdateRowLevelPermissionPredicateGroupAction,
-} from 'src/engine/workspace-manager/workspace-migration/workspace-migration-builder/builders/row-level-permission-predicate-group/types/workspace-migration-row-level-permission-predicate-group-action.type';
-import {
-  type FlatCreateRowLevelPermissionPredicateAction,
-  type FlatDeleteRowLevelPermissionPredicateAction,
-  type FlatUpdateRowLevelPermissionPredicateAction,
-  type UniversalCreateRowLevelPermissionPredicateAction,
-  type UniversalDeleteRowLevelPermissionPredicateAction,
-  type UniversalUpdateRowLevelPermissionPredicateAction,
-} from 'src/engine/workspace-manager/workspace-migration/workspace-migration-builder/builders/row-level-permission-predicate/types/workspace-migration-row-level-permission-predicate-action.type';
 import {
   type FlatCreateSkillAction,
   type FlatDeleteSkillAction,
@@ -465,38 +443,6 @@ export type AllFlatEntityTypesByMetadataName = {
     flatEntity: FlatViewSort;
     universalFlatEntity: UniversalFlatViewSort;
     entity: MetadataEntity<'viewSort'>;
-  };
-  rowLevelPermissionPredicate: {
-    flatEntityMaps: FlatRowLevelPermissionPredicateMaps;
-    universalActions: {
-      create: UniversalCreateRowLevelPermissionPredicateAction;
-      update: UniversalUpdateRowLevelPermissionPredicateAction;
-      delete: UniversalDeleteRowLevelPermissionPredicateAction;
-    };
-    flatActions: {
-      create: FlatCreateRowLevelPermissionPredicateAction;
-      update: FlatUpdateRowLevelPermissionPredicateAction;
-      delete: FlatDeleteRowLevelPermissionPredicateAction;
-    };
-    flatEntity: FlatRowLevelPermissionPredicate;
-    universalFlatEntity: UniversalFlatRowLevelPermissionPredicate;
-    entity: MetadataEntity<'rowLevelPermissionPredicate'>;
-  };
-  rowLevelPermissionPredicateGroup: {
-    flatEntityMaps: FlatRowLevelPermissionPredicateGroupMaps;
-    universalActions: {
-      create: UniversalCreateRowLevelPermissionPredicateGroupAction;
-      update: UniversalUpdateRowLevelPermissionPredicateGroupAction;
-      delete: UniversalDeleteRowLevelPermissionPredicateGroupAction;
-    };
-    flatActions: {
-      create: FlatCreateRowLevelPermissionPredicateGroupAction;
-      update: FlatUpdateRowLevelPermissionPredicateGroupAction;
-      delete: FlatDeleteRowLevelPermissionPredicateGroupAction;
-    };
-    flatEntity: FlatRowLevelPermissionPredicateGroup;
-    universalFlatEntity: UniversalFlatRowLevelPermissionPredicateGroup;
-    entity: MetadataEntity<'rowLevelPermissionPredicateGroup'>;
   };
   viewFilterGroup: {
     flatEntityMaps: FlatViewFilterGroupMaps;

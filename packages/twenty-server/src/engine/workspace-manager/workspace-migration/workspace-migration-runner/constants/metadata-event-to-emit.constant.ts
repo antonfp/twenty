@@ -23,8 +23,6 @@ export const METADATA_EVENTS_TO_EMIT = {
   permissionFlag: true,
   objectPermission: true,
   fieldPermission: true,
-  rowLevelPermissionPredicate: true,
-  rowLevelPermissionPredicateGroup: true,
   index: true,
   logicFunction: true,
   viewSort: true,

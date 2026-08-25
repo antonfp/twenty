@@ -105,16 +105,6 @@ export const ALL_METADATA_REQUIRED_METADATA_FOR_VALIDATION = {
     frontComponent: true,
     fieldMetadata: true,
   },
-  rowLevelPermissionPredicate: {
-    fieldMetadata: true,
-    objectMetadata: true,
-    role: true,
-    rowLevelPermissionPredicateGroup: true,
-  },
-  rowLevelPermissionPredicateGroup: {
-    role: true,
-    objectMetadata: true,
-  },
   frontComponent: {},
   webhook: {},
   applicationVariable: {},

@@ -25,9 +25,6 @@ import { RoleService } from 'src/engine/metadata-modules/role/role.service';
 import { WorkspaceFlatRoleMapCacheService } from 'src/engine/metadata-modules/role/services/workspace-flat-role-map-cache.service';
 import { RoleToolWorkspaceService } from 'src/engine/metadata-modules/role/tools/services/role-tool.workspace-service';
 import { WorkspaceRolesPermissionsCacheService } from 'src/engine/metadata-modules/role/services/workspace-roles-permissions-cache.service';
-import { RowLevelPermissionPredicateGroupEntity } from 'src/engine/metadata-modules/row-level-permission-predicate/entities/row-level-permission-predicate-group.entity';
-import { RowLevelPermissionPredicateEntity } from 'src/engine/metadata-modules/row-level-permission-predicate/entities/row-level-permission-predicate.entity';
-import { RowLevelPermissionModule } from 'src/engine/metadata-modules/row-level-permission-predicate/row-level-permission.module';
 import { UserRoleModule } from 'src/engine/metadata-modules/user-role/user-role.module';
 import { provideWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/provide-workspace-scoped-repository';
 import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
@@ -46,8 +43,6 @@ import { WorkspaceMigrationModule } from 'src/engine/workspace-manager/workspace
       FieldPermissionEntity,
       UserWorkspaceEntity,
       ObjectMetadataEntity,
-      RowLevelPermissionPredicateEntity,
-      RowLevelPermissionPredicateGroupEntity,
     ]),
     UserRoleModule,
     AiAgentRoleModule,
@@ -56,7 +51,6 @@ import { WorkspaceMigrationModule } from 'src/engine/workspace-manager/workspace
     PermissionsModule,
     ObjectPermissionModule,
     RolePermissionFlagModule,
-    RowLevelPermissionModule,
     WorkspaceManyOrAllFlatEntityMapsCacheModule,
     WorkspaceMigrationModule,
     FileModule,
@@ -77,8 +71,6 @@ import { WorkspaceMigrationModule } from 'src/engine/workspace-manager/workspace
     provideWorkspaceScopedRepository(AgentEntity),
     provideWorkspaceScopedRepository(ObjectPermissionEntity),
     provideWorkspaceScopedRepository(FieldPermissionEntity),
-    provideWorkspaceScopedRepository(RowLevelPermissionPredicateEntity),
-    provideWorkspaceScopedRepository(RowLevelPermissionPredicateGroupEntity),
   ],
   exports: [
     RoleService,

@@ -247,33 +247,6 @@ describe('WorkspaceSelectQueryBuilderV2 joins', () => {
     );
   });
 
-  it('should carry applied row-level markers onto a clone', () => {
-    const { queryBuilder } = buildQueryBuilder();
 
-    expect(queryBuilder.markRowLevelPermissionApplied('person')).toBe(true);
-    expect(queryBuilder.clone().markRowLevelPermissionApplied('person')).toBe(
-      false,
-    );
-  });
 
-  it('should clear applied row-level markers when where() replaces the WHERE', () => {
-    const { queryBuilder } = buildQueryBuilder();
-
-    queryBuilder.markRowLevelPermissionApplied('person');
-    queryBuilder.where('"person"."id" = :id', { id: 1 });
-
-    expect(queryBuilder.markRowLevelPermissionApplied('person')).toBe(true);
-  });
-
-  it('should keep joined row-level markers when where() replaces the WHERE', () => {
-    const { queryBuilder } = buildQueryBuilder();
-
-    queryBuilder.leftJoin('person.company', 'company');
-    queryBuilder.markRowLevelPermissionApplied('person');
-    queryBuilder.markRowLevelPermissionApplied('company');
-    queryBuilder.where('"person"."id" = :id', { id: 1 });
-
-    expect(queryBuilder.markRowLevelPermissionApplied('person')).toBe(true);
-    expect(queryBuilder.markRowLevelPermissionApplied('company')).toBe(false);
-  });
 });

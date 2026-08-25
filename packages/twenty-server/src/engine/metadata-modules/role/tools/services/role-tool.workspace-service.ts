@@ -13,9 +13,6 @@ import { type RoleToolContext } from 'src/engine/metadata-modules/role/tools/typ
 import { type RoleToolDependencies } from 'src/engine/metadata-modules/role/tools/types/role-tool-dependencies.type';
 import { createUpdateRoleTool } from 'src/engine/metadata-modules/role/tools/update-role.tool';
 import { createUpsertObjectPermissionsTool } from 'src/engine/metadata-modules/role/tools/upsert-object-permissions.tool';
-import { createUpsertRowLevelPermissionRulesTool } from 'src/engine/metadata-modules/role/tools/upsert-row-level-permission-rules.tool';
-import { RowLevelPermissionPredicateGroupService } from 'src/engine/metadata-modules/row-level-permission-predicate/services/row-level-permission-predicate-group.service';
-import { RowLevelPermissionPredicateService } from 'src/engine/metadata-modules/row-level-permission-predicate/services/row-level-permission-predicate.service';
 import { UserRoleService } from 'src/engine/metadata-modules/user-role/user-role.service';
 
 @Injectable()
@@ -26,16 +23,12 @@ export class RoleToolWorkspaceService {
     roleService: RoleService,
     userRoleService: UserRoleService,
     objectPermissionService: ObjectPermissionService,
-    rowLevelPermissionPredicateService: RowLevelPermissionPredicateService,
-    rowLevelPermissionPredicateGroupService: RowLevelPermissionPredicateGroupService,
     applicationService: ApplicationService,
   ) {
     this.deps = {
       roleService,
       userRoleService,
       objectPermissionService,
-      rowLevelPermissionPredicateService,
-      rowLevelPermissionPredicateGroupService,
       applicationService,
     };
   }
@@ -53,8 +46,6 @@ export class RoleToolWorkspaceService {
       this.deps,
       context,
     );
-    const upsertRowLevelPermissionRules =
-      createUpsertRowLevelPermissionRulesTool(this.deps, context);
 
     return {
       [listRoles.name]: listRoles,
@@ -63,7 +54,6 @@ export class RoleToolWorkspaceService {
       [deleteRole.name]: deleteRole,
       [assignRoleToWorkspaceMember.name]: assignRoleToWorkspaceMember,
       [upsertObjectPermissions.name]: upsertObjectPermissions,
-      [upsertRowLevelPermissionRules.name]: upsertRowLevelPermissionRules,
     };
   }
 }

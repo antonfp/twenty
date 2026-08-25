@@ -12,14 +12,12 @@ import { AwsSesSendEmailService } from 'src/engine/core-modules/emailing-domain/
 import { EmailingDomainDriverFactory } from 'src/engine/core-modules/emailing-domain/drivers/emailing-domain-driver.factory';
 import { LogEmailingDomainDriver } from 'src/engine/core-modules/emailing-domain/drivers/log/services/log-emailing-domain-driver.service';
 import { ResendApiClientService } from 'src/engine/core-modules/emailing-domain/drivers/resend/services/resend-api-client.service';
-import { EmailGroupAccessService } from 'src/engine/core-modules/emailing-domain/services/email-group-access.service';
 import { EmailingDomainEntity } from 'src/engine/core-modules/emailing-domain/emailing-domain.entity';
 import { EmailingDomainResolver } from 'src/engine/core-modules/emailing-domain/emailing-domain.resolver';
 import { EmailingDomainWorkspaceCleanupJob } from 'src/engine/core-modules/emailing-domain/jobs/emailing-domain-workspace-cleanup.job';
 import { EmailingDomainTenantStatusService } from 'src/engine/core-modules/emailing-domain/services/emailing-domain-tenant-status.service';
 import { EmailingDomainService } from 'src/engine/core-modules/emailing-domain/services/emailing-domain.service';
 import { UnsubscribeContentService } from 'src/engine/core-modules/emailing-domain/services/unsubscribe-content.service';
-import { UnsubscribeHostnameService } from 'src/engine/core-modules/emailing-domain/services/unsubscribe-hostname.service';
 import { UnsubscribeTokenService } from 'src/engine/core-modules/emailing-domain/services/unsubscribe-token.service';
 import { FeatureFlagModule } from 'src/engine/core-modules/feature-flag/feature-flag.module';
 import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permissions.module';
@@ -42,15 +40,12 @@ import { provideWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspac
     EmailingDomainTenantStatusService,
     EmailingDomainDriverFactory,
     UnsubscribeTokenService,
-    EmailGroupAccessService,
   ],
   providers: [
-    EmailGroupAccessService,
     EmailingDomainService,
     EmailingDomainTenantStatusService,
     UnsubscribeTokenService,
     UnsubscribeContentService,
-    UnsubscribeHostnameService,
     EmailingDomainResolver,
     EmailingDomainDriverFactory,
     EmailingDomainWorkspaceCleanupJob,

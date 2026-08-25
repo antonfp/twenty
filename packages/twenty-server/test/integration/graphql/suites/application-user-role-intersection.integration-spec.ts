@@ -14,14 +14,12 @@ import { syncApplication } from 'test/integration/metadata/suites/application/ut
 import { createOneRole } from 'test/integration/metadata/suites/role/utils/create-one-role.util';
 import { type Manifest } from 'twenty-shared/application';
 import { STANDARD_OBJECTS } from 'twenty-shared/metadata';
-import { RowLevelPermissionPredicateOperand } from 'twenty-shared/types';
 
 import { SEED_APPLE_WORKSPACE_ID } from 'src/engine/workspace-manager/dev-seeder/core/constants/seeder-workspaces.constant';
 
 const TEST_APP_UNIVERSAL_IDENTIFIER = randomUUID();
 const TEST_ROLE_UNIVERSAL_IDENTIFIER = randomUUID();
 const TEST_OBJECT_PERMISSION_UNIVERSAL_IDENTIFIER = randomUUID();
-const TEST_PREDICATE_UNIVERSAL_IDENTIFIER = randomUUID();
 
 const VISIBLE_COMPANY_ID = randomUUID();
 const HIDDEN_COMPANY_ID = randomUUID();
@@ -30,13 +28,10 @@ const HIDDEN_COMPANY_NAME = `Intersection Hidden ${HIDDEN_COMPANY_ID}`;
 
 const COMPANY_UNIVERSAL_IDENTIFIER =
   STANDARD_OBJECTS.company.universalIdentifier;
-const COMPANY_NAME_FIELD_UNIVERSAL_IDENTIFIER =
-  STANDARD_OBJECTS.company.fields.name.universalIdentifier;
 
 // The application declares a role that is strictly narrower than the admin who
-// holds the token: it may read but not update, and only sees companies whose
-// name contains "Intersection Visible". The admin has neither bound, so every
-// assertion below fails if the application's role is dropped.
+// holds the token: it may read but not update. The admin has no such bound, so
+// the assertions below fail if the application's role is dropped.
 const buildApplicationManifest = (): Manifest =>
   buildBaseManifest({
     appId: TEST_APP_UNIVERSAL_IDENTIFIER,
@@ -56,15 +51,6 @@ const buildApplicationManifest = (): Manifest =>
               objectUniversalIdentifier: COMPANY_UNIVERSAL_IDENTIFIER,
               canReadObjectRecords: true,
               canUpdateObjectRecords: false,
-            },
-          ],
-          rowLevelPermissionPredicates: [
-            {
-              universalIdentifier: TEST_PREDICATE_UNIVERSAL_IDENTIFIER,
-              objectUniversalIdentifier: COMPANY_UNIVERSAL_IDENTIFIER,
-              fieldUniversalIdentifier: COMPANY_NAME_FIELD_UNIVERSAL_IDENTIFIER,
-              operand: RowLevelPermissionPredicateOperand.CONTAINS,
-              value: 'Intersection Visible',
             },
           ],
         },
@@ -184,12 +170,6 @@ describe('An application acting for a user is bound by both roles', () => {
     expect(names).toEqual(
       expect.arrayContaining([VISIBLE_COMPANY_NAME, HIDDEN_COMPANY_NAME]),
     );
-  });
-
-  it('should apply the application row-level predicate even though the user has none', async () => {
-    const names = await findCompanyNames(applicationAccessToken);
-
-    expect(names).toEqual([VISIBLE_COMPANY_NAME]);
   });
 
   it('should refuse an update the application role forbids and the user role allows', async () => {

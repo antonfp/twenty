@@ -663,8 +663,6 @@ export const EXPECTED_MANIFEST: Manifest = {
       universalIdentifier: 'c0c1c2c3-c4c5-4000-8000-000000000001',
       fieldPermissions: [],
       objectPermissions: [],
-      rowLevelPermissionPredicateGroups: [],
-      rowLevelPermissionPredicates: [],
       permissionFlagUniversalIdentifiers: [],
     },
     {
@@ -705,8 +703,6 @@ export const EXPECTED_MANIFEST: Manifest = {
           objectUniversalIdentifier: '20202020-6736-4337-b5c4-8b39fae325a5',
         },
       ],
-      rowLevelPermissionPredicateGroups: [],
-      rowLevelPermissionPredicates: [],
       permissionFlagUniversalIdentifiers: [SystemPermissionFlag.APPLICATIONS],
       universalIdentifier: 'b648f87b-1d26-4961-b974-0908fd991061',
     },

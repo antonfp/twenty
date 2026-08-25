@@ -1,31 +1,19 @@
-import { currentWorkspaceState } from '@/auth/states/currentWorkspaceState';
 import { useObjectMetadataItemById } from '@/object-metadata/hooks/useObjectMetadataItemById';
-import { mapRLSOperandToRecordFilterOperand } from '@/object-record/record-filter/utils/mapRLSOperandToRecordFilterOperand';
 import { SettingsPageContainer } from '@/settings/components/SettingsPageContainer';
 import { SettingsRolePermissionsObjectLevelObjectFieldPermissionTable } from '@/settings/roles/role-permissions/object-level-permissions/field-permissions/components/SettingsRolePermissionsObjectLevelObjectFieldPermissionTable';
 import { SettingsRolePermissionsObjectLevelObjectFormObjectLevel } from '@/settings/roles/role-permissions/object-level-permissions/object-form/components/SettingsRolePermissionsObjectLevelObjectFormObjectLevel';
-import { SettingsRolePermissionsObjectLevelRecordLevelSection } from '@/settings/roles/role-permissions/object-level-permissions/record-level-permissions/components/SettingsRolePermissionsObjectLevelRecordLevelSection';
 import { settingsDraftRoleFamilyState } from '@/settings/roles/states/settingsDraftRoleFamilyState';
 import { SettingsPageLayout } from '@/settings/components/layout/SettingsPageLayout';
 import { SettingsWizardStepBar } from '@/settings/components/layout/SettingsWizardStepBar';
 import { useAtomFamilyStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomFamilyStateValue';
 import { t } from '@lingui/core/macro';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { SettingsPath } from 'twenty-shared/types';
-import {
-  getSettingsPath,
-  isDefined,
-  isRecordFilterValueValid,
-} from 'twenty-shared/utils';
+import { getSettingsPath, isDefined } from 'twenty-shared/utils';
 import { Button } from 'twenty-ui/input';
 import { themeCssVariables } from 'twenty-ui/theme-constants';
 import { useQuery } from '@apollo/client/react';
-import {
-  type BillingEntitlement,
-  BillingEntitlementKey,
-  FindOneAgentDocument,
-} from '~/generated-metadata/graphql';
+import { FindOneAgentDocument } from '~/generated-metadata/graphql';
 
 type SettingsRolePermissionsObjectLevelObjectFormProps = {
   roleId: string;
@@ -40,8 +28,6 @@ export const SettingsRolePermissionsObjectLevelObjectForm = ({
   const navigate = useNavigate();
   const fromAgentId = searchParams.get('fromAgent');
 
-  const currentWorkspace = useAtomStateValue(currentWorkspaceState);
-
   const settingsDraftRole = useAtomFamilyStateValue(
     settingsDraftRoleFamilyState,
     roleId,
@@ -55,15 +41,6 @@ export const SettingsRolePermissionsObjectLevelObjectForm = ({
   const objectMetadata = useObjectMetadataItemById({
     objectId: objectMetadataId,
   });
-
-  const workspaceBillingEntitlements = currentWorkspace?.billingEntitlements;
-
-  const isRLSBillingEntitlementEnabled =
-    workspaceBillingEntitlements?.some(
-      (entitlement: BillingEntitlement) =>
-        entitlement.key === BillingEntitlementKey.RLS &&
-        entitlement.value === true,
-    ) ?? false;
 
   const objectMetadataItem = objectMetadata.objectMetadataItem;
 
@@ -129,24 +106,6 @@ export const SettingsRolePermissionsObjectLevelObjectForm = ({
   const headerTitle =
     fromAgentId && isDefined(agent) ? agent.label : settingsDraftRole.label;
 
-  const objectPredicates =
-    settingsDraftRole.rowLevelPermissionPredicates?.filter(
-      (predicate) => predicate.objectMetadataId === objectMetadataItem.id,
-    ) ?? [];
-
-  const hasInvalidPredicate = objectPredicates.some((predicate) => {
-    if (isDefined(predicate.workspaceMemberFieldMetadataId)) {
-      return false;
-    }
-
-    return !isRecordFilterValueValid({
-      operand: mapRLSOperandToRecordFilterOperand(predicate.operand),
-      value: predicate.value ?? '',
-    });
-  });
-
-  const isFinishDisabled = hasInvalidPredicate;
-
   return (
     <SettingsPageLayout
       title={headerTitle}
@@ -162,8 +121,7 @@ export const SettingsRolePermissionsObjectLevelObjectForm = ({
               variant="primary"
               size="small"
               accent="blue"
-              to={isFinishDisabled ? undefined : finishButtonPath}
-              disabled={isFinishDisabled}
+              to={finishButtonPath}
             />
           }
         />
@@ -177,11 +135,6 @@ export const SettingsRolePermissionsObjectLevelObjectForm = ({
         <SettingsRolePermissionsObjectLevelObjectFieldPermissionTable
           objectMetadataItem={objectMetadataItem}
           roleId={roleId}
-        />
-        <SettingsRolePermissionsObjectLevelRecordLevelSection
-          objectMetadataItem={objectMetadataItem}
-          roleId={roleId}
-          hasOrganizationPlan={isRLSBillingEntitlementEnabled}
         />
       </SettingsPageContainer>
     </SettingsPageLayout>
