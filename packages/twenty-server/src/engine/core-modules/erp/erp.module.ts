@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { ErpPostingResolver } from 'src/engine/core-modules/erp/erp-posting.resolver';
 import { WorkspaceManyOrAllFlatEntityMapsCacheModule } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.module';
+import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permissions.module';
 import { UserRoleModule } from 'src/engine/metadata-modules/user-role/user-role.module';
 import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
 import { PostingRulesRegistry } from 'src/engine/core-modules/erp/posting-rules.registry';
@@ -14,6 +15,10 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
 // GlobalWorkspaceDatasourceModule, so no imports are needed.
 @Module({
   imports: [
+    // PermissionsModule provides/exports ApiKeyRoleService (needed by
+    // ErpPostingResolver's api-key auth branch); UserRoleModule provides
+    // UserRoleService (its user-auth branch) — neither re-exports the other.
+    PermissionsModule,
     UserRoleModule,
     WorkspaceCacheModule,
     WorkspaceManyOrAllFlatEntityMapsCacheModule,
