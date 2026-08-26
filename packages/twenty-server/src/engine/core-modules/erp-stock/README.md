@@ -102,3 +102,17 @@
 строчных объектов, register-guard (безусловный блок, включая
 upsert/restore/merge) на `stockLedgerEntry` и `itemBalance` — 11 операций
 каждому объекту.
+
+## Печатная форма УПД
+
+`GET /rest/erp/sales-shipments/:id/print-upd?status=1|2` (авторизация как у
+остального REST: JWT + workspace) → готовый HTML (`Content-Type: text/html`)
+УПД по шаблону `docs/erp-design/upd-template.html` (встроен строковой
+константой `constants/upd-template.constant.ts`). Механика как у печати
+счёта в erp-sales: replace + размножение `<!-- BEGIN line -->`, суммы
+прописью из `erp/utils/amount-in-words-ru.util.ts`, HTML-экранирование,
+итоги пересчитываются из строк. Статус по письму ФНС ММВ-20-3/96@:
+`1` — СЧФ + передаточный документ, `2` (default, MVP) — только передаточный
+документ, счёт-фактурные показатели (строка 5, графы 6–8, 10–11)
+прочеркиваются. Маппинг полей и список «нет в модели» —
+`docs/erp-design/upd-spec.md`.
