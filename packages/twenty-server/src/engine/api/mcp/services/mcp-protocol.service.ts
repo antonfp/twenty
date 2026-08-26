@@ -35,6 +35,11 @@ import {
   postDocumentInputSchema,
 } from 'src/engine/api/mcp/tools/post-document.tool';
 import {
+  createTrialBalanceTool,
+  TRIAL_BALANCE_TOOL_NAME,
+  trialBalanceInputSchema,
+} from 'src/engine/api/mcp/tools/trial-balance.tool';
+import {
   createListSkillsTool,
   LIST_SKILLS_TOOL_NAME,
   listSkillsInputSchema,
@@ -45,6 +50,7 @@ import { ApiKeyRoleService } from 'src/engine/core-modules/api-key/services/api-
 import { DadataService } from 'src/engine/core-modules/dadata/services/dadata.service';
 import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
+import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { type FlatApiKey } from 'src/engine/core-modules/api-key/types/flat-api-key.type';
 import { type WorkspaceAuthContext } from 'src/engine/core-modules/auth/types/workspace-auth-context.type';
 import { buildApiKeyAuthContext } from 'src/engine/core-modules/auth/utils/build-api-key-auth-context.util';
@@ -117,6 +123,7 @@ export class McpProtocolService {
     private readonly postingService: PostingService,
     private readonly erpObjectPermissionGuardService: ErpObjectPermissionGuardService,
     private readonly dadataService: DadataService,
+    private readonly trialBalanceService: TrialBalanceService,
   ) {}
 
   async handleInitialize(requestId: string | number, workspaceId: string) {
@@ -251,6 +258,14 @@ export class McpProtocolService {
         roleId,
         objectNameSingular,
       });
+    // trial_balance only reads glEntry — same permission as the REST print
+    // endpoints (canReadObjectRecords), not canUpdateObjectRecords.
+    const assertCanReadObjectRecords = (objectNameSingular: string) =>
+      this.erpObjectPermissionGuardService.assertCanReadObjectRecords({
+        workspaceId: workspace.id,
+        roleId,
+        objectNameSingular,
+      });
 
     return {
       ...annotatePreloadedMcpTools(preloadedTools),
@@ -327,6 +342,15 @@ export class McpProtocolService {
         ...createLookupPartyByInnTool(this.dadataService),
         inputSchema: zodSchema(lookupPartyByInnInputSchema),
         annotations: MCP_OPEN_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [TRIAL_BALANCE_TOOL_NAME]: {
+        ...createTrialBalanceTool(
+          this.trialBalanceService,
+          workspace.id,
+          assertCanReadObjectRecords,
+        ),
+        inputSchema: zodSchema(trialBalanceInputSchema),
+        annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
     };
   }

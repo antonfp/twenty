@@ -5,24 +5,37 @@ import { GlContributorRegistry } from 'src/engine/core-modules/erp/gl-contributo
 import { PostingRulesRegistry } from 'src/engine/core-modules/erp/posting-rules.registry';
 import { ErpDocumentGuardService } from 'src/engine/core-modules/erp-sales/services/erp-document-guard.service';
 import { ErpDocumentLineGuardService } from 'src/engine/core-modules/erp-sales/services/erp-document-line-guard.service';
+import { TrialBalanceController } from 'src/engine/core-modules/erp-accounting/controllers/trial-balance.controller';
 import { ERP_ACCOUNTING_GUARD_HOOKS } from 'src/engine/core-modules/erp-accounting/query-hooks/erp-accounting-guard.pre-query.hooks';
 import { GlContributorsService } from 'src/engine/core-modules/erp-accounting/services/gl-contributors.service';
 import { ManualEntryPostingRulesService } from 'src/engine/core-modules/erp-accounting/services/manual-entry-posting-rules.service';
+import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
+import { TokenModule } from 'src/engine/core-modules/auth/token/token.module';
+import { JwtAuthGuard } from 'src/engine/guards/jwt-auth.guard';
+import { WorkspaceAuthGuard } from 'src/engine/guards/workspace-auth.guard';
+import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/workspace-cache-storage.module';
 
 // Блок «Бухгалтерия» (glue): GL-контрибьюторы типовых проводок всех
 // документов блоков + провайдер ручной операции + guard-хуки на manualEntry,
-// его строки и регистр glEntry. Guard-сервисы переиспользуются из erp-sales
-// (объект-агностичные), explicit registration per erp/WIRING.md §3.
-// stockTransfer контрибьютора не имеет — ruling: БЕЗ проводок.
+// его строки и регистр glEntry + печатный ОСВ-отчёт (Task 3). Guard-сервисы
+// переиспользуются из erp-sales (объект-агностичные), explicit registration
+// per erp/WIRING.md §3. stockTransfer контрибьютора не имеет — ruling: БЕЗ
+// проводок. TrialBalanceService is exported for the MCP trial_balance tool
+// (see api/mcp/mcp.module.ts).
 @Module({
-  imports: [ErpModule],
+  imports: [ErpModule, TokenModule, WorkspaceCacheStorageModule],
+  controllers: [TrialBalanceController],
   providers: [
+    JwtAuthGuard,
+    WorkspaceAuthGuard,
     ErpDocumentGuardService,
     ErpDocumentLineGuardService,
     GlContributorsService,
     ManualEntryPostingRulesService,
+    TrialBalanceService,
     ...ERP_ACCOUNTING_GUARD_HOOKS,
   ],
+  exports: [TrialBalanceService],
 })
 export class ErpAccountingModule implements OnModuleInit {
   constructor(
