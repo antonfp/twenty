@@ -81,12 +81,30 @@ const bootstrap = async () => {
     limit: settings.storage.maxFileSize,
     extended: true,
   });
-  // application/octet-stream added for the bank-statement import endpoint
-  // (erp-accounting): the file may be windows-1251, so the controller reads
-  // request.rawBody (captured by the `rawBody: true` option above) instead
-  // of this parser's UTF-8-decoded request.body.
+  // erp-accounting's bank-statement import reads request.rawBody (captured
+  // by `rawBody: true` above) so it can decode windows-1251 itself; it needs
+  // application/octet-stream in addition to text/plain, but ONLY on its own
+  // route. A global octet-stream parser would also consume
+  // PUT /file-upload/:id's streamed body — that endpoint deliberately sends
+  // octet-stream to bypass all body parsers so it can pipe the request
+  // straight to storage (file-upload.service.ts) — and a global parser here
+  // would silently drain that stream, saving the upload as 0 bytes.
   app.useBodyParser('text', {
-    type: ['text/plain', 'application/octet-stream'],
+    type: (req) => {
+      const contentType = req.headers['content-type'] ?? '';
+
+      if (contentType.startsWith('text/plain')) {
+        return true;
+      }
+
+      return (
+        contentType.startsWith('application/octet-stream') &&
+        // body-parser's `type` predicate is typed against the raw
+        // http.IncomingMessage (no `.path`); `.url` still carries the
+        // request path (plus query string, irrelevant to this prefix check).
+        (req.url ?? '').startsWith(`/${ApiPath.Rest}/erp/bank-statements`)
+      );
+    },
     limit: '1024kb',
   });
 

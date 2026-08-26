@@ -13,6 +13,14 @@ JSON**. `Content-Type: text/plain` или `application/octet-stream` — оба
 читаются как raw bytes (`request.rawBody`), CP1251 декодируется вручную
 (`utils/decode-cp1251.util.ts`).
 
+`application/octet-stream` для body-парсера в `main.ts` **скопирован только
+на этот путь** (`req.url.startsWith('/rest/erp/bank-statements')` внутри
+`type`-функции `useBodyParser('text', …)`) — глобально включён только
+`text/plain`, как и до Фазы 6. Платформенный `PUT /file-upload/:id`
+(`file-upload.controller.ts`) намеренно шлёт `application/octet-stream`,
+чтобы ОБОЙТИ все body-парсеры и стримить тело напрямую в storage; глобальный
+парсер на этом content-type тихо съедал бы тот стрим (0 байт → 204).
+
 ```bash
 curl -X POST 'http://localhost:3000/rest/erp/bank-statements/import?organizationId=<uuid>' \
   -H 'Authorization: Bearer <token>' \

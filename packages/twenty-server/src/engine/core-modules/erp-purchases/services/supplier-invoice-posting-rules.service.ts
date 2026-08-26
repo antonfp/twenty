@@ -162,6 +162,9 @@ export class SupplierInvoicePostingRulesService implements PostingRulesProvider 
   // Ruling: cancelling a posted invoice is blocked while any POSTED payment
   // is still linked to it — cancelled payments don't count. Checked here
   // (not in validate) because the block applies to cancel, not post.
+  // withDeleted — a soft-deleted payment is invisible to a plain lookup and
+  // would wrongly let the invoice cancel out from under it while still
+  // POSTED (mirrors the goods receipt check below).
   async onCancel(
     context: PostingContext,
     document: ErpDocumentRecord,
@@ -171,9 +174,12 @@ export class SupplierInvoicePostingRulesService implements PostingRulesProvider 
         SUPPLIER_PAYMENT_OBJECT_NAME,
         BYPASS_PERMISSIONS,
       )
-      .findOneBy({
-        supplierInvoiceId: document.id,
-        docStatus: DOC_STATUS.POSTED,
+      .findOne({
+        where: {
+          supplierInvoiceId: document.id,
+          docStatus: DOC_STATUS.POSTED,
+        },
+        withDeleted: true,
       });
 
     if (isDefined(postedPayment)) {
