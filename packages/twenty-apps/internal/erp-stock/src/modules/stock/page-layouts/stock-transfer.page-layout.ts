@@ -8,6 +8,7 @@ const PAGE_LAYOUT_ID = 'ab968024-b844-4c4e-a6cc-9de32cab147a';
 const DOCUMENT_TAB_ID = '10c403e7-8df5-423c-bd70-b5c200f13b9b';
 const FIELDS_WIDGET_ID = 'ed1268b6-0c2d-4fa0-bfc0-84d0c608ca5c';
 const LINES_WIDGET_ID = 'a0ae25ca-78ef-4eed-8040-172ef37cf4bc';
+const POSITIONS_TAB_ID = '2525080b-85e2-4ed5-be10-01e1a8cffc53';
 const TIMELINE_TAB_ID = '410dc238-8822-4b67-9989-0133e49ca722';
 const TIMELINE_WIDGET_ID = '4134852a-3665-4937-887b-47614aa46e37';
 const TASKS_TAB_ID = '97f4f482-f3e1-4308-a655-3d2b9b4c1736';
@@ -18,17 +19,23 @@ const FILES_TAB_ID = 'ba4ea27e-0331-4c4f-a4c2-ecfb985ee28b';
 const FILES_WIDGET_ID = '85d02cd5-cf1d-43b6-8302-f0eb7842bf5d';
 
 // Заменяет автогенерированный layout объекта — без явного "Документ" таба
-// поля не покажутся ("No Data"). Строки перемещения — FIELD/TABLE
-// (редактируемая RecordTable), а не чипы relation-виджета по умолчанию.
-// Поле/table виджет ссылается на persisted defineView (см. views/) чтобы
-// задать порядок колонок и SUM-агрегат на итоговой колонке — без
-// viewId FIELD/TABLE не рендерится вовсе.
+// поля не покажутся ("No Data"). На десктопе первый по position таб
+// пиннится в узкую левую панель (getTabsByDisplayMode.ts) — поэтому
+// "Документ" (position 0) несёт только шапку (FIELDS), а строки — в
+// отдельном полноширинном табе (position 1), который и становится
+// активным по умолчанию: PageLayoutTabsRenderer.tsx сортирует и передаёт
+// в таб-лист только НЕ-пиннед табы, так что tabs[0] там — этот таб.
+// FIELD/TABLE и FIELDS виджеты ссылаются на persisted defineView'ы (см.
+// views/) для порядка колонок и SUM-агрегата — без viewId FIELD/TABLE не
+// рендерится вовсе.
+//
 // defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier намеренно не
-// задан: указывая на таб, который создаётся в этом же apply, он ловит
-// SDK apply-engine баг (pageLayout создаётся раньше своих pageLayoutTab —
-// forward-reference не резолвится на чистом инстансе). Безопасно опустить,
-// пока "Документ" остаётся табом с наименьшим position (0) — фронт для
-// desktop/mobile/side-panel фолбэчится на tabs[0].
+// задан: указывая на таб создаваемый в этом же apply, он ловит SDK
+// apply-engine баг (pageLayout создаётся раньше своих pageLayoutTab —
+// forward-reference не резолвится на чистом инстансе). Безопасно опустить
+// — на десктопе фолбэк уже выбирает нужный таб (см. выше); на
+// mobile/side-panel (без пиннинга) фолбэк — tabs[0] по позиции, то есть
+// "Документ" — приемлемо, там нет тесноты пиннед-панели.
 export default definePageLayout({
   universalIdentifier: PAGE_LAYOUT_ID,
   name: 'Stock transfer record page',
@@ -51,6 +58,15 @@ export default definePageLayout({
             viewUniversalIdentifier: STOCK_TRANSFER_RECORD_PAGE_FIELDS_VIEW_ID,
           },
         },
+      ],
+    },
+    {
+      universalIdentifier: POSITIONS_TAB_ID,
+      title: 'Позиции',
+      position: 1,
+      icon: 'IconListDetails',
+      layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
+      widgets: [
         {
           universalIdentifier: LINES_WIDGET_ID,
           title: 'Строки',
