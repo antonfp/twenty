@@ -63,7 +63,10 @@ export const useErpPostingCommand = (kind: 'post' | 'cancel') => {
     });
 
     enqueueSuccessSnackBar({
-      message: kind === 'post' ? t`Документ проведён` : t`Проведение отменено`,
+      message:
+        kind === 'post'
+          ? t`Документ проведён`
+          : t`Проведение отменено, документ возвращён в черновик`,
     });
   };
 

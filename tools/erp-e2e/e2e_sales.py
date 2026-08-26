@@ -164,12 +164,72 @@ def main():
     st = gql('/graphql', f'''{{ salesInvoice(filter: {{ id: {{ eq: "{inv['id']}" }} }}) {{ paymentStatus }} }}''', token=token)['salesInvoice']
     assert st['paymentStatus'] == 'PARTIALLY_PAID', f"expected PARTIALLY_PAID after cancel, got {st}"
     print('after cancel pay2: invoice rolled back to', st['paymentStatus'])
+    pay2_after = gql('/graphql', f'''{{ payment(filter: {{ id: {{ eq: "{pay2['id']}" }} }}) {{
+      docStatus postedAt cancelledAt }} }}''', token=token)['payment']
+    assert pay2_after['docStatus'] == 'DRAFT', pay2_after
+    assert pay2_after['postedAt'] is None, pay2_after
+    assert pay2_after['cancelledAt'] is None, pay2_after
+    print('pay2 cancelled -> DRAFT (not terminal CANCELLED), postedAt/cancelledAt null ok')
     led = gql('/graphql', f'''{{ partyLedgerEntries(filter: {{ companyId: {{ eq: "{comp['id']}" }} }}) {{
       edges {{ node {{ amount {{ amountMicros }} isCancelled isCancellation }} }} }} }}''', token=token)
     live = sum(int(e['node']['amount']['amountMicros']) for e in led['partyLedgerEntries']['edges']
                if not e['node']['isCancelled'] and not e['node']['isCancellation']) / 1e6
     storno = [e['node'] for e in led['partyLedgerEntries']['edges'] if e['node']['isCancellation']]
     print(f'storno rows: {len(storno)}, live balance: {live} (ожидание 40000-90000=-50000? нет: +90000-40000=50000)')
+
+    # Task 7: cancel -> edit line amount -> re-post -> registers correct.
+    # Fresh invoice (no linked payments) so the cancel-block mirror doesn't
+    # get in the way — the scenario is about numbering/registers, not guards.
+    update_line = find_name(names, 'updateSalesInvoiceLine')
+
+    inv2 = gql('/graphql', f'''mutation {{ {create_invoice}(data: {{
+      name: "Черновик e2e (re-post)", invoiceDate: "2026-08-25",
+      organizationId: "{org['id']}", customerId: "{comp['id']}"
+    }}) {{ id docStatus }} }}''', token=token)[create_invoice]
+    line2 = gql('/graphql', f'''mutation {{ {create_line}(data: {{
+      name: "Разовая услуга (e2e re-post)", quantity: 1,
+      price: {{ amountMicros: "{12000 * 1000000}", currencyCode: "RUB" }},
+      vatRate: "VAT_20", salesInvoiceId: "{inv2['id']}"
+    }}) {{ id }} }}''', token=token)[create_line]
+
+    gql('/graphql', f'mutation {{ postDocument(objectNameSingular: "salesInvoice", recordId: "{inv2["id"]}") }}', token=token)
+    inv2_posted = gql('/graphql', f'''{{ salesInvoice(filter: {{ id: {{ eq: "{inv2['id']}" }} }}) {{
+      number docStatus total {{ amountMicros }} }} }}''', token=token)['salesInvoice']
+    assert inv2_posted['docStatus'] == 'POSTED', inv2_posted
+    assert int(inv2_posted['total']['amountMicros']) == 12000 * 10**6, inv2_posted
+    inv2_number = inv2_posted['number']
+    print('re-post scenario: invoice #', inv2_number, 'posted, total 12000')
+
+    gql('/graphql', f'mutation {{ cancelDocument(objectNameSingular: "salesInvoice", recordId: "{inv2["id"]}") }}', token=token)
+    inv2_cancelled = gql('/graphql', f'''{{ salesInvoice(filter: {{ id: {{ eq: "{inv2['id']}" }} }}) {{
+      docStatus postedAt cancelledAt number }} }}''', token=token)['salesInvoice']
+    assert inv2_cancelled['docStatus'] == 'DRAFT', inv2_cancelled
+    assert inv2_cancelled['postedAt'] is None, inv2_cancelled
+    assert inv2_cancelled['cancelledAt'] is None, inv2_cancelled
+    assert inv2_cancelled['number'] == inv2_number, 'number must survive cancel: ' + str(inv2_cancelled)
+    print('cancel -> back to DRAFT ok (postedAt/cancelledAt null, number kept)')
+
+    # Editable again while DRAFT -- change the line amount (qty 1 -> 2).
+    gql('/graphql', f'''mutation {{ {update_line}(id: "{line2['id']}", data: {{ quantity: 2 }}) {{ id }} }}''', token=token)
+    print('line quantity edited 1 -> 2 while DRAFT')
+
+    gql('/graphql', f'mutation {{ postDocument(objectNameSingular: "salesInvoice", recordId: "{inv2["id"]}") }}', token=token)
+    inv2_reposted = gql('/graphql', f'''{{ salesInvoice(filter: {{ id: {{ eq: "{inv2['id']}" }} }}) {{
+      docStatus number total {{ amountMicros }} }} }}''', token=token)['salesInvoice']
+    assert inv2_reposted['docStatus'] == 'POSTED', inv2_reposted
+    # DocumentNumberingService only assigns when `number` is empty -- cancel
+    # never clears it, so re-post must reuse the SAME number.
+    assert inv2_reposted['number'] == inv2_number, 'numbering must re-use the same number on re-post: ' + str(inv2_reposted)
+    assert int(inv2_reposted['total']['amountMicros']) == 24000 * 10**6, inv2_reposted
+    print('re-post ok: same number', inv2_number, ', new total 24000 (2x12000)')
+
+    led2 = gql('/graphql', f'''{{ partyLedgerEntries(filter: {{ voucherId: {{ eq: "{inv2['id']}" }} }}) {{
+      edges {{ node {{ amount {{ amountMicros }} isCancelled isCancellation }} }} }} }}''', token=token)
+    rows2 = [e['node'] for e in led2['partyLedgerEntries']['edges']]
+    assert len(rows2) == 3, f'expected 3 register rows (original + storno + new) after cancel+re-post, got {rows2}'
+    live2 = sum(int(r['amount']['amountMicros']) for r in rows2 if not r['isCancelled'] and not r['isCancellation']) / 1e6
+    assert live2 == 24000, f'live party balance expected 24000 after re-post, got {live2}: {rows2}'
+    print('registers correct after cancel -> edit -> re-post: 3 rows (orig+storno+new), live balance 24000')
 
     print('\\n=== E2E ЦИКЛ ПРОЙДЕН ===')
 

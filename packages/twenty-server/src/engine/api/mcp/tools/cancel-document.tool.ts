@@ -27,7 +27,7 @@ export const createCancelDocumentTool = (
   ) => Promise<void>,
 ) => ({
   description:
-    'Cancel (отменить проведение) a POSTED ERP document: writes reversal (storno) register entries and switches docStatus to CANCELLED. Fails if the document is not POSTED.',
+    'Cancel (отменить проведение) a POSTED ERP document: writes reversal (storno) register entries and returns docStatus to DRAFT (editable again, re-postable — cancel is not terminal). Fails if the document is not POSTED.',
   inputSchema: cancelDocumentInputSchema,
   execute: async ({
     objectNameSingular,
@@ -38,7 +38,7 @@ export const createCancelDocumentTool = (
 
     return {
       success: true,
-      message: `Document ${objectNameSingular}/${recordId} cancelled.`,
+      message: `Document ${objectNameSingular}/${recordId} cancelled, returned to DRAFT.`,
     };
   },
 });

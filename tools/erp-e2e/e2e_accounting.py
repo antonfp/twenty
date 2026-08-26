@@ -400,19 +400,21 @@ def main():
     assert len(report2['skipped']) == 3, report2
     print(f"bank re-import (idempotent): created={len(report2['created'])} skipped={len(report2['skipped'])} ok")
 
-    # 10. Сторно ManualEntry (шаг 6) -> glEntry реверс, сумма по voucherId = 0.
+    # 10. Сторно ManualEntry (шаг 6) -> glEntry реверс, сумма по voucherId = 0,
+    # документ возвращается в DRAFT (не терминальный CANCELLED).
     gql('/graphql', f'mutation {{ cancelDocument(objectNameSingular: "manualEntry", recordId: "{me["id"]}") }}', token=token)
     me_after = gql('/graphql', f'''{{ manualEntry(filter: {{ id: {{ eq: "{me['id']}" }} }}) {{
-      docStatus cancelledAt }} }}''', token=token)['manualEntry']
-    assert me_after['docStatus'] == 'CANCELLED', me_after
-    assert me_after['cancelledAt'] is not None, me_after
+      docStatus postedAt cancelledAt }} }}''', token=token)['manualEntry']
+    assert me_after['docStatus'] == 'DRAFT', me_after
+    assert me_after['postedAt'] is None, me_after
+    assert me_after['cancelledAt'] is None, me_after
     me_rows_after = gl_entries(me['id'])
     originals = [r for r in me_rows_after if not r['isCancellation']]
     reversals = [r for r in me_rows_after if r['isCancellation']]
     assert len(originals) == 1 and len(reversals) == 1, me_rows_after
     total_micros = sum(int(r['amount']['amountMicros']) for r in me_rows_after)
     assert total_micros == 0, me_rows_after
-    print('storno ManualEntry ok: docStatus=CANCELLED, Σ glEntry.amount по voucherId = 0')
+    print('storno ManualEntry ok: docStatus=DRAFT (возвращён в черновик), Σ glEntry.amount по voucherId = 0')
 
     print('\n=== E2E ЦИКЛ БУХГАЛТЕРИИ ПРОЙДЕН ===')
 

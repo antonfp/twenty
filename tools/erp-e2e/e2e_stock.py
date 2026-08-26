@@ -300,15 +300,16 @@ def main():
         assert 400 <= e.code < 500, f'invalid status must be 4xx, got {e.code}'
         print(f'print-upd status=9 (invalid): HTTP {e.code} ok')
 
-    # 11. Сторно реализации -> остаток w1 возвращается 9+4=13
+    # 11. Сторно реализации -> остаток w1 возвращается 9+4=13, документ снова DRAFT
     gql('/graphql', f'mutation {{ cancelDocument(objectNameSingular: "salesShipment", recordId: "{ss1["id"]}") }}', token=token)
-    ss1_after = gql('/graphql', f'''{{ salesShipment(filter: {{ id: {{ eq: "{ss1['id']}" }} }}) {{ docStatus cancelledAt }} }}''', token=token)['salesShipment']
-    assert ss1_after['docStatus'] == 'CANCELLED', ss1_after
-    assert ss1_after['cancelledAt'] is not None, ss1_after
+    ss1_after = gql('/graphql', f'''{{ salesShipment(filter: {{ id: {{ eq: "{ss1['id']}" }} }}) {{ docStatus postedAt cancelledAt }} }}''', token=token)['salesShipment']
+    assert ss1_after['docStatus'] == 'DRAFT', ss1_after
+    assert ss1_after['postedAt'] is None, ss1_after
+    assert ss1_after['cancelledAt'] is None, ss1_after
     bal = item_balance(w1['id'])
     assert bal['actualQty'] == 13, bal
     assert int(bal['avgCost']['amountMicros']) / 1e6 == 150, bal
-    print('storno SS1 ok: docStatus=CANCELLED, w1: qty=13 (9+4) avg=150 ok')
+    print('storno SS1 ok: docStatus=DRAFT (возвращён в черновик), w1: qty=13 (9+4) avg=150 ok')
 
     # Регистр движений после сторно: исходная строка (-4) + реверс-строка
     # (isCancellation=true, +4) по одному и тому же voucherId; сумма = 0.

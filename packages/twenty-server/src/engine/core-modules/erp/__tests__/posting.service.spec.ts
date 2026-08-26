@@ -453,8 +453,9 @@ describe('PostingService', () => {
       expect(
         fakeRepositoryByObjectName.salesInvoice.update,
       ).toHaveBeenCalledWith(RECORD_ID, {
-        docStatus: DOC_STATUS.CANCELLED,
-        cancelledAt: expect.any(String),
+        docStatus: DOC_STATUS.DRAFT,
+        postedAt: null,
+        cancelledAt: null,
       });
     });
   });
@@ -466,7 +467,7 @@ describe('PostingService', () => {
       );
     });
 
-    it('writes negated reversal rows, marks originals cancelled and sets the document CANCELLED', async () => {
+    it('writes negated reversal rows, marks originals cancelled and returns the document to DRAFT', async () => {
       executeRawQuery.mockResolvedValue([
         { id: RECORD_ID, docStatus: DOC_STATUS.POSTED },
       ]);
@@ -511,8 +512,9 @@ describe('PostingService', () => {
       expect(
         fakeRepositoryByObjectName.salesInvoice.update,
       ).toHaveBeenCalledWith(RECORD_ID, {
-        docStatus: DOC_STATUS.CANCELLED,
-        cancelledAt: expect.any(String),
+        docStatus: DOC_STATUS.DRAFT,
+        postedAt: null,
+        cancelledAt: null,
       });
     });
 
@@ -566,8 +568,9 @@ describe('PostingService', () => {
       expect(
         fakeRepositoryByObjectName.salesInvoice.update,
       ).toHaveBeenCalledWith(RECORD_ID, {
-        docStatus: DOC_STATUS.CANCELLED,
-        cancelledAt: expect.any(String),
+        docStatus: DOC_STATUS.DRAFT,
+        postedAt: null,
+        cancelledAt: null,
       });
     });
 
@@ -584,6 +587,72 @@ describe('PostingService', () => {
       expect(
         fakeRepositoryByObjectName.partyLedgerEntry.insert,
       ).not.toHaveBeenCalled();
+    });
+
+    // Cancel is not terminal (Task 7 ruling): after a first cancel the
+    // document sits at DRAFT, so a second cancel must fail the same way as
+    // cancelling any other non-POSTED document — "not POSTED", not a
+    // CANCELLED-specific error path.
+    it('rejects a second cancel after the document already returned to DRAFT', async () => {
+      executeRawQuery.mockResolvedValueOnce([
+        { id: RECORD_ID, docStatus: DOC_STATUS.POSTED },
+      ]);
+
+      await postingService.cancel(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
+
+      expect(
+        fakeRepositoryByObjectName.salesInvoice.update,
+      ).toHaveBeenCalledWith(RECORD_ID, {
+        docStatus: DOC_STATUS.DRAFT,
+        postedAt: null,
+        cancelledAt: null,
+      });
+
+      executeRawQuery.mockResolvedValueOnce([
+        { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
+      ]);
+
+      await expect(
+        postingService.cancel(WORKSPACE_ID, 'salesInvoice', RECORD_ID),
+      ).rejects.toMatchObject({
+        code: ERP_POSTING_EXCEPTION_CODE.INVALID_DOC_STATUS,
+      });
+    });
+
+    // Re-post after cancel: post() only checks DRAFT, so it succeeds and
+    // writes a fresh register row — the reversal above stays as permanent
+    // history, it is never deleted or reused.
+    it('allows re-posting after cancel and writes a new register row', async () => {
+      executeRawQuery
+        .mockResolvedValueOnce([{ id: RECORD_ID, docStatus: DOC_STATUS.POSTED }])
+        .mockResolvedValueOnce([{ id: RECORD_ID, docStatus: DOC_STATUS.DRAFT }]);
+
+      await postingService.cancel(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
+
+      registry.registerPostingRules('salesInvoice', {
+        getPartyEntries: () => [
+          {
+            partyId: 'party-1',
+            voucherType: 'salesInvoice',
+            voucherId: RECORD_ID,
+            direction: 'AR' as const,
+            amount: 1500,
+            postingDate: '2026-05-10',
+          },
+        ],
+      });
+
+      await postingService.post(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
+
+      expect(
+        fakeRepositoryByObjectName.partyLedgerEntry.insert,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        fakeRepositoryByObjectName.salesInvoice.update,
+      ).toHaveBeenLastCalledWith(RECORD_ID, {
+        docStatus: DOC_STATUS.POSTED,
+        postedAt: expect.any(String),
+      });
     });
 
     it('wraps unexpected errors into POSTING_FAILED', async () => {

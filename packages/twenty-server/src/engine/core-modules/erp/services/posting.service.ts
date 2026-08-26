@@ -259,9 +259,18 @@ export class PostingService {
       await provider.onCancel?.(cancelContext, document);
     }
 
+    // Ruling (26.08): cancel is not terminal — 1С semantics. The document
+    // returns to DRAFT (editable, re-postable); reversal rows above are the
+    // permanent history. CANCELLED stays a valid historical value for
+    // records written before this change, just never produced going forward.
+    // The `as unknown as string` casts work around ErpDocumentRecord's index
+    // signature: TypeORM's DeepPartial maps an `unknown`-typed property to
+    // `{}`, which structurally excludes `null` even though the columns are
+    // nullable timestamps.
     await documentRepository.update(recordId, {
-      docStatus: DOC_STATUS.CANCELLED,
-      cancelledAt: new Date().toISOString(),
+      docStatus: DOC_STATUS.DRAFT,
+      postedAt: null as unknown as string,
+      cancelledAt: null as unknown as string,
     });
   }
 

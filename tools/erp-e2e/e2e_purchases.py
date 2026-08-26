@@ -172,11 +172,18 @@ def main():
     assert balance == 0, f'balance expected 0, got {balance}'
     print('ledger balance 0 ok')
 
-    # 5. cancelDocument второй оплаты -> счёт PARTIALLY_PAID, сторно-запись, живое сальдо -20000
+    # 5. cancelDocument второй оплаты -> счёт PARTIALLY_PAID, сторно-запись, живое сальдо -20000,
+    # сама оплата возвращается в DRAFT (не терминальный CANCELLED).
     gql('/graphql', f'mutation {{ cancelDocument(objectNameSingular: "supplierPayment", recordId: "{pay2["id"]}") }}', token=token)
     st = gql('/graphql', f'''{{ supplierInvoice(filter: {{ id: {{ eq: "{inv['id']}" }} }}) {{ paymentStatus }} }}''', token=token)['supplierInvoice']
     assert st['paymentStatus'] == 'PARTIALLY_PAID', f"expected PARTIALLY_PAID after cancel, got {st}"
     print('after cancel pay2: invoice rolled back to', st['paymentStatus'])
+    pay2_after = gql('/graphql', f'''{{ supplierPayment(filter: {{ id: {{ eq: "{pay2['id']}" }} }}) {{
+      docStatus postedAt cancelledAt }} }}''', token=token)['supplierPayment']
+    assert pay2_after['docStatus'] == 'DRAFT', pay2_after
+    assert pay2_after['postedAt'] is None, pay2_after
+    assert pay2_after['cancelledAt'] is None, pay2_after
+    print('pay2 cancelled -> DRAFT, postedAt/cancelledAt null ok')
 
     led = gql('/graphql', f'''{{ partyLedgerEntries(filter: {{ companyId: {{ eq: "{comp['id']}" }} }}) {{
       edges {{ node {{ amount {{ amountMicros }} isCancelled isCancellation }} }} }} }}''', token=token)
