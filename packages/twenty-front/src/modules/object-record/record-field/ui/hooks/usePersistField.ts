@@ -27,6 +27,7 @@ import { isFieldSelect } from '@/object-record/record-field/ui/types/guards/isFi
 import { isFieldSelectValue } from '@/object-record/record-field/ui/types/guards/isFieldSelectValue';
 import { recordStoreFamilySelector } from '@/object-record/record-store/states/selectors/recordStoreFamilySelector';
 
+import { maybeSyncErpLineAmountOnPersist } from '@/erp-documents/utils/maybeSyncErpLineAmountOnPersist';
 import { useObjectMetadataItemById } from '@/object-metadata/hooks/useObjectMetadataItemById';
 import { useObjectMetadataItems } from '@/object-metadata/hooks/useObjectMetadataItems';
 import { getRecordFromRecordNode } from '@/object-record/cache/utils/getRecordFromRecordNode';
@@ -281,6 +282,17 @@ export const usePersistField = ({
           recordStoreFamilySelector.selectorFamily({ recordId, fieldName }),
           valueToPersist,
         );
+
+        // ERP-specific: recalculate an ERP document line's `amount` when
+        // quantity/price was just persisted (no-op for every other object).
+        // See packages/twenty-front/src/modules/erp-documents/utils/maybeSyncErpLineAmountOnPersist.ts
+        maybeSyncErpLineAmountOnPersist({
+          objectNameSingular: objectMetadataItem.nameSingular,
+          recordId,
+          fieldName,
+          store,
+          updateOneRecord,
+        });
       } else {
         throw new Error(
           `Invalid value to persist: ${JSON.stringify(

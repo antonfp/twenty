@@ -17,4 +17,16 @@ export const ERP_DOCUMENT_OBJECTS = {
   ] as readonly string[],
   SALES_INVOICE_NAME_SINGULAR: 'salesInvoice',
   SALES_SHIPMENT_NAME_SINGULAR: 'salesShipment',
+  // Line objects that carry both `quantity` and `price` (and therefore a
+  // derived `amount` = quantity × price) — mirrors the objects consumed by
+  // computeInvoiceTotals/inflow-document-posting-rules on the server.
+  // stockTransferLine/goodsWriteOffLine/manualEntryLine have no price field
+  // and are intentionally excluded.
+  LINE_OBJECTS_WITH_PRICE_NAME_SINGULARS: [
+    'salesInvoiceLine',
+    'supplierInvoiceLine',
+    'salesShipmentLine',
+    'goodsReceiptLine',
+    'goodsPostingLine',
+  ] as readonly string[],
 };
