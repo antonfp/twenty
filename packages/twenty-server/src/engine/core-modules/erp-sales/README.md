@@ -14,7 +14,7 @@
   (UNPAID/PARTIALLY_PAID/PAID), `customerId` → company, `organizationId` →
   organization.
 - `salesInvoiceLine`: `salesInvoiceId`, `name`, `quantity` (NUMBER), `price`
-  (CURRENCY), `vatRate` (VAT_20/VAT_10/VAT_0/NO_VAT), `amount` (CURRENCY),
+  (CURRENCY), `vatRate` (VAT_22/VAT_20/VAT_10/VAT_0/NO_VAT), `amount` (CURRENCY),
   опционально `itemId` → item.
 - `payment`: `amount` (CURRENCY), `salesInvoiceId`, `payerId` → company,
   `number`, `name`, `docStatus`, `postingDate`.

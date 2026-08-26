@@ -51,7 +51,9 @@ const createService = (nextNumber = 'SI-000001') => {
   };
 };
 
-const invoice = (overrides: Record<string, unknown> = {}): ErpDocumentRecord => ({
+const invoice = (
+  overrides: Record<string, unknown> = {},
+): ErpDocumentRecord => ({
   id: INVOICE_ID,
   customerId: 'customer-1',
   organizationId: 'organization-1',
@@ -64,9 +66,9 @@ describe('SalesInvoicePostingRulesService', () => {
     it('rejects an invoice without lines', () => {
       const { service } = createService();
 
-      expect(() =>
-        service.validate(createContext({}), invoice(), []),
-      ).toThrow(ErpPostingException);
+      expect(() => service.validate(createContext({}), invoice(), [])).toThrow(
+        ErpPostingException,
+      );
     });
 
     it('rejects a line with non-positive quantity', () => {
@@ -168,6 +170,41 @@ describe('SalesInvoicePostingRulesService', () => {
       });
     });
 
+    it('computes VAT-in-price at the 22% rate (425-ФЗ, from 2026-01-01)', async () => {
+      const repositories = {
+        salesInvoice: createMockRepository(),
+        salesInvoiceLine: createMockRepository(),
+      };
+      const context = createContext(repositories);
+      const { service } = createService();
+
+      const lines = [
+        {
+          id: 'line-1',
+          quantity: 5,
+          price: rubles(244),
+          vatRate: 'VAT_22',
+          amount: null,
+        },
+      ];
+
+      const entries = (await service.getPartyEntries(
+        context,
+        invoice(),
+        lines,
+      )) as unknown as ErpPartyLedgerEntryRow[];
+
+      // 5 × 244,00 = 1 220,00; НДС 22/122 от 1 220,00 = 220,00.
+      expect(repositories.salesInvoice.update).toHaveBeenCalledWith(
+        INVOICE_ID,
+        expect.objectContaining({
+          total: rubles(1220),
+          vatTotal: rubles(220),
+        }),
+      );
+      expect(entries[0].amount).toEqual(rubles(1220));
+    });
+
     it('rounds VAT and line amounts to kopecks half away from zero', async () => {
       const repositories = {
         salesInvoice: createMockRepository(),
@@ -205,7 +242,9 @@ describe('SalesInvoicePostingRulesService', () => {
         { id: 'line-1', quantity: 1, price: rubles(100), vatRate: 'NO_VAT' },
       ]);
 
-      expect(documentNumberingService.nextDocumentNumber).not.toHaveBeenCalled();
+      expect(
+        documentNumberingService.nextDocumentNumber,
+      ).not.toHaveBeenCalled();
       expect(repositories.salesInvoice.update).toHaveBeenCalledWith(
         INVOICE_ID,
         expect.objectContaining({

@@ -272,6 +272,30 @@ describe('SalesShipmentPrintService', () => {
     expect(html).toContain('20%');
   });
 
+  it('computes VAT columns for a 22% line (425-ФЗ, from 2026-01-01)', async () => {
+    repositories.salesShipmentLine.findBy.mockResolvedValue([
+      {
+        id: 'line-1',
+        name: 'Товар 22%',
+        quantity: 1,
+        price: rubles(1_220),
+        vatRate: 'VAT_22',
+        createdAt: '2026-08-26T10:00:00.000Z',
+      },
+    ]);
+
+    const html = await service.renderSalesShipmentUpdHtml(
+      WORKSPACE_ID,
+      SHIPMENT_ID,
+      '1',
+    );
+
+    // НДС 22/122 от 1 220,00 = 220,00 (гр. 8); с НДС = 1 220,00 (гр. 9).
+    expect(html).toContain('22%'); // гр. 7
+    expect(html).toContain(formatMoneyRu(22_000)); // гр. 8
+    expect(html).toContain(formatMoneyRu(122_000)); // гр. 9
+  });
+
   it('escapes HTML in workspace data', async () => {
     repositories.company.findOneBy.mockResolvedValue({
       ...CUSTOMER,

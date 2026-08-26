@@ -18,6 +18,7 @@ enum ItemUnit {
 }
 
 export enum VatRate {
+  VAT_22 = 'VAT_22',
   VAT_20 = 'VAT_20',
   VAT_10 = 'VAT_10',
   VAT_0 = 'VAT_0',
@@ -159,34 +160,41 @@ export default defineObject({
       name: 'vatRate',
       label: 'Ставка НДС',
       icon: 'IconPercentage',
-      defaultValue: `'${VatRate.VAT_20}'`,
+      defaultValue: `'${VatRate.VAT_22}'`,
       options: [
+        {
+          id: 'd7dea7f4-920f-45f8-a777-8172ae12af7f',
+          value: VatRate.VAT_22,
+          label: '22%',
+          position: 0,
+          color: 'purple',
+        },
         {
           id: '1ff6cfe5-dab4-4f87-b74c-a16368354b05',
           value: VatRate.VAT_20,
           label: '20%',
-          position: 0,
+          position: 1,
           color: 'blue',
         },
         {
           id: '501c4b17-1854-49a5-8753-f1a1da4f4f00',
           value: VatRate.VAT_10,
           label: '10%',
-          position: 1,
+          position: 2,
           color: 'green',
         },
         {
           id: '97976909-45bf-4b5a-9722-887ed25f14d8',
           value: VatRate.VAT_0,
           label: '0%',
-          position: 2,
+          position: 3,
           color: 'yellow',
         },
         {
           id: 'c19530f2-ec9c-44f1-ba0b-93e4a3cfb6fd',
           value: VatRate.NO_VAT,
           label: 'Без НДС',
-          position: 3,
+          position: 4,
           color: 'gray',
         },
       ],

@@ -31,6 +31,7 @@ export const kopecksToRubles = (kopecks: number): number => {
 };
 
 const VAT_RATE_PERCENT: Record<VatRate, number> = {
+  VAT_22: 22,
   VAT_20: 20,
   VAT_10: 10,
   VAT_0: 0,

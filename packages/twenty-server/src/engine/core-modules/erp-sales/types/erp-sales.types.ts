@@ -7,6 +7,7 @@ export type CurrencyFieldValue = {
 } | null;
 
 export const VAT_RATE = {
+  VAT_22: 'VAT_22',
   VAT_20: 'VAT_20',
   VAT_10: 'VAT_10',
   VAT_0: 'VAT_0',
@@ -21,7 +22,8 @@ export const PAYMENT_STATUS = {
   PAID: 'PAID',
 } as const;
 
-export type PaymentStatus = (typeof PAYMENT_STATUS)[keyof typeof PAYMENT_STATUS];
+export type PaymentStatus =
+  (typeof PAYMENT_STATUS)[keyof typeof PAYMENT_STATUS];
 
 // Row shape of the partyLedgerEntry register object installed by the ERP
 // sales app. The core PartyLedgerEntryInput type (partyId/direction) predates

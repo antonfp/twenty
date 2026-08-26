@@ -1,6 +1,7 @@
 import { defineObject, FieldType } from 'twenty-sdk/define';
 
 enum VatRate {
+  VAT_22 = 'VAT_22',
   VAT_20 = 'VAT_20',
   VAT_10 = 'VAT_10',
   VAT_0 = 'VAT_0',
@@ -54,34 +55,41 @@ export default defineObject({
       name: 'vatRate',
       label: 'Ставка НДС',
       icon: 'IconPercentage',
-      defaultValue: `'${VatRate.VAT_20}'`,
+      defaultValue: `'${VatRate.VAT_22}'`,
       options: [
+        {
+          id: 'e107c491-9623-4003-818b-6b5a006bbf2d',
+          value: VatRate.VAT_22,
+          label: '22%',
+          position: 0,
+          color: 'purple',
+        },
         {
           id: '1420ac77-6509-465d-beb0-3c341cd402db',
           value: VatRate.VAT_20,
           label: '20%',
-          position: 0,
+          position: 1,
           color: 'blue',
         },
         {
           id: '8c0dc61d-b2a1-4968-b7ca-0863c08b85b0',
           value: VatRate.VAT_10,
           label: '10%',
-          position: 1,
+          position: 2,
           color: 'green',
         },
         {
           id: '58cfa34e-5152-40cf-9117-4675346aa58a',
           value: VatRate.VAT_0,
           label: '0%',
-          position: 2,
+          position: 3,
           color: 'yellow',
         },
         {
           id: '76c9179d-dc77-44e8-8edb-9a2b50f28ab8',
           value: VatRate.NO_VAT,
           label: 'Без НДС',
-          position: 3,
+          position: 4,
           color: 'gray',
         },
       ],

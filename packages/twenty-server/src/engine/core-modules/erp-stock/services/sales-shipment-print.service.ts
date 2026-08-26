@@ -47,6 +47,7 @@ const UNIT_OKEI: Record<string, { code: string; label: string }> = {
 };
 
 const VAT_RATE_LABEL: Record<string, string> = {
+  VAT_22: '22%',
   VAT_20: '20%',
   VAT_10: '10%',
   VAT_0: '0%',
