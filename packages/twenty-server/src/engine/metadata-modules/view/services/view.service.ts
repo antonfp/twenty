@@ -4,6 +4,7 @@ import { ViewType, ViewVisibility } from 'twenty-shared/types';
 import { isDefined } from 'twenty-shared/utils';
 
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
+import { assertMetadataTargetObjectNotProtectedRegisterOrThrow } from 'src/engine/core-modules/erp/utils/assert-metadata-target-object-not-protected-register.util';
 import { WorkspaceManyOrAllFlatEntityMapsCacheService } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.service';
 import { findFlatEntityByIdInFlatEntityMapsOrThrow } from 'src/engine/metadata-modules/flat-entity/utils/find-flat-entity-by-id-in-flat-entity-maps-or-throw.util';
 import { findFlatEntityByIdInFlatEntityMaps } from 'src/engine/metadata-modules/flat-entity/utils/find-flat-entity-by-id-in-flat-entity-maps.util';
@@ -72,6 +73,11 @@ export class ViewService {
           flatMapsKeys: ['flatFieldMetadataMaps', 'flatObjectMetadataMaps'],
         },
       );
+
+    assertMetadataTargetObjectNotProtectedRegisterOrThrow({
+      flatObjectMetadataMaps: existingFlatObjectMetadataMaps,
+      objectMetadataId: createViewInput.objectMetadataId,
+    });
 
     const { flatViewToCreate, flatViewGroupsToCreate } =
       fromCreateViewInputToFlatViewToCreate({

@@ -7,6 +7,7 @@ import { v4, v5 } from 'uuid';
 
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
 import { type FlatApplication } from 'src/engine/core-modules/application/types/flat-application.type';
+import { assertMetadataTargetObjectNotProtectedRegisterOrThrow } from 'src/engine/core-modules/erp/utils/assert-metadata-target-object-not-protected-register.util';
 import { type FlatCommandMenuItem } from 'src/engine/metadata-modules/flat-command-menu-item/types/flat-command-menu-item.type';
 import {
   buildNavigationFlatCommandMenuItem,
@@ -88,6 +89,11 @@ export class ObjectMetadataService {
         ],
       },
     );
+
+    assertMetadataTargetObjectNotProtectedRegisterOrThrow({
+      flatObjectMetadataMaps: existingFlatObjectMetadataMaps,
+      objectMetadataId: updateObjectInput.id,
+    });
 
     const {
       otherObjectFlatFieldMetadatasToUpdate,
@@ -317,6 +323,13 @@ export class ObjectMetadataService {
           ],
         },
       );
+
+    for (const deleteObjectInput of deleteObjectInputs) {
+      assertMetadataTargetObjectNotProtectedRegisterOrThrow({
+        flatObjectMetadataMaps,
+        objectMetadataId: deleteObjectInput.id,
+      });
+    }
 
     const initialAccumulator: {
       flatFieldMetadatasToDeleteByUniversalIdentifier: Record<

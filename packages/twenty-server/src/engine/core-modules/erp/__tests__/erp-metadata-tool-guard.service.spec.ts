@@ -224,6 +224,16 @@ describe('ErpMetadataToolGuardService', () => {
           roleId: USER_DERIVED_ROLE_ID,
         }),
       ).rejects.toThrow(ForbiddenException);
+      // T2 review Finding 2: assert the RU wording too, not just the
+      // exception type — this is the message the agent actually sees.
+      await expect(
+        service.assertToolCallAllowed({
+          toolName: 'create_object_metadata',
+          args: { nameSingular: 'contract', namePlural: 'contracts' },
+          workspaceId: WORKSPACE_ID,
+          roleId: USER_DERIVED_ROLE_ID,
+        }),
+      ).rejects.toThrow(/DATA_MODEL/);
     });
 
     it('rejects create_object_metadata for a role without DATA_MODEL (api-key-derived roleId)', async () => {
@@ -236,7 +246,7 @@ describe('ErpMetadataToolGuardService', () => {
           workspaceId: WORKSPACE_ID,
           roleId: API_KEY_DERIVED_ROLE_ID,
         }),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(/DATA_MODEL/);
     });
 
     it('allows create_object_metadata once DATA_MODEL is granted, regardless of which actor resolved the role', async () => {

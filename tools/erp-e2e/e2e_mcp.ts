@@ -15,7 +15,11 @@
 //      create_field_metadata на регистр glEntry -> RU-отказ;
 //      delete_field_metadata на поле salesInvoice -> отказ (MVP: только создание);
 //      list_customization_surface -> salesInvoice app-owned/canAddFields,
-//      glEntry register/заблокирован
+//      glEntry register/заблокирован;
+//      негатив: createOneField на glEntry ЧЕРЕЗ ПРЯМОЙ POST /metadata (не MCP) -> отказ
+//      (T2 review Finding 1: фронтир живёт в ObjectMetadataService/FieldMetadataService/
+//      ViewService, не только в MCP-диспатче);
+//      негатив: create_object_metadata для API-key без DATA_MODEL -> отказ
 //
 // Запуск: volta run --node 24.5.0 --yarn 4.13.0 -- npx tsx tools/erp-e2e/e2e_mcp.ts
 // (сервер на :3000, workspace ERP Dev, dev-логин). MCP endpoint: POST /mcp,
@@ -613,6 +617,128 @@ async function main() {
   ok(
     `list_customization_surface: ${surface.objects.length} objects — salesInvoice app-owned/canAddFields, glEntry register/blocked`,
   );
+
+  // 7f. Негатив (T2 review Finding 1, Critical): регистровый фронтир должен
+  // держать ВСЕХ вызывающих, не только MCP execute_tool — прямой
+  // createOneField на glEntry через /metadata (тем же токеном, без MCP)
+  // тоже обязан быть отклонён. Это и есть репро из ревью, теперь ожидаемо
+  // отклоняемое ObjectMetadataService/FieldMetadataService напрямую.
+  try {
+    await gql(
+      '/metadata',
+      `mutation($input: CreateOneFieldMetadataInput!) { createOneField(input: $input) { id name type } }`,
+      {
+        input: {
+          field: {
+            objectMetadataId: glObjectId,
+            name: `directBypassE2e${suffix.toLowerCase()}`,
+            label: 'Прямой обход',
+            type: 'NUMBER',
+          },
+        },
+      },
+      token,
+    );
+    throw new Error(
+      'createOneField on register glEntry via direct /metadata must be denied, but succeeded',
+    );
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (!message.includes('Регистр')) throw e;
+    ok(
+      `negative: direct POST /metadata createOneField on register glEntry denied — "${message.slice(0, 120)}"`,
+    );
+  }
+
+  // 7g. Негатив: не-админ актёр (без DATA_MODEL) -> create_object_metadata
+  // должен быть отклонён (ADMIN_REQUIRED_MESSAGE). Тот же паттерн throwaway
+  // role+api-key, что и в 3a, но здесь важен именно недостающий DATA_MODEL,
+  // а не canUpdateAllObjectRecords.
+  const noDataModelRole = await gql<{ createOneRole: Id }>(
+    '/metadata',
+    `mutation($input: CreateRoleInput!) { createOneRole(createRoleInput: $input) { id } }`,
+    {
+      input: {
+        label: `E2E No-DataModel Role (e2e ${suffix})`,
+        canReadAllObjectRecords: true,
+        canUpdateAllObjectRecords: true,
+        canSoftDeleteAllObjectRecords: true,
+        canDestroyAllObjectRecords: true,
+        canBeAssignedToApiKeys: true,
+        canBeAssignedToUsers: false,
+        canAccessAllTools: true,
+        canUpdateAllSettings: false,
+      },
+    },
+    token,
+  );
+  const noDataModelRoleId = noDataModelRole.createOneRole.id;
+
+  const noDataModelApiKey = await gql<{ createApiKey: Id }>(
+    '/metadata',
+    `mutation($input: CreateApiKeyInput!) { createApiKey(input: $input) { id } }`,
+    {
+      input: {
+        name: `e2e-no-data-model-key-${suffix}`,
+        expiresAt: '2027-01-01T00:00:00.000Z',
+        roleId: noDataModelRoleId,
+      },
+    },
+    token,
+  );
+  const noDataModelApiKeyId = noDataModelApiKey.createApiKey.id;
+
+  const noDataModelTokenResp = await gql<{
+    generateApiKeyToken: { token: string };
+  }>(
+    '/metadata',
+    `mutation($apiKeyId: UUID!, $expiresAt: String!) { generateApiKeyToken(apiKeyId: $apiKeyId, expiresAt: $expiresAt) { token } }`,
+    { apiKeyId: noDataModelApiKeyId, expiresAt: '2027-01-01T00:00:00.000Z' },
+    token,
+  );
+  const noDataModelToken = noDataModelTokenResp.generateApiKeyToken.token;
+
+  try {
+    const deniedCreateObject = await execTool(
+      noDataModelToken,
+      'create_object_metadata',
+      {
+        nameSingular: `shouldFailE2e${suffix.toLowerCase()}`,
+        namePlural: `shouldFailE2e${suffix.toLowerCase()}s`,
+        labelSingular: 'Не должно создаться',
+        labelPlural: 'Не должны создаться',
+      },
+    );
+    // A role with no explicit DATA_MODEL flag fails at MetadataToolProvider's
+    // category-level isAvailable() gate before it ever reaches
+    // ErpMetadataToolGuardService — the tool is simply absent from the
+    // catalog for this role ("Tool not found"), not surfaced as our guard's
+    // ADMIN_REQUIRED_MESSAGE. Either way, the outcome that matters (this role
+    // cannot create metadata) is proven here. ADMIN_REQUIRED_MESSAGE's exact
+    // RU wording is asserted in the unit suite
+    // (erp-metadata-tool-guard.service.spec.ts), where the guard is
+    // exercised directly, without the upstream category gate in the way.
+    if (deniedCreateObject.success !== false)
+      throw new Error(
+        `create_object_metadata without DATA_MODEL must be denied, got: ${JSON.stringify(deniedCreateObject)}`,
+      );
+    ok(
+      `negative: create_object_metadata denied for API key without DATA_MODEL — "${deniedCreateObject.error}"`,
+    );
+  } finally {
+    await gql(
+      '/metadata',
+      `mutation($id: UUID!) { revokeApiKey(input: { id: $id }) { id } }`,
+      { id: noDataModelApiKeyId },
+      token,
+    );
+    await gql(
+      '/metadata',
+      `mutation($id: UUID!) { deleteOneRole(roleId: $id) }`,
+      { id: noDataModelRoleId },
+      token,
+    );
+  }
 
   console.log(`\n=== E2E MCP ПРОЙДЕН (${steps} шагов) ===`);
 }

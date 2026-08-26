@@ -6,6 +6,7 @@ import { type FindOneOptions, type Repository } from 'typeorm';
 
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
 import { type FlatApplication } from 'src/engine/core-modules/application/types/flat-application.type';
+import { assertMetadataTargetObjectNotProtectedRegisterOrThrow } from 'src/engine/core-modules/erp/utils/assert-metadata-target-object-not-protected-register.util';
 import { type CreateFieldInput } from 'src/engine/metadata-modules/field-metadata/dtos/create-field.input';
 import { type DeleteOneFieldInput } from 'src/engine/metadata-modules/field-metadata/dtos/delete-field.input';
 import { type UpdateFieldInput } from 'src/engine/metadata-modules/field-metadata/dtos/update-field.input';
@@ -15,6 +16,7 @@ import {
   FieldMetadataExceptionCode,
 } from 'src/engine/metadata-modules/field-metadata/field-metadata.exception';
 import { WorkspaceManyOrAllFlatEntityMapsCacheService } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.service';
+import { findFlatEntityByIdInFlatEntityMaps } from 'src/engine/metadata-modules/flat-entity/utils/find-flat-entity-by-id-in-flat-entity-maps.util';
 import { findFlatEntityByUniversalIdentifierOrThrow } from 'src/engine/metadata-modules/flat-entity/utils/find-flat-entity-by-universal-identifier-or-throw.util';
 import { findFlatEntityByUniversalIdentifier } from 'src/engine/metadata-modules/flat-entity/utils/find-flat-entity-by-universal-identifier.util';
 import { findManyFlatEntityByUniversalIdentifierInUniversalFlatEntityMapsOrThrow } from 'src/engine/metadata-modules/flat-entity/utils/find-many-flat-entity-by-universal-identifier-in-universal-flat-entity-maps-or-throw.util';
@@ -121,6 +123,14 @@ export class FieldMetadataService {
         ],
       },
     );
+
+    assertMetadataTargetObjectNotProtectedRegisterOrThrow({
+      flatObjectMetadataMaps: existingFlatObjectMetadataMaps,
+      objectMetadataId: findFlatEntityByIdInFlatEntityMaps({
+        flatEntityMaps: existingFlatFieldMetadataMaps,
+        flatEntityId: deleteOneFieldInput.id,
+      })?.objectMetadataId,
+    });
 
     const {
       flatFieldMetadatasToDelete,
@@ -247,6 +257,14 @@ export class FieldMetadataService {
         ],
       },
     );
+
+    assertMetadataTargetObjectNotProtectedRegisterOrThrow({
+      flatObjectMetadataMaps: existingFlatObjectMetadataMaps,
+      objectMetadataId: findFlatEntityByIdInFlatEntityMaps({
+        flatEntityMaps: existingFlatFieldMetadataMaps,
+        flatEntityId: updateFieldInput.id,
+      })?.objectMetadataId,
+    });
 
     const inputTranspilationResult = fromUpdateFieldInputToFlatFieldMetadata({
       flatFieldMetadataMaps: existingFlatFieldMetadataMaps,
@@ -392,6 +410,20 @@ export class FieldMetadataService {
       'flatObjectMetadataMaps',
       'flatFieldMetadataMaps',
     ]);
+
+    for (const createFieldInput of createFieldInputs) {
+      assertMetadataTargetObjectNotProtectedRegisterOrThrow({
+        flatObjectMetadataMaps: existingFlatObjectMetadataMaps,
+        objectMetadataId: createFieldInput.objectMetadataId,
+      });
+      // A relation field also creates the inverse field on the target
+      // object — that side must clear the check too, not just the source.
+      assertMetadataTargetObjectNotProtectedRegisterOrThrow({
+        flatObjectMetadataMaps: existingFlatObjectMetadataMaps,
+        objectMetadataId:
+          createFieldInput.relationCreationPayload?.targetObjectMetadataId,
+      });
+    }
 
     const allTranspiledTranspilationInputs: Awaited<
       ReturnType<typeof fromCreateFieldInputToFlatFieldMetadatasToCreate>
