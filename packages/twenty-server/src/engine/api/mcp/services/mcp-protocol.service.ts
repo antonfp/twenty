@@ -38,6 +38,11 @@ import {
   listObjectMetadataNamesInputSchema,
 } from 'src/engine/api/mcp/tools/list-object-metadata-names.tool';
 import {
+  createListWorkflowCapabilitiesTool,
+  LIST_WORKFLOW_CAPABILITIES_TOOL_NAME,
+  listWorkflowCapabilitiesInputSchema,
+} from 'src/engine/api/mcp/tools/list-workflow-capabilities.tool';
+import {
   createLookupPartyByInnTool,
   LOOKUP_PARTY_BY_INN_TOOL_NAME,
   lookupPartyByInnInputSchema,
@@ -345,6 +350,15 @@ export class McpProtocolService {
           workspace.id,
         ),
         inputSchema: zodSchema(listCustomizationSurfaceInputSchema),
+        annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      // Read-only, ungated (same reasoning as LIST_CUSTOMIZATION_SURFACE
+      // above): this describes the workflow ENGINE's schema, not workspace
+      // data, and the agent needs it to plan a valid create_complete_workflow
+      // call before ever reaching the WORKFLOWS-gated write path.
+      [LIST_WORKFLOW_CAPABILITIES_TOOL_NAME]: {
+        ...createListWorkflowCapabilitiesTool(),
+        inputSchema: zodSchema(listWorkflowCapabilitiesInputSchema),
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
       [LIST_SKILLS_TOOL_NAME]: {

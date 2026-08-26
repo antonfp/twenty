@@ -23,6 +23,15 @@
 //   -> T2 review round 3 (app-owned frontier в сервисном слое): негатив прямой
 //      POST /metadata deleteOneField на salesInvoice.total (app-owned, не
 //      регистр) -> RU-отказ
+//   -> Phase 8 T3 (workflow-тулы, execute_tool -> WorkflowToolProvider, штатный
+//      движок Twenty): list_workflow_capabilities (непустой список триггеров/
+//      действий) -> create_complete_workflow + activate_workflow_version
+//      («при создании компании — создать задачу», DATABASE_EVENT company.created
+//      -> CREATE_RECORD task) -> триггер через create_one_company -> ASSERT
+//      появления task (асинхронно, через workflow-queue) -> cleanup
+//      (deactivate_workflow_version) -> негатив: не-админ (без WORKFLOWS) не
+//      видит create_complete_workflow -> негатив: CRUD create_one_workflow
+//      отклонён (OBJECTS_BLOCKED_FROM_AUTOMATION, admin-токен тоже)
 //
 // Запуск: volta run --node 24.5.0 --yarn 4.13.0 -- npx tsx tools/erp-e2e/e2e_mcp.ts
 // (сервер на :3000, workspace ERP Dev, dev-логин). MCP endpoint: POST /mcp,
@@ -120,6 +129,7 @@ async function main() {
     'trial_balance',
     'import_bank_statement',
     'list_customization_surface',
+    'list_workflow_capabilities',
   ];
   const EXPECTED_PLATFORM_TOOLS = [
     'search_help_center',
@@ -776,6 +786,277 @@ async function main() {
     if (!message.includes('установленному приложению')) throw e;
     ok(
       `negative: direct POST /metadata deleteOneField on app-owned salesInvoice.total denied — "${message.slice(0, 140)}"`,
+    );
+  }
+
+  // 10. Phase 8 T3 (workflow-тулы): штатный workflow-движок Twenty
+  // (create_complete_workflow/activate_workflow_version/… уже существовал —
+  // фронтир T3 был только list_workflow_capabilities + верификация
+  // admin-гейта). Всё через execute_tool -> WorkflowToolProvider.
+
+  // 10a. list_workflow_capabilities: непустой список триггеров/действий,
+  // машиночитаемый JSON, DATABASE_EVENT в списке триггеров.
+  const capabilitiesRpc = (await mcpToolCall(
+    token,
+    'list_workflow_capabilities',
+    {},
+  )) as RpcWithStatus;
+  const capabilities = mcpToolResultJson(capabilitiesRpc) as {
+    triggers: { type: string }[];
+    actions: { type: string }[];
+  };
+  if (capabilities.triggers.length === 0 || capabilities.actions.length === 0)
+    throw new Error(
+      `list_workflow_capabilities: expected non-empty triggers/actions, got: ${JSON.stringify(capabilities)}`,
+    );
+  if (!capabilities.triggers.some((t) => t.type === 'DATABASE_EVENT'))
+    throw new Error(
+      `list_workflow_capabilities: expected DATABASE_EVENT trigger, got: ${JSON.stringify(capabilities.triggers.map((t) => t.type))}`,
+    );
+  ok(
+    `list_workflow_capabilities: ${capabilities.triggers.length} trigger type(s), ${capabilities.actions.length} action type(s)`,
+  );
+
+  // 10b. create_complete_workflow: «при создании компании — создать задачу».
+  const taskStepId = crypto.randomUUID();
+  const workflowName = `E2E company->task (e2e ${suffix})`;
+  const createWorkflowOut = (await execTool(token, 'create_complete_workflow', {
+    name: workflowName,
+    trigger: {
+      type: 'DATABASE_EVENT',
+      settings: {
+        eventName: 'company.created',
+        outputSchema: {},
+      },
+    },
+    steps: [
+      {
+        id: taskStepId,
+        name: 'Создать задачу',
+        type: 'CREATE_RECORD',
+        valid: true,
+        settings: {
+          input: {
+            objectName: 'task',
+            objectRecord: {
+              // NB: {{trigger.object.fieldName}} (as documented, incorrectly,
+              // by the platform's own trigger schema description before this
+              // task's fix) resolves to undefined at runtime. The DATABASE_EVENT
+              // trigger's actual payload shape is {properties:{after:{...}}}
+              // (see workflow-database-event-trigger.listener.ts and
+              // generate-fake-object-record-event.ts) — the correct path is
+              // {{trigger.properties.after.fieldName}}.
+              title: `E2E task for {{trigger.properties.after.name}} (${suffix})`,
+              status: 'TODO',
+            },
+          },
+          outputSchema: {},
+          errorHandlingOptions: {
+            retryOnFailure: { value: false },
+            continueOnFailure: { value: false },
+          },
+        },
+      },
+    ],
+    edges: [{ source: 'trigger', target: taskStepId }],
+    activate: false,
+  })) as {
+    success: boolean;
+    message?: string;
+    error?: string;
+    result?: { workflowId: string; workflowVersionId: string };
+  };
+  if (!createWorkflowOut.success || !createWorkflowOut.result)
+    throw new Error(
+      `create_complete_workflow failed: ${JSON.stringify(createWorkflowOut)}`,
+    );
+  const { workflowId, workflowVersionId } = createWorkflowOut.result;
+  ok(
+    `create_complete_workflow: workflow ${workflowId} / version ${workflowVersionId} (DATABASE_EVENT company.created -> CREATE_RECORD task)`,
+  );
+
+  let workflowDeactivated = false;
+  try {
+    // 10c. activate_workflow_version (тул отдельный от create's activate:true —
+    // проверяем оба пути через MCP) + ассерт статуса ACTIVE.
+    await execTool(token, 'activate_workflow_version', { workflowVersionId });
+
+    const currentVersionOut = (await execTool(
+      token,
+      'get_workflow_current_version',
+      { workflowId },
+    )) as {
+      success: boolean;
+      workflowVersion?: { status: string };
+      error?: string;
+    };
+    if (
+      !currentVersionOut.success ||
+      currentVersionOut.workflowVersion?.status !== 'ACTIVE'
+    )
+      throw new Error(
+        `activate_workflow_version: expected ACTIVE status, got: ${JSON.stringify(currentVersionOut)}`,
+      );
+    ok(`activate_workflow_version: version ${workflowVersionId} is ACTIVE`);
+
+    // 10d. Триггер: создаём компанию через штатный MCP CRUD (не напрямую
+    // GraphQL) — тот же DATABASE_EVENT-путь, что реальный агентский сценарий.
+    const triggerCompanyName = `ООО Триггер MCP (e2e ${suffix})`;
+    const triggerCompanyOut = await execTool(token, 'create_one_company', {
+      name: triggerCompanyName,
+      isCustomer: true,
+    });
+    if (!triggerCompanyOut.success)
+      throw new Error(
+        `create_one_company (workflow trigger) failed: ${JSON.stringify(triggerCompanyOut)}`,
+      );
+    ok(
+      `create_one_company (workflow trigger source): ${(triggerCompanyOut.result as Id).id}`,
+    );
+
+    // 10e. Workflow-запуск асинхронный (message queue,
+    // workflow-trigger.job.ts) — poll find_many_tasks с таймаутом вместо
+    // ожидания синхронного эффекта.
+    const expectedTitle = `E2E task for ${triggerCompanyName} (${suffix})`;
+    let foundTask: { id: string; title: string } | undefined;
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline && !foundTask) {
+      const tasksOut = await execTool(token, 'find_many_tasks', {
+        title: { eq: expectedTitle },
+        select: ['id', 'title'],
+      });
+      const records =
+        (
+          tasksOut.result as
+            | { records?: { id: string; title: string }[] }
+            | undefined
+        )?.records ?? [];
+      if (records.length > 0) {
+        foundTask = records[0];
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    if (!foundTask)
+      throw new Error(
+        `workflow did not create expected task "${expectedTitle}" within 20s`,
+      );
+    ok(
+      `ASSERT workflow triggered end-to-end: task "${foundTask.title}" created by company.created (${foundTask.id})`,
+    );
+  } finally {
+    // Cleanup per task brief: deactivate (not delete) regardless of outcome.
+    const deactivateOut = (await execTool(
+      token,
+      'deactivate_workflow_version',
+      { workflowVersionId },
+    )) as { success?: boolean; error?: string };
+    workflowDeactivated = deactivateOut.success !== false;
+  }
+  if (!workflowDeactivated)
+    throw new Error('cleanup: deactivate_workflow_version failed');
+  ok(`cleanup: deactivate_workflow_version(${workflowVersionId}) done`);
+
+  // 10f. Негатив (admin-гейт): роль без settings-прав (canUpdateAllSettings:
+  // false, тот же паттерн, что и T2's DATA_MODEL-негатив) не видит
+  // create_complete_workflow вовсе — WorkflowToolProvider.isAvailable()
+  // гейтит PermissionFlagType.WORKFLOWS на уровне категории, тем же
+  // механизмом, что MetadataToolProvider гейтит DATA_MODEL (T2).
+  const noWorkflowsRole = await gql<{ createOneRole: Id }>(
+    '/metadata',
+    `mutation($input: CreateRoleInput!) { createOneRole(createRoleInput: $input) { id } }`,
+    {
+      input: {
+        label: `E2E No-Workflows Role (e2e ${suffix})`,
+        canReadAllObjectRecords: true,
+        canUpdateAllObjectRecords: true,
+        canSoftDeleteAllObjectRecords: true,
+        canDestroyAllObjectRecords: true,
+        canBeAssignedToApiKeys: true,
+        canBeAssignedToUsers: false,
+        canAccessAllTools: true,
+        canUpdateAllSettings: false,
+      },
+    },
+    token,
+  );
+  const noWorkflowsRoleId = noWorkflowsRole.createOneRole.id;
+
+  const noWorkflowsApiKey = await gql<{ createApiKey: Id }>(
+    '/metadata',
+    `mutation($input: CreateApiKeyInput!) { createApiKey(input: $input) { id } }`,
+    {
+      input: {
+        name: `e2e-no-workflows-key-${suffix}`,
+        expiresAt: '2027-01-01T00:00:00.000Z',
+        roleId: noWorkflowsRoleId,
+      },
+    },
+    token,
+  );
+  const noWorkflowsApiKeyId = noWorkflowsApiKey.createApiKey.id;
+
+  const noWorkflowsTokenResp = await gql<{
+    generateApiKeyToken: { token: string };
+  }>(
+    '/metadata',
+    `mutation($apiKeyId: UUID!, $expiresAt: String!) { generateApiKeyToken(apiKeyId: $apiKeyId, expiresAt: $expiresAt) { token } }`,
+    { apiKeyId: noWorkflowsApiKeyId, expiresAt: '2027-01-01T00:00:00.000Z' },
+    token,
+  );
+  const noWorkflowsToken = noWorkflowsTokenResp.generateApiKeyToken.token;
+
+  try {
+    const deniedCreateWorkflow = await execTool(
+      noWorkflowsToken,
+      'create_complete_workflow',
+      {
+        name: `should-fail-e2e-${suffix}`,
+        trigger: {
+          type: 'MANUAL',
+          settings: { outputSchema: {} },
+        },
+        steps: [],
+      },
+    );
+    if (deniedCreateWorkflow.success !== false)
+      throw new Error(
+        `create_complete_workflow without WORKFLOWS must be denied, got: ${JSON.stringify(deniedCreateWorkflow)}`,
+      );
+    ok(
+      `negative: create_complete_workflow denied for API key without WORKFLOWS — "${deniedCreateWorkflow.error}"`,
+    );
+
+    // 10g. Bonus (already-covered platform check, not a T3 gap): даже
+    // admin-токен не может обойти WORKFLOWS-гейт напрямую через generic CRUD
+    // (execute_tool -> create_one_workflow) — workflow/workflowVersion входят
+    // в OBJECTS_BLOCKED_FROM_AUTOMATION (twenty-shared/workflow), который
+    // create-record.service.ts проверяет безусловно для ЛЮБОГО
+    // automation-вызывающего (тот же сервис, что и обычный CRUD-тул, и
+    // CREATE_RECORD workflow-действие) — т.е. дыры, аналогичной найденной в
+    // T2 для metadata, для workflow-объектов нет.
+    const crudBypassOut = await execTool(token, 'create_one_workflow', {
+      name: `should-not-be-creatable-via-crud-${suffix}`,
+    });
+    if (crudBypassOut.success)
+      throw new Error(
+        `CRUD write into workflow object must be denied (OBJECTS_BLOCKED_FROM_AUTOMATION), got: ${JSON.stringify(crudBypassOut)}`,
+      );
+    ok(
+      `negative: CRUD create_one_workflow denied (OBJECTS_BLOCKED_FROM_AUTOMATION) — "${crudBypassOut.error}"`,
+    );
+  } finally {
+    await gql(
+      '/metadata',
+      `mutation($id: UUID!) { revokeApiKey(input: { id: $id }) { id } }`,
+      { id: noWorkflowsApiKeyId },
+      token,
+    );
+    await gql(
+      '/metadata',
+      `mutation($id: UUID!) { deleteOneRole(roleId: $id) }`,
+      { id: noWorkflowsRoleId },
+      token,
     );
   }
 
