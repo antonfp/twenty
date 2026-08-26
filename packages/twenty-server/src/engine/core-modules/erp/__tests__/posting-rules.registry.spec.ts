@@ -14,7 +14,7 @@ describe('PostingRulesRegistry', () => {
       getPartyEntries: () => [],
     };
     const glueProvider: PostingRulesProvider = {
-      getGlEntries: () => [],
+      getStockEntries: () => [],
     };
 
     registry.registerPostingRules('salesInvoice', blockProvider);

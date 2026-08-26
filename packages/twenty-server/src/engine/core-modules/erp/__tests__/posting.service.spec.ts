@@ -7,10 +7,12 @@ jest.mock(
 );
 
 import { ERP_POSTING_EXCEPTION_CODE } from 'src/engine/core-modules/erp/erp-posting.exception';
+import { GlContributorRegistry } from 'src/engine/core-modules/erp/gl-contributor.registry';
 import { PostingRulesRegistry } from 'src/engine/core-modules/erp/posting-rules.registry';
 import { PeriodLockService } from 'src/engine/core-modules/erp/services/period-lock.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { DOC_STATUS } from 'src/engine/core-modules/erp/types/doc-status.type';
+import { type ErpGlEntryRow } from 'src/engine/core-modules/erp/types/posting.types';
 import { type GlobalWorkspaceOrmManager } from 'src/engine/twenty-orm/global-workspace-datasource/global-workspace-orm.manager';
 import { type WorkspaceTransactionScope } from 'src/engine/twenty-orm/global-workspace-datasource/types/workspace-transaction-scope.type';
 import {
@@ -26,11 +28,19 @@ const SYSTEM_ACTOR_STAMP = {
 
 const WORKSPACE_ID = '20202020-1c25-4d02-bf25-6aeccf7ea419';
 const RECORD_ID = '30303030-0d5c-4a83-91d7-63f5b1a2f001';
+const ORGANIZATION_ID = '40404040-9f6a-4a83-91d7-63f5b1a2f002';
 
 type FakeWorkspaceObject = {
   id: string;
   nameSingular: string;
 };
+
+const DEFAULT_WORKSPACE_OBJECTS: FakeWorkspaceObject[] = [
+  { id: 'object-sales-invoice', nameSingular: 'salesInvoice' },
+  { id: 'object-party-ledger', nameSingular: 'partyLedgerEntry' },
+  { id: 'object-gl-entry', nameSingular: 'glEntry' },
+  { id: 'object-organization', nameSingular: 'organization' },
+];
 
 const buildFakeWorkspaceContext = (
   objects: FakeWorkspaceObject[],
@@ -66,6 +76,7 @@ const buildFakeWorkspaceContext = (
 
 type FakeRepository = {
   findOneByOrFail: jest.Mock;
+  findOneBy: jest.Mock;
   findBy: jest.Mock;
   insert: jest.Mock;
   update: jest.Mock;
@@ -73,6 +84,7 @@ type FakeRepository = {
 
 const buildFakeRepository = (): FakeRepository => ({
   findOneByOrFail: jest.fn(),
+  findOneBy: jest.fn().mockResolvedValue(null),
   findBy: jest.fn().mockResolvedValue([]),
   insert: jest.fn().mockResolvedValue({}),
   update: jest.fn().mockResolvedValue({}),
@@ -83,6 +95,7 @@ describe('PostingService', () => {
   let fakeRepositoryByObjectName: Record<string, FakeRepository>;
   let transactionScope: WorkspaceTransactionScope;
   let registry: PostingRulesRegistry;
+  let glContributorRegistry: GlContributorRegistry;
   let postingService: PostingService;
 
   const buildPostingService = (workspaceObjects: FakeWorkspaceObject[]) => {
@@ -99,8 +112,27 @@ describe('PostingService', () => {
       fakeGlobalWorkspaceOrmManager,
       registry,
       new PeriodLockService(),
+      glContributorRegistry,
     );
   };
+
+  const buildGlEntryRow = (
+    overrides: Partial<ErpGlEntryRow> = {},
+  ): ErpGlEntryRow => ({
+    name: 'Дт 62.01 Кт 90.01.1',
+    date: '2026-05-10',
+    debitAccountId: 'account-62-01',
+    creditAccountId: 'account-90-01-1',
+    amount: { amountMicros: 1_220_000_000, currencyCode: 'RUB' },
+    organizationId: ORGANIZATION_ID,
+    partyId: null,
+    itemId: null,
+    voucherType: 'salesInvoice',
+    voucherId: RECORD_ID,
+    isCancelled: false,
+    isCancellation: false,
+    ...overrides,
+  });
 
   beforeEach(() => {
     executeRawQuery = jest.fn();
@@ -108,6 +140,7 @@ describe('PostingService', () => {
       salesInvoice: buildFakeRepository(),
       partyLedgerEntry: buildFakeRepository(),
       glEntry: buildFakeRepository(),
+      organization: buildFakeRepository(),
     };
     transactionScope = {
       getRepository: jest.fn(
@@ -117,11 +150,8 @@ describe('PostingService', () => {
       executeRawQuery,
     } as unknown as WorkspaceTransactionScope;
     registry = new PostingRulesRegistry();
-    postingService = buildPostingService([
-      { id: 'object-sales-invoice', nameSingular: 'salesInvoice' },
-      { id: 'object-party-ledger', nameSingular: 'partyLedgerEntry' },
-      { id: 'object-gl-entry', nameSingular: 'glEntry' },
-    ]);
+    glContributorRegistry = new GlContributorRegistry();
+    postingService = buildPostingService(DEFAULT_WORKSPACE_OBJECTS);
   });
 
   describe('post', () => {
@@ -141,30 +171,9 @@ describe('PostingService', () => {
         amount: 1500,
         postingDate: '2026-05-10',
       };
-      const glEntries = [
-        {
-          account: '62.01',
-          debit: 1500,
-          credit: 0,
-          voucherType: 'salesInvoice',
-          voucherId: RECORD_ID,
-          postingDate: '2026-05-10',
-        },
-        {
-          account: '90.01',
-          debit: 0,
-          credit: 1500,
-          voucherType: 'salesInvoice',
-          voucherId: RECORD_ID,
-          postingDate: '2026-05-10',
-        },
-      ];
 
       registry.registerPostingRules('salesInvoice', {
         getPartyEntries: () => [partyEntry],
-      });
-      registry.registerPostingRules('salesInvoice', {
-        getGlEntries: () => glEntries,
       });
 
       await postingService.post(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
@@ -178,9 +187,76 @@ describe('PostingService', () => {
       expect(
         fakeRepositoryByObjectName.partyLedgerEntry.insert,
       ).toHaveBeenCalledWith([{ ...SYSTEM_ACTOR_STAMP, ...partyEntry }]);
-      expect(fakeRepositoryByObjectName.glEntry.insert).toHaveBeenCalledWith(
-        glEntries.map((glEntry) => ({ ...SYSTEM_ACTOR_STAMP, ...glEntry })),
+      expect(
+        fakeRepositoryByObjectName.salesInvoice.update,
+      ).toHaveBeenCalledWith(RECORD_ID, {
+        docStatus: DOC_STATUS.POSTED,
+        postedAt: expect.any(String),
+      });
+    });
+
+    it('writes GL rows from the registered contributor on a re-read document, in the same transaction', async () => {
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
+      ]);
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail
+        .mockResolvedValueOnce({ id: RECORD_ID, postingDate: '2026-05-10' })
+        .mockResolvedValueOnce({
+          id: RECORD_ID,
+          postingDate: '2026-05-10',
+          total: { amountMicros: 1_220_000_000, currencyCode: 'RUB' },
+        });
+
+      registry.registerPostingRules('salesInvoice', {});
+
+      const glEntryRow = buildGlEntryRow();
+      const contributor = jest.fn().mockResolvedValue([glEntryRow]);
+
+      glContributorRegistry.registerGlContributor('salesInvoice', contributor);
+
+      await postingService.post(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
+
+      // Contributor sees the document re-read AFTER the main provider wrote
+      // totals — the second findOneByOrFail result.
+      expect(contributor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentObjectName: 'salesInvoice',
+          documentId: RECORD_ID,
+        }),
+        expect.objectContaining({
+          total: { amountMicros: 1_220_000_000, currencyCode: 'RUB' },
+        }),
+        [],
       );
+      expect(fakeRepositoryByObjectName.glEntry.insert).toHaveBeenCalledWith([
+        { ...SYSTEM_ACTOR_STAMP, ...glEntryRow },
+      ]);
+    });
+
+    it('skips the GL contributor silently when the glEntry object is not installed', async () => {
+      postingService = buildPostingService(
+        DEFAULT_WORKSPACE_OBJECTS.filter(
+          (object) => object.nameSingular !== 'glEntry',
+        ),
+      );
+
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
+      ]);
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
+        { id: RECORD_ID, postingDate: '2026-05-10' },
+      );
+
+      registry.registerPostingRules('salesInvoice', {});
+
+      const contributor = jest.fn();
+
+      glContributorRegistry.registerGlContributor('salesInvoice', contributor);
+
+      await postingService.post(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
+
+      expect(contributor).not.toHaveBeenCalled();
+      expect(fakeRepositoryByObjectName.glEntry.insert).not.toHaveBeenCalled();
       expect(
         fakeRepositoryByObjectName.salesInvoice.update,
       ).toHaveBeenCalledWith(RECORD_ID, {
@@ -217,37 +293,6 @@ describe('PostingService', () => {
       });
     });
 
-    it('rejects unbalanced GL entries and writes nothing', async () => {
-      executeRawQuery.mockResolvedValue([
-        { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
-      ]);
-      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
-        { id: RECORD_ID },
-      );
-      registry.registerPostingRules('salesInvoice', {
-        getGlEntries: () => [
-          {
-            account: '62.01',
-            debit: 1000,
-            credit: 0,
-            voucherType: 'salesInvoice',
-            voucherId: RECORD_ID,
-            postingDate: '2026-05-10',
-          },
-        ],
-      });
-
-      await expect(
-        postingService.post(WORKSPACE_ID, 'salesInvoice', RECORD_ID),
-      ).rejects.toMatchObject({
-        code: ERP_POSTING_EXCEPTION_CODE.UNBALANCED_GL_ENTRIES,
-      });
-      expect(fakeRepositoryByObjectName.glEntry.insert).not.toHaveBeenCalled();
-      expect(
-        fakeRepositoryByObjectName.salesInvoice.update,
-      ).not.toHaveBeenCalled();
-    });
-
     it('rejects a missing document row', async () => {
       executeRawQuery.mockResolvedValue([]);
 
@@ -259,7 +304,129 @@ describe('PostingService', () => {
     });
   });
 
+  describe('lock date', () => {
+    beforeEach(() => {
+      registry.registerPostingRules('salesInvoice', {});
+      fakeRepositoryByObjectName.organization.findOneBy.mockResolvedValue({
+        id: ORGANIZATION_ID,
+        name: 'ООО «Ромашка»',
+        lockDate: '2026-05-10',
+      });
+    });
+
+    it.each([
+      ['before the lock date', '2026-05-09'],
+      ['on the lock date (boundary inclusive)', '2026-05-10'],
+    ])('rejects posting %s', async (_label, postingDate) => {
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
+      ]);
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
+        { id: RECORD_ID, postingDate, organizationId: ORGANIZATION_ID },
+      );
+
+      await expect(
+        postingService.post(WORKSPACE_ID, 'salesInvoice', RECORD_ID),
+      ).rejects.toMatchObject({
+        code: ERP_POSTING_EXCEPTION_CODE.PERIOD_LOCKED,
+      });
+      expect(
+        fakeRepositoryByObjectName.salesInvoice.update,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('allows posting after the lock date', async () => {
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
+      ]);
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
+        {
+          id: RECORD_ID,
+          postingDate: '2026-05-11',
+          organizationId: ORGANIZATION_ID,
+        },
+      );
+
+      await postingService.post(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
+
+      expect(
+        fakeRepositoryByObjectName.salesInvoice.update,
+      ).toHaveBeenCalledWith(RECORD_ID, {
+        docStatus: DOC_STATUS.POSTED,
+        postedAt: expect.any(String),
+      });
+    });
+
+    it('skips the check for a document without organizationId', async () => {
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
+      ]);
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
+        { id: RECORD_ID, postingDate: '2026-05-01' },
+      );
+
+      await expect(
+        postingService.post(WORKSPACE_ID, 'salesInvoice', RECORD_ID),
+      ).resolves.toBeUndefined();
+    });
+
+    it('rejects cancelling a document posted inside the locked period', async () => {
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.POSTED },
+      ]);
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
+        {
+          id: RECORD_ID,
+          postingDate: '2026-05-10',
+          organizationId: ORGANIZATION_ID,
+        },
+      );
+
+      await expect(
+        postingService.cancel(WORKSPACE_ID, 'salesInvoice', RECORD_ID),
+      ).rejects.toMatchObject({
+        code: ERP_POSTING_EXCEPTION_CODE.PERIOD_LOCKED,
+      });
+      // Nothing may be reversed when the period is closed.
+      expect(
+        fakeRepositoryByObjectName.partyLedgerEntry.insert,
+      ).not.toHaveBeenCalled();
+      expect(fakeRepositoryByObjectName.glEntry.insert).not.toHaveBeenCalled();
+      expect(
+        fakeRepositoryByObjectName.salesInvoice.update,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('allows cancelling a document posted after the lock date', async () => {
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.POSTED },
+      ]);
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
+        {
+          id: RECORD_ID,
+          postingDate: '2026-05-11',
+          organizationId: ORGANIZATION_ID,
+        },
+      );
+
+      await postingService.cancel(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
+
+      expect(
+        fakeRepositoryByObjectName.salesInvoice.update,
+      ).toHaveBeenCalledWith(RECORD_ID, {
+        docStatus: DOC_STATUS.CANCELLED,
+        cancelledAt: expect.any(String),
+      });
+    });
+  });
+
   describe('cancel', () => {
+    beforeEach(() => {
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
+        { id: RECORD_ID, postingDate: '2026-05-10' },
+      );
+    });
+
     it('writes negated reversal rows, marks originals cancelled and sets the document CANCELLED', async () => {
       executeRawQuery.mockResolvedValue([
         { id: RECORD_ID, docStatus: DOC_STATUS.POSTED },
@@ -302,6 +469,61 @@ describe('PostingService', () => {
       expect(
         fakeRepositoryByObjectName.partyLedgerEntry.update,
       ).toHaveBeenCalledWith(['register-row-1'], { isCancelled: true });
+      expect(
+        fakeRepositoryByObjectName.salesInvoice.update,
+      ).toHaveBeenCalledWith(RECORD_ID, {
+        docStatus: DOC_STATUS.CANCELLED,
+        cancelledAt: expect.any(String),
+      });
+    });
+
+    it('reverses glEntry rows with the negated CURRENCY amount (сторно проводок)', async () => {
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.POSTED },
+      ]);
+      fakeRepositoryByObjectName.glEntry.findBy.mockResolvedValue([
+        {
+          id: 'gl-row-1',
+          ...buildGlEntryRow(),
+        },
+      ]);
+
+      await postingService.cancel(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
+
+      expect(fakeRepositoryByObjectName.glEntry.findBy).toHaveBeenCalledWith({
+        voucherType: 'salesInvoice',
+        voucherId: RECORD_ID,
+        isCancellation: false,
+      });
+      expect(fakeRepositoryByObjectName.glEntry.insert).toHaveBeenCalledWith([
+        {
+          ...buildGlEntryRow({
+            amount: { amountMicros: -1_220_000_000, currencyCode: 'RUB' },
+          }),
+          isCancellation: true,
+          isCancelled: false,
+        },
+      ]);
+      expect(fakeRepositoryByObjectName.glEntry.update).toHaveBeenCalledWith(
+        ['gl-row-1'],
+        { isCancelled: true },
+      );
+    });
+
+    it('skips glEntry reversal silently when the glEntry object is not installed', async () => {
+      postingService = buildPostingService(
+        DEFAULT_WORKSPACE_OBJECTS.filter(
+          (object) => object.nameSingular !== 'glEntry',
+        ),
+      );
+
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.POSTED },
+      ]);
+
+      await postingService.cancel(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
+
+      expect(fakeRepositoryByObjectName.glEntry.findBy).not.toHaveBeenCalled();
       expect(
         fakeRepositoryByObjectName.salesInvoice.update,
       ).toHaveBeenCalledWith(RECORD_ID, {

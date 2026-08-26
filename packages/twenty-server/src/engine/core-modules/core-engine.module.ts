@@ -29,6 +29,7 @@ import { DnsManagerModule } from 'src/engine/core-modules/dns-manager/dns-manage
 import { DpaModule } from 'src/engine/core-modules/dpa/dpa.module';
 import { EmailModule } from 'src/engine/core-modules/email/email.module';
 import { ErpModule } from 'src/engine/core-modules/erp/erp.module';
+import { ErpAccountingModule } from 'src/engine/core-modules/erp-accounting/erp-accounting.module';
 import { ErpPurchasesModule } from 'src/engine/core-modules/erp-purchases/erp-purchases.module';
 import { ErpSalesModule } from 'src/engine/core-modules/erp-sales/erp-sales.module';
 import { ErpStockModule } from 'src/engine/core-modules/erp-stock/erp-stock.module';
@@ -115,6 +116,7 @@ import { FileModule } from './file/file.module';
     EmailingDomainModule,
     EmailingModule,
     ErpModule,
+    ErpAccountingModule,
     ErpPurchasesModule,
     ErpSalesModule,
     ErpStockModule,

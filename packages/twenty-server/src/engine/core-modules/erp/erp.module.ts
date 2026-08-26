@@ -5,6 +5,7 @@ import { WorkspaceManyOrAllFlatEntityMapsCacheModule } from 'src/engine/metadata
 import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permissions.module';
 import { UserRoleModule } from 'src/engine/metadata-modules/user-role/user-role.module';
 import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
+import { GlContributorRegistry } from 'src/engine/core-modules/erp/gl-contributor.registry';
 import { PostingRulesRegistry } from 'src/engine/core-modules/erp/posting-rules.registry';
 import { ErpActorRoleResolverService } from 'src/engine/core-modules/erp/services/erp-actor-role-resolver.service';
 import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
@@ -26,6 +27,7 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
   ],
   providers: [
     PostingRulesRegistry,
+    GlContributorRegistry,
     PeriodLockService,
     DocumentNumberingService,
     PostingService,
@@ -35,6 +37,7 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
   ],
   exports: [
     PostingRulesRegistry,
+    GlContributorRegistry,
     PeriodLockService,
     DocumentNumberingService,
     PostingService,

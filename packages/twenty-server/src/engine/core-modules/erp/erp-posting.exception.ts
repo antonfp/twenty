@@ -8,7 +8,6 @@ export const ERP_POSTING_EXCEPTION_CODE = {
   DOCUMENT_NOT_FOUND: 'DOCUMENT_NOT_FOUND',
   INVALID_DOC_STATUS: 'INVALID_DOC_STATUS',
   NO_POSTING_RULES: 'NO_POSTING_RULES',
-  UNBALANCED_GL_ENTRIES: 'UNBALANCED_GL_ENTRIES',
   PERIOD_LOCKED: 'PERIOD_LOCKED',
   POSTING_FAILED: 'POSTING_FAILED',
 } as const;
@@ -20,9 +19,7 @@ export class ErpPostingException extends CustomException<ErpPostingExceptionCode
   constructor(
     message: string,
     code: ErpPostingExceptionCode,
-    {
-      userFriendlyMessage,
-    }: { userFriendlyMessage?: MessageDescriptor } = {},
+    { userFriendlyMessage }: { userFriendlyMessage?: MessageDescriptor } = {},
   ) {
     super(message, code, {
       userFriendlyMessage:

@@ -13,14 +13,23 @@ export type PartyLedgerEntryInput = {
   postingDate: string;
 };
 
-export type GlEntryInput = {
-  account: string;
-  debit: number;
-  credit: number;
-  partyId?: string;
+// Row shape of the glEntry register object installed by the erp-accounting
+// app. Ruling: парная проводка 1С-семантики — debitAccount + creditAccount +
+// amount в одной строке, поэтому баланс Σдт=Σкт выполняется по построению и
+// buildReversalRows-сторно (негация amount) работает из коробки.
+export type ErpGlEntryRow = {
+  name: string;
+  date: string;
+  debitAccountId: string;
+  creditAccountId: string;
+  amount: { amountMicros: number; currencyCode: string };
+  organizationId: string | null;
+  partyId?: string | null;
+  itemId?: string | null;
   voucherType: string;
   voucherId: string;
-  postingDate: string;
+  isCancelled: boolean;
+  isCancellation: boolean;
 };
 
 // actualQty is signed: positive = приход, negative = расход.
@@ -61,11 +70,6 @@ export type PostingRulesProvider = {
     document: ErpDocumentRecord,
     lines: ErpDocumentLineRecord[],
   ) => Promise<StockLedgerEntryInput[]> | StockLedgerEntryInput[];
-  getGlEntries?: (
-    context: PostingContext,
-    document: ErpDocumentRecord,
-    lines: ErpDocumentLineRecord[],
-  ) => Promise<GlEntryInput[]> | GlEntryInput[];
   // Runs inside the cancel transaction after register reversal rows are
   // written — for side effects the reversal itself can't express (e.g. a
   // payment rolling back the linked invoice's paid status).
@@ -74,3 +78,12 @@ export type PostingRulesProvider = {
     document: ErpDocumentRecord,
   ) => Promise<void> | void;
 };
+
+// Glue-архитектура GL (ruling): автопроводки живут в erp-accounting как
+// контрибьюторы, а не в блоках-владельцах документов. Runs after the main
+// providers wrote their registers and document totals, on a re-read document.
+export type GlContributor = (
+  context: PostingContext,
+  document: ErpDocumentRecord,
+  lines: ErpDocumentLineRecord[],
+) => Promise<ErpGlEntryRow[]> | ErpGlEntryRow[];

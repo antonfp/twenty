@@ -10,18 +10,17 @@ import {
   ERP_POSTING_EXCEPTION_CODE,
   ErpPostingException,
 } from 'src/engine/core-modules/erp/erp-posting.exception';
+import { GlContributorRegistry } from 'src/engine/core-modules/erp/gl-contributor.registry';
 import { PostingRulesRegistry } from 'src/engine/core-modules/erp/posting-rules.registry';
 import { PeriodLockService } from 'src/engine/core-modules/erp/services/period-lock.service';
 import { DOC_STATUS } from 'src/engine/core-modules/erp/types/doc-status.type';
 import {
   type ErpDocumentLineRecord,
   type ErpDocumentRecord,
-  type GlEntryInput,
   type PartyLedgerEntryInput,
   type PostingContext,
   type StockLedgerEntryInput,
 } from 'src/engine/core-modules/erp/types/posting.types';
-import { assertGlEntriesBalanced } from 'src/engine/core-modules/erp/utils/assert-gl-entries-balanced.util';
 import { buildReversalRows } from 'src/engine/core-modules/erp/utils/build-reversal-rows.util';
 import { findFlatEntityByIdInFlatEntityMapsOrThrow } from 'src/engine/metadata-modules/flat-entity/utils/find-flat-entity-by-id-in-flat-entity-maps-or-throw.util';
 import { GlobalWorkspaceOrmManager } from 'src/engine/twenty-orm/global-workspace-datasource/global-workspace-orm.manager';
@@ -46,6 +45,7 @@ export class PostingService {
     private readonly globalWorkspaceOrmManager: GlobalWorkspaceOrmManager,
     private readonly postingRulesRegistry: PostingRulesRegistry,
     private readonly periodLockService: PeriodLockService,
+    private readonly glContributorRegistry: GlContributorRegistry,
   ) {}
 
   async post(
@@ -110,10 +110,11 @@ export class PostingService {
       );
     }
 
-    const documentRepository = transactionScope.getRepository<ErpDocumentRecord>(
-      objectNameSingular,
-      BYPASS_PERMISSIONS,
-    );
+    const documentRepository =
+      transactionScope.getRepository<ErpDocumentRecord>(
+        objectNameSingular,
+        BYPASS_PERMISSIONS,
+      );
     const document = await documentRepository.findOneByOrFail({
       id: recordId,
     });
@@ -132,8 +133,9 @@ export class PostingService {
     };
 
     await this.periodLockService.assertPeriodOpen({
-      workspaceId,
+      organizationId: document.organizationId,
       postingDate: postingContext.postingDate,
+      transactionScope,
     });
 
     for (const provider of providers) {
@@ -142,24 +144,23 @@ export class PostingService {
 
     const partyEntries: PartyLedgerEntryInput[] = [];
     const stockEntries: StockLedgerEntryInput[] = [];
-    const glEntries: GlEntryInput[] = [];
 
     for (const provider of providers) {
       partyEntries.push(
-        ...((await provider.getPartyEntries?.(postingContext, document, lines)) ??
-          []),
+        ...((await provider.getPartyEntries?.(
+          postingContext,
+          document,
+          lines,
+        )) ?? []),
       );
       stockEntries.push(
-        ...((await provider.getStockEntries?.(postingContext, document, lines)) ??
-          []),
-      );
-      glEntries.push(
-        ...((await provider.getGlEntries?.(postingContext, document, lines)) ??
-          []),
+        ...((await provider.getStockEntries?.(
+          postingContext,
+          document,
+          lines,
+        )) ?? []),
       );
     }
-
-    assertGlEntriesBalanced(glEntries);
 
     // Взаиморасчёты first, per the register write order of the posting plan.
     await this.insertRegisterRows(
@@ -172,11 +173,7 @@ export class PostingService {
       stockEntries,
       transactionScope,
     );
-    await this.insertRegisterRows(
-      ERP_REGISTER_OBJECT_NAMES.GL_ENTRY,
-      glEntries,
-      transactionScope,
-    );
+    await this.insertGlContributionRows(postingContext, transactionScope);
 
     await documentRepository.update(recordId, {
       docStatus: DOC_STATUS.POSTED,
@@ -201,6 +198,30 @@ export class PostingService {
         ERP_POSTING_EXCEPTION_CODE.INVALID_DOC_STATUS,
       );
     }
+
+    const documentRepository =
+      transactionScope.getRepository<ErpDocumentRecord>(
+        objectNameSingular,
+        BYPASS_PERMISSIONS,
+      );
+    const document = await documentRepository.findOneByOrFail({
+      id: recordId,
+    });
+    const cancelContext: PostingContext = {
+      workspaceId,
+      documentObjectName: objectNameSingular,
+      documentId: recordId,
+      postingDate: this.resolvePostingDate(document),
+      transactionScope,
+    };
+
+    // Ruling (lock date): cancel of a document inside a closed period is
+    // rejected the same way as post.
+    await this.periodLockService.assertPeriodOpen({
+      organizationId: document.organizationId,
+      postingDate: cancelContext.postingDate,
+      transactionScope,
+    });
 
     const { objectIdByNameSingular } = getWorkspaceContext();
 
@@ -230,30 +251,12 @@ export class PostingService {
       );
     }
 
-    const documentRepository = transactionScope.getRepository<ErpDocumentRecord>(
-      objectNameSingular,
-      BYPASS_PERMISSIONS,
-    );
-
     const cancelProviders = this.postingRulesRegistry
       .resolvePostingRules(objectNameSingular)
       .filter((provider) => isDefined(provider.onCancel));
 
-    if (cancelProviders.length > 0) {
-      const document = await documentRepository.findOneByOrFail({
-        id: recordId,
-      });
-      const cancelContext: PostingContext = {
-        workspaceId,
-        documentObjectName: objectNameSingular,
-        documentId: recordId,
-        postingDate: this.resolvePostingDate(document),
-        transactionScope,
-      };
-
-      for (const provider of cancelProviders) {
-        await provider.onCancel?.(cancelContext, document);
-      }
+    for (const provider of cancelProviders) {
+      await provider.onCancel?.(cancelContext, document);
     }
 
     await documentRepository.update(recordId, {
@@ -331,6 +334,52 @@ export class PostingService {
         BYPASS_PERMISSIONS,
       )
       .insert(stampedRows);
+  }
+
+  // Glue-архитектура GL (ruling): проводки пишет контрибьютор из
+  // erp-accounting — только когда объект glEntry установлен в workspace
+  // (блок «Бухгалтерия» опционален: без него проведение идёт без проводок).
+  // Document and lines are re-read because the main providers just wrote
+  // totals/numbering the contributor depends on.
+  private async insertGlContributionRows(
+    context: PostingContext,
+    transactionScope: WorkspaceTransactionScope,
+  ): Promise<void> {
+    const { objectIdByNameSingular } = getWorkspaceContext();
+
+    if (
+      !isDefined(objectIdByNameSingular[ERP_REGISTER_OBJECT_NAMES.GL_ENTRY])
+    ) {
+      return;
+    }
+
+    const contributor = this.glContributorRegistry.resolveGlContributor(
+      context.documentObjectName,
+    );
+
+    if (!isDefined(contributor)) {
+      return;
+    }
+
+    const document = await transactionScope
+      .getRepository<ErpDocumentRecord>(
+        context.documentObjectName,
+        BYPASS_PERMISSIONS,
+      )
+      .findOneByOrFail({ id: context.documentId });
+    const lines = await this.loadDocumentLines(
+      context.documentObjectName,
+      context.documentId,
+      transactionScope,
+    );
+
+    const glEntryRows = await contributor(context, document, lines);
+
+    await this.insertRegisterRows(
+      ERP_REGISTER_OBJECT_NAMES.GL_ENTRY,
+      glEntryRows,
+      transactionScope,
+    );
   }
 
   // Convention: document lines live in `${objectName}Line` with a
