@@ -15,9 +15,11 @@ import { useRecordIndexContextOrThrow } from '@/object-record/record-index/conte
 import { erpDocumentEffectiveDocStatusFamilySelector } from '@/object-record/read-only/utils/erpDocumentEffectiveDocStatusFamilySelector';
 import { isErpDocumentFieldReadOnlyDueToDocStatus } from '@/object-record/read-only/utils/isErpDocumentFieldReadOnlyDueToDocStatus';
 import { useCreateNewIndexRecord } from '@/object-record/record-table/hooks/useCreateNewIndexRecord';
+import { isRecordTableCellsNonEditableComponentState } from '@/object-record/record-table/states/isRecordTableCellsNonEditableComponentState';
 import { useRecordsForSelect } from '@/object-record/select/hooks/useRecordsForSelect';
 import { canCreateRecordsForObjectMetadataItem } from '@/object-record/utils/canCreateRecordsForObjectMetadataItem';
 import { useAtomComponentSelectorValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentSelectorValue';
+import { useAtomComponentStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentStateValue';
 import { useAtomFamilySelectorValue } from '@/ui/utilities/state/jotai/hooks/useAtomFamilySelectorValue';
 import { styled } from '@linaria/react';
 import { t } from '@lingui/core/macro';
@@ -33,6 +35,7 @@ import { QUERY_MAX_RECORDS } from 'twenty-shared/constants';
 import { isDefined } from 'twenty-shared/utils';
 import { MenuItem } from 'twenty-ui/navigation';
 import { themeCssVariables } from 'twenty-ui/theme-constants';
+import { logError } from '~/utils/logError';
 
 const StyledContainer = styled.div`
   position: relative;
@@ -97,12 +100,24 @@ const StyledSuggestions = styled.div`
 // eligible line table. The isDefined guard here is a cheap belt-and-braces
 // check for standalone rendering/testing, not the real gate.
 export const RecordTableWidgetQuickAddRow = () => {
-  const { objectMetadataItem, objectNameSingular } =
+  const { objectMetadataItem, objectNameSingular, recordIndexId } =
     useRecordIndexContextOrThrow();
 
   const erpLineItemPickerConfig = useMemo(
     () => getErpLineItemPickerConfig(objectMetadataItem),
     [objectMetadataItem],
+  );
+
+  // Same atom RecordTableWidgetSetReadOnlyColumnHeadersEffect derives from
+  // the widget's own isReadOnly prop, and the same one T5's "+ Строка"
+  // (RecordTableNoRecordGroupAddNew) checks — reusing it here (via the
+  // recordIndexId escape hatch, since this component sits outside
+  // RecordTableComponentInstanceContext) keeps quick-add's read-only
+  // behavior identical to "+ Строка" without threading isReadOnly through
+  // the mount point as a second, parallel signal.
+  const isRecordTableCellsNonEditable = useAtomComponentStateValue(
+    isRecordTableCellsNonEditableComponentState,
+    recordIndexId,
   );
 
   const parentJoinColumnName = useMemo(
@@ -224,6 +239,12 @@ export const RecordTableWidgetQuickAddRow = () => {
         }
 
         resetInput();
+      } catch (error) {
+        // handleItemPicked is called un-awaited from a keydown/click handler
+        // (there is no caller left to attach a .catch to), so a failed
+        // create/increment mutation would otherwise be an unhandled
+        // rejection with the input silently left un-cleared.
+        logError(error);
       } finally {
         isProcessingPickRef.current = false;
       }
@@ -263,6 +284,14 @@ export const RecordTableWidgetQuickAddRow = () => {
   };
 
   if (!isDefined(erpLineItemPickerConfig)) {
+    return null;
+  }
+
+  // Mirrors "+ Строка"'s own gate: page-layout edit mode (or any other
+  // caller passing isReadOnly) locks the table down via this same atom, and
+  // quick-add must not keep firing live mutations while the rest of the
+  // table is locked.
+  if (isRecordTableCellsNonEditable) {
     return null;
   }
 
