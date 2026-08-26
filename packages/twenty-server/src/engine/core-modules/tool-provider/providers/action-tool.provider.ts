@@ -34,6 +34,7 @@ import { type ToolOutput } from 'src/engine/core-modules/tool/types/tool-output.
 import { type Tool } from 'src/engine/core-modules/tool/types/tool.type';
 import { PermissionsService } from 'src/engine/metadata-modules/permissions/permissions.service';
 import { SaveCampaignTool } from 'src/modules/emailing/tools/save-campaign-tool';
+import { ErpAgentToolService } from 'src/engine/core-modules/tool-provider/providers/erp-agent-tool.service';
 
 @Injectable()
 export class ActionToolProvider implements ToolProvider {
@@ -55,6 +56,10 @@ export class ActionToolProvider implements ToolProvider {
     private readonly codeInterpreterService: CodeInterpreterService,
     private readonly permissionsService: PermissionsService,
     private readonly i18nService: I18nService,
+    // Owns post_document/cancel_document/trial_balance: dispatchStaticTool
+    // resolves exactly one provider per ToolCategory, so a second ACTION
+    // provider would list fine but never be reachable at execution time.
+    private readonly erpAgentToolService: ErpAgentToolService,
   ) {
     this.toolMap = new Map<string, Tool>([
       ['http_request', this.httpTool],
@@ -203,6 +208,12 @@ export class ActionToolProvider implements ToolProvider {
       );
     }
 
+    descriptors.push(
+      ...(await this.erpAgentToolService.generateDescriptors(context, {
+        includeSchemas,
+      })),
+    );
+
     return descriptors;
   }
 
@@ -211,6 +222,14 @@ export class ActionToolProvider implements ToolProvider {
     args: Record<string, unknown>,
     context: ToolProviderContext,
   ): Promise<ToolOutput> {
+    if (this.erpAgentToolService.ownsTool(toolName)) {
+      return this.erpAgentToolService.executeStaticTool(
+        toolName,
+        args,
+        context,
+      );
+    }
+
     const tool = this.toolMap.get(toolName);
 
     if (!tool) {

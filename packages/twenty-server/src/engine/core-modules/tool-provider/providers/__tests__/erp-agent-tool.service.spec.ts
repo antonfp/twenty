@@ -5,7 +5,7 @@ import { FieldActorSource } from 'twenty-shared/types';
 import { type PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { type ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { type TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
-import { ErpAgentToolProvider } from 'src/engine/core-modules/tool-provider/providers/erp-agent-tool.provider';
+import { ErpAgentToolService } from 'src/engine/core-modules/tool-provider/providers/erp-agent-tool.service';
 import { type ToolProviderContext } from 'src/engine/core-modules/tool-provider/interfaces/tool-provider-context.type';
 
 const WORKSPACE_ID = '20202020-1c25-4d02-bf25-6aeccf7ea419';
@@ -74,21 +74,32 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
       ),
   } as unknown as ErpObjectPermissionGuardService;
 
-  const provider = new ErpAgentToolProvider(
+  const service = new ErpAgentToolService(
     postingService,
     trialBalanceService,
     erpObjectPermissionGuardService,
   );
 
   return {
-    provider,
+    provider: service,
     postingService,
     trialBalanceService,
     erpObjectPermissionGuardService,
   };
 };
 
-describe('ErpAgentToolProvider', () => {
+describe('ErpAgentToolService', () => {
+  describe('ownsTool', () => {
+    it('claims post_document/cancel_document/trial_balance and nothing else', () => {
+      const { provider } = buildProvider();
+
+      expect(provider.ownsTool('post_document')).toBe(true);
+      expect(provider.ownsTool('cancel_document')).toBe(true);
+      expect(provider.ownsTool('trial_balance')).toBe(true);
+      expect(provider.ownsTool('http_request')).toBe(false);
+    });
+  });
+
   describe('generateDescriptors', () => {
     it('exposes post_document, cancel_document and trial_balance', async () => {
       const { provider } = buildProvider();

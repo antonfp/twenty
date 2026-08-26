@@ -8,7 +8,7 @@ import { TOOL_PROVIDERS } from 'src/engine/core-modules/tool-provider/constants/
 import { ActionToolProvider } from 'src/engine/core-modules/tool-provider/providers/action-tool.provider';
 import { DashboardToolProvider } from 'src/engine/core-modules/tool-provider/providers/dashboard-tool.provider';
 import { DatabaseToolProvider } from 'src/engine/core-modules/tool-provider/providers/database-tool.provider';
-import { ErpAgentToolProvider } from 'src/engine/core-modules/tool-provider/providers/erp-agent-tool.provider';
+import { ErpAgentToolService } from 'src/engine/core-modules/tool-provider/providers/erp-agent-tool.service';
 import { LogicFunctionToolProvider } from 'src/engine/core-modules/tool-provider/providers/logic-function-tool.provider';
 import { MetadataToolProvider } from 'src/engine/core-modules/tool-provider/providers/metadata-tool.provider';
 import { NavigationMenuItemToolProvider } from 'src/engine/core-modules/tool-provider/providers/navigation-menu-item-tool.provider';
@@ -59,9 +59,9 @@ import { ToolRegistryService } from './services/tool-registry.service';
     // AI-кастомизации" guard that MetadataToolProvider/ViewToolProvider wire
     // into their executeStaticTool (registers + admin-only creation MVP) —
     // and PostingService/ErpObjectPermissionGuardService, consumed by
-    // ErpAgentToolProvider below.
+    // ErpAgentToolService below.
     ErpModule,
-    // TrialBalanceService for ErpAgentToolProvider's trial_balance bridge.
+    // TrialBalanceService for ErpAgentToolService's trial_balance bridge.
     ErpAccountingModule,
     AiModelsModule,
     forwardRef(() => AiAgentExecutionModule),
@@ -88,7 +88,10 @@ import { ToolRegistryService } from './services/tool-registry.service';
     ActionToolProvider,
     DashboardToolProvider,
     DatabaseToolProvider,
-    ErpAgentToolProvider,
+    // Plain injectable owned by ActionToolProvider (same ToolCategory.ACTION,
+    // see erp-agent-tool.service.ts header comment) — NOT part of
+    // TOOL_PROVIDERS below.
+    ErpAgentToolService,
     MetadataToolProvider,
     NavigationMenuItemToolProvider,
     LogicFunctionToolProvider,
@@ -98,14 +101,15 @@ import { ToolRegistryService } from './services/tool-registry.service';
     WorkflowToolProvider,
     {
       // TOOL_PROVIDERS contains only providers implementing ToolProvider
-      // (registry tools with descriptors). The native tool binder is a
+      // (registry tools with descriptors) — exactly one per ToolCategory,
+      // which is how ToolExecutorService.dispatchStaticTool resolves a
+      // provider for a static-kind tool call. The native tool binder is a
       // parallel concept and is exported for surfaces that bind SDK-native
       // tools directly into their model ToolSet.
       provide: TOOL_PROVIDERS,
       useFactory: (
         actionProvider: ActionToolProvider,
         databaseProvider: DatabaseToolProvider,
-        erpAgentProvider: ErpAgentToolProvider,
         metadataProvider: MetadataToolProvider,
         logicFunctionProvider: LogicFunctionToolProvider,
         navigationMenuItemProvider: NavigationMenuItemToolProvider,
@@ -117,7 +121,6 @@ import { ToolRegistryService } from './services/tool-registry.service';
       ) => [
         actionProvider,
         databaseProvider,
-        erpAgentProvider,
         metadataProvider,
         logicFunctionProvider,
         navigationMenuItemProvider,
@@ -130,7 +133,6 @@ import { ToolRegistryService } from './services/tool-registry.service';
       inject: [
         ActionToolProvider,
         DatabaseToolProvider,
-        ErpAgentToolProvider,
         MetadataToolProvider,
         LogicFunctionToolProvider,
         NavigationMenuItemToolProvider,
