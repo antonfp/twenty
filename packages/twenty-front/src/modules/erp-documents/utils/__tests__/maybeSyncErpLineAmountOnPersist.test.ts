@@ -35,7 +35,7 @@ describe('maybeSyncErpLineAmountOnPersist', () => {
       price: { amountMicros: 500_000_000, currencyCode: 'RUB' },
       amount: null,
     });
-    const updateOneRecord = jest.fn();
+    const updateOneRecord = jest.fn().mockResolvedValue({});
 
     maybeSyncErpLineAmountOnPersist({
       objectNameSingular: 'salesInvoiceLine',
@@ -65,7 +65,7 @@ describe('maybeSyncErpLineAmountOnPersist', () => {
       price: { amountMicros: 100_000_000, currencyCode: 'RUB' },
       amount: null,
     });
-    const updateOneRecord = jest.fn();
+    const updateOneRecord = jest.fn().mockResolvedValue({});
 
     maybeSyncErpLineAmountOnPersist({
       objectNameSingular: 'salesInvoiceLine',
@@ -143,7 +143,7 @@ describe('maybeSyncErpLineAmountOnPersist', () => {
       price: { amountMicros: 100_000_000, currencyCode: 'RUB' },
       amount: null,
     });
-    const updateOneRecord = jest.fn();
+    const updateOneRecord = jest.fn().mockResolvedValue({});
 
     maybeSyncErpLineAmountOnPersist({
       objectNameSingular: 'salesInvoiceLine',
