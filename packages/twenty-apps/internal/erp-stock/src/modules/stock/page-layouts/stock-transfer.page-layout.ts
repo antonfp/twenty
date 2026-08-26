@@ -1,6 +1,8 @@
 import { definePageLayout, PageLayoutTabLayoutMode } from 'twenty-sdk/define';
 import { STOCK_TRANSFER_UNIVERSAL_IDENTIFIER } from '../objects/stock-transfer.object';
 import { LINES_ON_STOCK_TRANSFER_ID } from '../fields/stock-transfer-on-stock-transfer-line.field';
+import { STOCK_TRANSFER_RECORD_PAGE_FIELDS_VIEW_ID } from '../views/stock-transfer-record-page-fields.view';
+import { STOCK_TRANSFER_LINES_TABLE_VIEW_ID } from '../views/stock-transfer-lines-table.view';
 
 const PAGE_LAYOUT_ID = 'ab968024-b844-4c4e-a6cc-9de32cab147a';
 const DOCUMENT_TAB_ID = '10c403e7-8df5-423c-bd70-b5c200f13b9b';
@@ -18,6 +20,15 @@ const FILES_WIDGET_ID = '85d02cd5-cf1d-43b6-8302-f0eb7842bf5d';
 // Заменяет автогенерированный layout объекта — без явного "Документ" таба
 // поля не покажутся ("No Data"). Строки перемещения — FIELD/TABLE
 // (редактируемая RecordTable), а не чипы relation-виджета по умолчанию.
+// Поле/table виджет ссылается на persisted defineView (см. views/) чтобы
+// задать порядок колонок и SUM-агрегат на итоговой колонке — без
+// viewId FIELD/TABLE не рендерится вовсе.
+// defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier намеренно не
+// задан: указывая на таб, который создаётся в этом же apply, он ловит
+// SDK apply-engine баг (pageLayout создаётся раньше своих pageLayoutTab —
+// forward-reference не резолвится на чистом инстансе). Безопасно опустить,
+// пока "Документ" остаётся табом с наименьшим position (0) — фронт для
+// desktop/mobile/side-panel фолбэчится на tabs[0].
 export default definePageLayout({
   universalIdentifier: PAGE_LAYOUT_ID,
   name: 'Stock transfer record page',
@@ -37,6 +48,7 @@ export default definePageLayout({
           type: 'FIELDS',
           configuration: {
             configurationType: 'FIELDS',
+            viewUniversalIdentifier: STOCK_TRANSFER_RECORD_PAGE_FIELDS_VIEW_ID,
           },
         },
         {
@@ -47,6 +59,7 @@ export default definePageLayout({
             configurationType: 'FIELD',
             fieldMetadataId: LINES_ON_STOCK_TRANSFER_ID,
             fieldDisplayMode: 'TABLE',
+            viewId: STOCK_TRANSFER_LINES_TABLE_VIEW_ID,
           },
         },
       ],

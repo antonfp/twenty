@@ -1,6 +1,8 @@
 import { definePageLayout, PageLayoutTabLayoutMode } from 'twenty-sdk/define';
 import { SALES_INVOICE_UNIVERSAL_IDENTIFIER } from '../objects/sales-invoice.object';
 import { LINES_ON_SALES_INVOICE_ID } from '../fields/sales-invoice-on-sales-invoice-line.field';
+import { SALES_INVOICE_RECORD_PAGE_FIELDS_VIEW_ID } from '../views/sales-invoice-record-page-fields.view';
+import { SALES_INVOICE_LINES_TABLE_VIEW_ID } from '../views/sales-invoice-lines-table.view';
 
 const PAGE_LAYOUT_ID = 'e28c1b62-f91d-49a3-a60d-6f026e9a1c73';
 const DOCUMENT_TAB_ID = '907723ad-465c-4ef9-bc89-9a3525a7dcb7';
@@ -17,7 +19,16 @@ const FILES_WIDGET_ID = '999bf8eb-c9a4-4ba7-9968-b1b3e6ded367';
 
 // Заменяет автогенерированный layout объекта — без явного "Документ" таба
 // поля не покажутся ("No Data"). Строки счёта — FIELD/TABLE (редактируемая
-// RecordTable), а не чипы relation-виджета по умолчанию.
+// RecordTable), а не чипы relation-виджета по умолчанию. Поле/table виджеты
+// ссылаются на persisted defineView'ы (см. views/) чтобы задать порядок
+// колонок и SUM-агрегат — без viewId FIELD/TABLE не рендерится вовсе.
+//
+// defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier намеренно не
+// задан: указывая на таб, который создаётся в этом же apply, он ловит
+// SDK apply-engine баг (pageLayout создаётся раньше своих pageLayoutTab —
+// forward-reference не резолвится на чистом инстансе). Безопасно опустить,
+// пока "Документ" остаётся табом с наименьшим position (0) — фронт для
+// desktop/mobile/side-panel фолбэчится на tabs[0].
 export default definePageLayout({
   universalIdentifier: PAGE_LAYOUT_ID,
   name: 'Sales invoice record page',
@@ -37,6 +48,7 @@ export default definePageLayout({
           type: 'FIELDS',
           configuration: {
             configurationType: 'FIELDS',
+            viewUniversalIdentifier: SALES_INVOICE_RECORD_PAGE_FIELDS_VIEW_ID,
           },
         },
         {
@@ -47,6 +59,7 @@ export default definePageLayout({
             configurationType: 'FIELD',
             fieldMetadataId: LINES_ON_SALES_INVOICE_ID,
             fieldDisplayMode: 'TABLE',
+            viewId: SALES_INVOICE_LINES_TABLE_VIEW_ID,
           },
         },
       ],

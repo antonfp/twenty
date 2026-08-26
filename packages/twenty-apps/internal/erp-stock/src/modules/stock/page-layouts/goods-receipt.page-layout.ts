@@ -1,6 +1,8 @@
 import { definePageLayout, PageLayoutTabLayoutMode } from 'twenty-sdk/define';
 import { GOODS_RECEIPT_UNIVERSAL_IDENTIFIER } from '../objects/goods-receipt.object';
 import { LINES_ON_GOODS_RECEIPT_ID } from '../fields/goods-receipt-on-goods-receipt-line.field';
+import { GOODS_RECEIPT_RECORD_PAGE_FIELDS_VIEW_ID } from '../views/goods-receipt-record-page-fields.view';
+import { GOODS_RECEIPT_LINES_TABLE_VIEW_ID } from '../views/goods-receipt-lines-table.view';
 
 const PAGE_LAYOUT_ID = 'af2e08a5-c256-4900-866b-21220cde0fc1';
 const DOCUMENT_TAB_ID = '5b80057c-a0b7-4af0-a624-5aecbcec5e6f';
@@ -18,6 +20,15 @@ const FILES_WIDGET_ID = '73c9d038-4196-4c7c-b9f6-9936aef6b3f5';
 // Заменяет автогенерированный layout объекта — без явного "Документ" таба
 // поля не покажутся ("No Data"). Строки поступления — FIELD/TABLE
 // (редактируемая RecordTable), а не чипы relation-виджета по умолчанию.
+// Поле/table виджет ссылается на persisted defineView (см. views/) чтобы
+// задать порядок колонок и SUM-агрегат на итоговой колонке — без
+// viewId FIELD/TABLE не рендерится вовсе.
+// defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier намеренно не
+// задан: указывая на таб, который создаётся в этом же apply, он ловит
+// SDK apply-engine баг (pageLayout создаётся раньше своих pageLayoutTab —
+// forward-reference не резолвится на чистом инстансе). Безопасно опустить,
+// пока "Документ" остаётся табом с наименьшим position (0) — фронт для
+// desktop/mobile/side-panel фолбэчится на tabs[0].
 export default definePageLayout({
   universalIdentifier: PAGE_LAYOUT_ID,
   name: 'Goods receipt record page',
@@ -37,6 +48,7 @@ export default definePageLayout({
           type: 'FIELDS',
           configuration: {
             configurationType: 'FIELDS',
+            viewUniversalIdentifier: GOODS_RECEIPT_RECORD_PAGE_FIELDS_VIEW_ID,
           },
         },
         {
@@ -47,6 +59,7 @@ export default definePageLayout({
             configurationType: 'FIELD',
             fieldMetadataId: LINES_ON_GOODS_RECEIPT_ID,
             fieldDisplayMode: 'TABLE',
+            viewId: GOODS_RECEIPT_LINES_TABLE_VIEW_ID,
           },
         },
       ],

@@ -1,6 +1,8 @@
 import { definePageLayout, PageLayoutTabLayoutMode } from 'twenty-sdk/define';
 import { SALES_SHIPMENT_UNIVERSAL_IDENTIFIER } from '../objects/sales-shipment.object';
 import { LINES_ON_SALES_SHIPMENT_ID } from '../fields/sales-shipment-on-sales-shipment-line.field';
+import { SALES_SHIPMENT_RECORD_PAGE_FIELDS_VIEW_ID } from '../views/sales-shipment-record-page-fields.view';
+import { SALES_SHIPMENT_LINES_TABLE_VIEW_ID } from '../views/sales-shipment-lines-table.view';
 
 const PAGE_LAYOUT_ID = '2877abe9-4590-4c17-a8a1-6e290f2721c5';
 const DOCUMENT_TAB_ID = '50b4ad05-03ca-42b8-9727-e735413a749b';
@@ -18,6 +20,15 @@ const FILES_WIDGET_ID = 'fc42d482-45c1-41ab-8b9a-9f23dc857a9e';
 // Заменяет автогенерированный layout объекта — без явного "Документ" таба
 // поля не покажутся ("No Data"). Строки реализации — FIELD/TABLE
 // (редактируемая RecordTable), а не чипы relation-виджета по умолчанию.
+// Поле/table виджет ссылается на persisted defineView (см. views/) чтобы
+// задать порядок колонок и SUM-агрегат на итоговой колонке — без
+// viewId FIELD/TABLE не рендерится вовсе.
+// defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier намеренно не
+// задан: указывая на таб, который создаётся в этом же apply, он ловит
+// SDK apply-engine баг (pageLayout создаётся раньше своих pageLayoutTab —
+// forward-reference не резолвится на чистом инстансе). Безопасно опустить,
+// пока "Документ" остаётся табом с наименьшим position (0) — фронт для
+// desktop/mobile/side-panel фолбэчится на tabs[0].
 export default definePageLayout({
   universalIdentifier: PAGE_LAYOUT_ID,
   name: 'Sales shipment record page',
@@ -37,6 +48,7 @@ export default definePageLayout({
           type: 'FIELDS',
           configuration: {
             configurationType: 'FIELDS',
+            viewUniversalIdentifier: SALES_SHIPMENT_RECORD_PAGE_FIELDS_VIEW_ID,
           },
         },
         {
@@ -47,6 +59,7 @@ export default definePageLayout({
             configurationType: 'FIELD',
             fieldMetadataId: LINES_ON_SALES_SHIPMENT_ID,
             fieldDisplayMode: 'TABLE',
+            viewId: SALES_SHIPMENT_LINES_TABLE_VIEW_ID,
           },
         },
       ],

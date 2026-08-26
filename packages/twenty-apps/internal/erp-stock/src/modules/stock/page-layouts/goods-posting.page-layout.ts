@@ -1,6 +1,8 @@
 import { definePageLayout, PageLayoutTabLayoutMode } from 'twenty-sdk/define';
 import { GOODS_POSTING_UNIVERSAL_IDENTIFIER } from '../objects/goods-posting.object';
 import { LINES_ON_GOODS_POSTING_ID } from '../fields/goods-posting-on-goods-posting-line.field';
+import { GOODS_POSTING_RECORD_PAGE_FIELDS_VIEW_ID } from '../views/goods-posting-record-page-fields.view';
+import { GOODS_POSTING_LINES_TABLE_VIEW_ID } from '../views/goods-posting-lines-table.view';
 
 const PAGE_LAYOUT_ID = '4e92d876-3553-4de6-9a4f-b4ff290b2cf4';
 const DOCUMENT_TAB_ID = '5b6c873e-0b95-42ef-9a0a-ee539d014e37';
@@ -18,6 +20,15 @@ const FILES_WIDGET_ID = 'aeb09900-41b9-4510-85ff-bbfdfeacfd0e';
 // Заменяет автогенерированный layout объекта — без явного "Документ" таба
 // поля не покажутся ("No Data"). Строки оприходования — FIELD/TABLE
 // (редактируемая RecordTable), а не чипы relation-виджета по умолчанию.
+// Поле/table виджет ссылается на persisted defineView (см. views/) чтобы
+// задать порядок колонок и SUM-агрегат на итоговой колонке — без
+// viewId FIELD/TABLE не рендерится вовсе.
+// defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier намеренно не
+// задан: указывая на таб, который создаётся в этом же apply, он ловит
+// SDK apply-engine баг (pageLayout создаётся раньше своих pageLayoutTab —
+// forward-reference не резолвится на чистом инстансе). Безопасно опустить,
+// пока "Документ" остаётся табом с наименьшим position (0) — фронт для
+// desktop/mobile/side-panel фолбэчится на tabs[0].
 export default definePageLayout({
   universalIdentifier: PAGE_LAYOUT_ID,
   name: 'Goods posting record page',
@@ -37,6 +48,7 @@ export default definePageLayout({
           type: 'FIELDS',
           configuration: {
             configurationType: 'FIELDS',
+            viewUniversalIdentifier: GOODS_POSTING_RECORD_PAGE_FIELDS_VIEW_ID,
           },
         },
         {
@@ -47,6 +59,7 @@ export default definePageLayout({
             configurationType: 'FIELD',
             fieldMetadataId: LINES_ON_GOODS_POSTING_ID,
             fieldDisplayMode: 'TABLE',
+            viewId: GOODS_POSTING_LINES_TABLE_VIEW_ID,
           },
         },
       ],

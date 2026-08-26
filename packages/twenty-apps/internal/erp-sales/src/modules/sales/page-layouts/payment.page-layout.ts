@@ -1,5 +1,6 @@
 import { definePageLayout, PageLayoutTabLayoutMode } from 'twenty-sdk/define';
 import { PAYMENT_UNIVERSAL_IDENTIFIER } from '../objects/payment.object';
+import { PAYMENT_RECORD_PAGE_FIELDS_VIEW_ID } from '../views/payment-record-page-fields.view';
 
 const PAGE_LAYOUT_ID = '183d70c2-7005-48c5-9565-276691d0f112';
 const DOCUMENT_TAB_ID = '83b84aaf-4751-409e-9f5a-d8b55b7aefa9';
@@ -15,6 +16,14 @@ const FILES_WIDGET_ID = '87b7f0b0-6f12-4bac-8602-35bd132f1759';
 
 // Поступление оплаты — документ без табличной части, только улучшенная
 // шапка (FIELDS). Заменяет автогенерированный layout объекта.
+// FIELDS-виджет ссылается на persisted defineView (см. views/), иначе
+// порядок полей в шапке произволен (не в порядке объявления объекта).
+// defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier намеренно не
+// задан: указывая на таб, который создаётся в этом же apply, он ловит
+// SDK apply-engine баг (pageLayout создаётся раньше своих pageLayoutTab —
+// forward-reference не резолвится на чистом инстансе). Безопасно опустить,
+// пока "Документ" остаётся табом с наименьшим position (0) — фронт для
+// desktop/mobile/side-panel фолбэчится на tabs[0].
 export default definePageLayout({
   universalIdentifier: PAGE_LAYOUT_ID,
   name: 'Payment record page',
@@ -34,6 +43,7 @@ export default definePageLayout({
           type: 'FIELDS',
           configuration: {
             configurationType: 'FIELDS',
+            viewUniversalIdentifier: PAYMENT_RECORD_PAGE_FIELDS_VIEW_ID,
           },
         },
       ],

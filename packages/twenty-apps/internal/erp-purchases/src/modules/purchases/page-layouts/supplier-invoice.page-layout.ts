@@ -1,6 +1,8 @@
 import { definePageLayout, PageLayoutTabLayoutMode } from 'twenty-sdk/define';
 import { SUPPLIER_INVOICE_UNIVERSAL_IDENTIFIER } from '../objects/supplier-invoice.object';
 import { LINES_ON_SUPPLIER_INVOICE_ID } from '../fields/supplier-invoice-on-supplier-invoice-line.field';
+import { SUPPLIER_INVOICE_RECORD_PAGE_FIELDS_VIEW_ID } from '../views/supplier-invoice-record-page-fields.view';
+import { SUPPLIER_INVOICE_LINES_TABLE_VIEW_ID } from '../views/supplier-invoice-lines-table.view';
 
 const PAGE_LAYOUT_ID = '02811bff-d69e-4239-b905-e3fdd86f2eb2';
 const DOCUMENT_TAB_ID = '42a93f48-62ab-4c4e-914f-3c627b145fbc';
@@ -18,6 +20,15 @@ const FILES_WIDGET_ID = 'eab84ff2-a65b-4d80-b267-afa0050e3019';
 // Заменяет автогенерированный layout объекта — без явного "Документ" таба
 // поля не покажутся ("No Data"). Строки счёта — FIELD/TABLE (редактируемая
 // RecordTable), а не чипы relation-виджета по умолчанию.
+// Поле/table виджет ссылается на persisted defineView (см. views/) чтобы
+// задать порядок колонок и SUM-агрегат на итоговой колонке — без
+// viewId FIELD/TABLE не рендерится вовсе.
+// defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier намеренно не
+// задан: указывая на таб, который создаётся в этом же apply, он ловит
+// SDK apply-engine баг (pageLayout создаётся раньше своих pageLayoutTab —
+// forward-reference не резолвится на чистом инстансе). Безопасно опустить,
+// пока "Документ" остаётся табом с наименьшим position (0) — фронт для
+// desktop/mobile/side-panel фолбэчится на tabs[0].
 export default definePageLayout({
   universalIdentifier: PAGE_LAYOUT_ID,
   name: 'Supplier invoice record page',
@@ -37,6 +48,7 @@ export default definePageLayout({
           type: 'FIELDS',
           configuration: {
             configurationType: 'FIELDS',
+            viewUniversalIdentifier: SUPPLIER_INVOICE_RECORD_PAGE_FIELDS_VIEW_ID,
           },
         },
         {
@@ -47,6 +59,7 @@ export default definePageLayout({
             configurationType: 'FIELD',
             fieldMetadataId: LINES_ON_SUPPLIER_INVOICE_ID,
             fieldDisplayMode: 'TABLE',
+            viewId: SUPPLIER_INVOICE_LINES_TABLE_VIEW_ID,
           },
         },
       ],

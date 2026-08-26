@@ -1,6 +1,8 @@
 import { definePageLayout, PageLayoutTabLayoutMode } from 'twenty-sdk/define';
 import { GOODS_WRITE_OFF_UNIVERSAL_IDENTIFIER } from '../objects/goods-write-off.object';
 import { LINES_ON_GOODS_WRITE_OFF_ID } from '../fields/goods-write-off-on-goods-write-off-line.field';
+import { GOODS_WRITE_OFF_RECORD_PAGE_FIELDS_VIEW_ID } from '../views/goods-write-off-record-page-fields.view';
+import { GOODS_WRITE_OFF_LINES_TABLE_VIEW_ID } from '../views/goods-write-off-lines-table.view';
 
 const PAGE_LAYOUT_ID = '3a3a8fc2-bb97-42f9-ad5e-8b9c010d3aaa';
 const DOCUMENT_TAB_ID = 'c8e2580a-4501-4e0c-8763-ab4da18f27ac';
@@ -18,6 +20,15 @@ const FILES_WIDGET_ID = '64d295b4-0fb5-4dcc-94f5-33696fc07e44';
 // Заменяет автогенерированный layout объекта — без явного "Документ" таба
 // поля не покажутся ("No Data"). Строки списания — FIELD/TABLE
 // (редактируемая RecordTable), а не чипы relation-виджета по умолчанию.
+// Поле/table виджет ссылается на persisted defineView (см. views/) чтобы
+// задать порядок колонок и SUM-агрегат на итоговой колонке — без
+// viewId FIELD/TABLE не рендерится вовсе.
+// defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier намеренно не
+// задан: указывая на таб, который создаётся в этом же apply, он ловит
+// SDK apply-engine баг (pageLayout создаётся раньше своих pageLayoutTab —
+// forward-reference не резолвится на чистом инстансе). Безопасно опустить,
+// пока "Документ" остаётся табом с наименьшим position (0) — фронт для
+// desktop/mobile/side-panel фолбэчится на tabs[0].
 export default definePageLayout({
   universalIdentifier: PAGE_LAYOUT_ID,
   name: 'Goods write-off record page',
@@ -37,6 +48,7 @@ export default definePageLayout({
           type: 'FIELDS',
           configuration: {
             configurationType: 'FIELDS',
+            viewUniversalIdentifier: GOODS_WRITE_OFF_RECORD_PAGE_FIELDS_VIEW_ID,
           },
         },
         {
@@ -47,6 +59,7 @@ export default definePageLayout({
             configurationType: 'FIELD',
             fieldMetadataId: LINES_ON_GOODS_WRITE_OFF_ID,
             fieldDisplayMode: 'TABLE',
+            viewId: GOODS_WRITE_OFF_LINES_TABLE_VIEW_ID,
           },
         },
       ],

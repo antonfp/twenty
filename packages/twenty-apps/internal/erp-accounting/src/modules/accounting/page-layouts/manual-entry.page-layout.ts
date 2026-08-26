@@ -1,6 +1,8 @@
 import { definePageLayout, PageLayoutTabLayoutMode } from 'twenty-sdk/define';
 import { MANUAL_ENTRY_UNIVERSAL_IDENTIFIER } from '../objects/manual-entry.object';
 import { LINES_ON_MANUAL_ENTRY_ID } from '../fields/manual-entry-on-manual-entry-line.field';
+import { MANUAL_ENTRY_RECORD_PAGE_FIELDS_VIEW_ID } from '../views/manual-entry-record-page-fields.view';
+import { MANUAL_ENTRY_LINES_TABLE_VIEW_ID } from '../views/manual-entry-lines-table.view';
 
 const PAGE_LAYOUT_ID = 'a85cf715-cf06-49d8-a840-fceab079c5a8';
 const DOCUMENT_TAB_ID = 'c0ba038b-93c2-46bf-a737-c203f8daa166';
@@ -18,6 +20,15 @@ const FILES_WIDGET_ID = 'c60e8c5e-b16f-45e3-8703-e126ddb0d281';
 // Заменяет автогенерированный layout объекта — без явного "Документ" таба
 // поля не покажутся ("No Data"). Строки (проводки) — FIELD/TABLE
 // (редактируемая RecordTable), а не чипы relation-виджета по умолчанию.
+// Поле/table виджет ссылается на persisted defineView (см. views/) чтобы
+// задать порядок колонок и SUM-агрегат на итоговой колонке — без
+// viewId FIELD/TABLE не рендерится вовсе.
+// defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier намеренно не
+// задан: указывая на таб, который создаётся в этом же apply, он ловит
+// SDK apply-engine баг (pageLayout создаётся раньше своих pageLayoutTab —
+// forward-reference не резолвится на чистом инстансе). Безопасно опустить,
+// пока "Документ" остаётся табом с наименьшим position (0) — фронт для
+// desktop/mobile/side-panel фолбэчится на tabs[0].
 export default definePageLayout({
   universalIdentifier: PAGE_LAYOUT_ID,
   name: 'Manual entry record page',
@@ -37,6 +48,7 @@ export default definePageLayout({
           type: 'FIELDS',
           configuration: {
             configurationType: 'FIELDS',
+            viewUniversalIdentifier: MANUAL_ENTRY_RECORD_PAGE_FIELDS_VIEW_ID,
           },
         },
         {
@@ -47,6 +59,7 @@ export default definePageLayout({
             configurationType: 'FIELD',
             fieldMetadataId: LINES_ON_MANUAL_ENTRY_ID,
             fieldDisplayMode: 'TABLE',
+            viewId: MANUAL_ENTRY_LINES_TABLE_VIEW_ID,
           },
         },
       ],
