@@ -49,6 +49,11 @@ export class BankStatementImportController {
     private readonly erpActorRoleResolverService: ErpActorRoleResolverService,
   ) {}
 
+  // Ruling allowed multipart OR text body; raw text/octet-stream was chosen:
+  // it keeps CP1251 bytes intact end to end with no multipart-decoder step,
+  // and MVP's only consumers (the import_bank_statement MCP tool and
+  // scripts) send a file body directly. Add multipart alongside the future
+  // front-end upload UI, whose <input type="file"> submits that way.
   @Post('import')
   async importBankStatement(
     @AuthWorkspace() workspace: WorkspaceEntity,

@@ -266,6 +266,12 @@ export class BankStatementImportService {
   // JS by comment prefix + amount — fine at SMB import volumes (a handful of
   // statements a month); if one counterparty accumulates thousands of
   // payments, push the comment/amount filter into SQL instead.
+  //
+  // Accepted MVP limitation: the key lives entirely in `comment`, so it does
+  // not survive a user hand-editing that field on the created DRAFT. A
+  // re-import after such an edit no longer matches and creates a second
+  // DRAFT rather than being skipped — visible to and resolvable by the
+  // accountant (duplicate DRAFTs, not a silent double-post), not a bug.
   private async findExistingRecord(
     scope: WorkspaceTransactionScope,
     objectName: string,
