@@ -1,12 +1,14 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { ErpAccountingModule } from 'src/engine/core-modules/erp-accounting/erp-accounting.module';
 import { ErpModule } from 'src/engine/core-modules/erp/erp.module';
 import { RecordCrudModule } from 'src/engine/core-modules/record-crud/record-crud.module';
 import { TOOL_PROVIDERS } from 'src/engine/core-modules/tool-provider/constants/tool-providers.token';
 import { ActionToolProvider } from 'src/engine/core-modules/tool-provider/providers/action-tool.provider';
 import { DashboardToolProvider } from 'src/engine/core-modules/tool-provider/providers/dashboard-tool.provider';
 import { DatabaseToolProvider } from 'src/engine/core-modules/tool-provider/providers/database-tool.provider';
+import { ErpAgentToolProvider } from 'src/engine/core-modules/tool-provider/providers/erp-agent-tool.provider';
 import { LogicFunctionToolProvider } from 'src/engine/core-modules/tool-provider/providers/logic-function-tool.provider';
 import { MetadataToolProvider } from 'src/engine/core-modules/tool-provider/providers/metadata-tool.provider';
 import { NavigationMenuItemToolProvider } from 'src/engine/core-modules/tool-provider/providers/navigation-menu-item-tool.provider';
@@ -55,8 +57,12 @@ import { ToolRegistryService } from './services/tool-registry.service';
     RecordCrudModule,
     // Provides ErpMetadataToolGuardService — the Phase 8 "фронтир
     // AI-кастомизации" guard that MetadataToolProvider/ViewToolProvider wire
-    // into their executeStaticTool (registers + admin-only creation MVP).
+    // into their executeStaticTool (registers + admin-only creation MVP) —
+    // and PostingService/ErpObjectPermissionGuardService, consumed by
+    // ErpAgentToolProvider below.
     ErpModule,
+    // TrialBalanceService for ErpAgentToolProvider's trial_balance bridge.
+    ErpAccountingModule,
     AiModelsModule,
     forwardRef(() => AiAgentExecutionModule),
     ObjectMetadataModule,
@@ -82,6 +88,7 @@ import { ToolRegistryService } from './services/tool-registry.service';
     ActionToolProvider,
     DashboardToolProvider,
     DatabaseToolProvider,
+    ErpAgentToolProvider,
     MetadataToolProvider,
     NavigationMenuItemToolProvider,
     LogicFunctionToolProvider,
@@ -98,6 +105,7 @@ import { ToolRegistryService } from './services/tool-registry.service';
       useFactory: (
         actionProvider: ActionToolProvider,
         databaseProvider: DatabaseToolProvider,
+        erpAgentProvider: ErpAgentToolProvider,
         metadataProvider: MetadataToolProvider,
         logicFunctionProvider: LogicFunctionToolProvider,
         navigationMenuItemProvider: NavigationMenuItemToolProvider,
@@ -109,6 +117,7 @@ import { ToolRegistryService } from './services/tool-registry.service';
       ) => [
         actionProvider,
         databaseProvider,
+        erpAgentProvider,
         metadataProvider,
         logicFunctionProvider,
         navigationMenuItemProvider,
@@ -121,6 +130,7 @@ import { ToolRegistryService } from './services/tool-registry.service';
       inject: [
         ActionToolProvider,
         DatabaseToolProvider,
+        ErpAgentToolProvider,
         MetadataToolProvider,
         LogicFunctionToolProvider,
         NavigationMenuItemToolProvider,
