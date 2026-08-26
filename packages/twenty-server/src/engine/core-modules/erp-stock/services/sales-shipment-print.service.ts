@@ -6,6 +6,11 @@ import { isDefined } from 'twenty-shared/utils';
 
 import { amountInWordsRu } from 'src/engine/core-modules/erp/utils/amount-in-words-ru.util';
 import {
+  extractLineBlockTemplate,
+  fillPlaceholders,
+  fillPrintTemplate,
+} from 'src/engine/core-modules/erp/utils/fill-print-template.util';
+import {
   type ComputedInvoiceLine,
   computeInvoiceTotals,
 } from 'src/engine/core-modules/erp-sales/utils/compute-invoice-totals.util';
@@ -54,28 +59,8 @@ const VAT_RATE_LABEL: Record<string, string> = {
   NO_VAT: 'Без НДС',
 };
 
-const LINE_BLOCK_PATTERN = /<!-- BEGIN line -->([\s\S]*?)<!-- END line -->/;
-
-const escapeHtml = (value: string): string => {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-};
-
 const asText = (value: unknown): string => {
   return typeof value === 'string' ? value : '';
-};
-
-// Blank requisites must render as empty strings, never as 'undefined'.
-const fillPlaceholders = (
-  template: string,
-  values: Record<string, string>,
-): string => {
-  return template.replace(/\{\{(\w+)\}\}/g, (_match, placeholderName) =>
-    escapeHtml(values[placeholderName] ?? ''),
-  );
 };
 
 const orDash = (value: string): string => {
@@ -322,8 +307,7 @@ export class SalesShipmentPrintService {
       buyer_composer: buildComposerLine(customer),
     };
 
-    const lineBlockMatch = UPD_TEMPLATE_HTML.match(LINE_BLOCK_PATTERN);
-    const lineBlockTemplate = lineBlockMatch?.[1] ?? '';
+    const lineBlockTemplate = extractLineBlockTemplate(UPD_TEMPLATE_HTML);
 
     const renderedLines = computedLines
       .map((computedLine, lineIndex) =>
@@ -334,10 +318,11 @@ export class SalesShipmentPrintService {
       )
       .join('');
 
-    return fillPlaceholders(
-      UPD_TEMPLATE_HTML.replace(LINE_BLOCK_PATTERN, () => renderedLines),
+    return fillPrintTemplate({
+      template: UPD_TEMPLATE_HTML,
       headerValues,
-    );
+      renderedLinesHtml: renderedLines,
+    });
   }
 
   // Строка 5а: для УПД — реквизиты самого документа (позиция ФНС,

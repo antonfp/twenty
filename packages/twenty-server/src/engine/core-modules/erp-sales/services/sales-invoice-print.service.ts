@@ -5,6 +5,11 @@ import { In } from 'typeorm';
 import { isDefined } from 'twenty-shared/utils';
 
 import { amountInWordsRu } from 'src/engine/core-modules/erp/utils/amount-in-words-ru.util';
+import {
+  extractLineBlockTemplate,
+  fillPlaceholders,
+  fillPrintTemplate,
+} from 'src/engine/core-modules/erp/utils/fill-print-template.util';
 import { SCHET_TEMPLATE_HTML } from 'src/engine/core-modules/erp-sales/constants/schet-template.constant';
 import { type CurrencyFieldValue } from 'src/engine/core-modules/erp-sales/types/erp-sales.types';
 import {
@@ -42,35 +47,13 @@ const UNIT_LABELS: Record<string, string> = {
   SET: 'компл',
 };
 
-const LINE_BLOCK_PATTERN = /<!-- BEGIN line -->([\s\S]*?)<!-- END line -->/;
-
-const escapeHtml = (value: string): string => {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-};
-
 const asText = (value: unknown): string => {
   return typeof value === 'string' ? value : '';
 };
 
-// Blank requisites must render as empty strings, never as 'undefined'.
-const fillPlaceholders = (
-  template: string,
-  values: Record<string, string>,
-): string => {
-  return template.replace(/\{\{(\w+)\}\}/g, (_match, placeholderName) =>
-    escapeHtml(values[placeholderName] ?? ''),
-  );
-};
-
 // «наименование, ИНН х, КПП у, адрес» — пустые части и лишние запятые
 // опускаются (у ИП нет КПП).
-const buildRequisitesLine = (
-  party: WorkspaceRecord | null,
-): string => {
+const buildRequisitesLine = (party: WorkspaceRecord | null): string => {
   if (!isDefined(party)) {
     return '';
   }
@@ -112,9 +95,12 @@ export class SalesInvoicePrintService {
     workspaceId: string,
     salesInvoiceId: string,
   ): Promise<string> {
-    const invoiceRepository = await this.globalWorkspaceOrmManager.getRepository<
-      WorkspaceRecord
-    >(workspaceId, 'salesInvoice', BYPASS_PERMISSIONS);
+    const invoiceRepository =
+      await this.globalWorkspaceOrmManager.getRepository<WorkspaceRecord>(
+        workspaceId,
+        'salesInvoice',
+        BYPASS_PERMISSIONS,
+      );
     const invoice = await invoiceRepository.findOneBy({ id: salesInvoiceId });
 
     if (!isDefined(invoice)) {
@@ -123,17 +109,22 @@ export class SalesInvoicePrintService {
       );
     }
 
-    const lineRepository = await this.globalWorkspaceOrmManager.getRepository<
-      WorkspaceRecord
-    >(workspaceId, 'salesInvoiceLine', BYPASS_PERMISSIONS);
-    const lines = (
-      await lineRepository.findBy({ salesInvoiceId })
-    ).sort((firstLine, secondLine) => {
-      return (
-        Number(firstLine.position ?? 0) - Number(secondLine.position ?? 0) ||
-        asText(firstLine.createdAt).localeCompare(asText(secondLine.createdAt))
+    const lineRepository =
+      await this.globalWorkspaceOrmManager.getRepository<WorkspaceRecord>(
+        workspaceId,
+        'salesInvoiceLine',
+        BYPASS_PERMISSIONS,
       );
-    });
+    const lines = (await lineRepository.findBy({ salesInvoiceId })).sort(
+      (firstLine, secondLine) => {
+        return (
+          Number(firstLine.position ?? 0) - Number(secondLine.position ?? 0) ||
+          asText(firstLine.createdAt).localeCompare(
+            asText(secondLine.createdAt),
+          )
+        );
+      },
+    );
 
     const organization = await this.loadOrganization(workspaceId, invoice);
     const customer = await this.loadRelatedRecord(
@@ -180,9 +171,12 @@ export class SalesInvoicePrintService {
       return null;
     }
 
-    const repository = await this.globalWorkspaceOrmManager.getRepository<
-      WorkspaceRecord
-    >(workspaceId, objectNameSingular, BYPASS_PERMISSIONS);
+    const repository =
+      await this.globalWorkspaceOrmManager.getRepository<WorkspaceRecord>(
+        workspaceId,
+        objectNameSingular,
+        BYPASS_PERMISSIONS,
+      );
 
     return repository.findOneBy({ id: recordId });
   }
@@ -204,9 +198,12 @@ export class SalesInvoicePrintService {
       return new Map();
     }
 
-    const itemRepository = await this.globalWorkspaceOrmManager.getRepository<
-      WorkspaceRecord
-    >(workspaceId, 'item', BYPASS_PERMISSIONS);
+    const itemRepository =
+      await this.globalWorkspaceOrmManager.getRepository<WorkspaceRecord>(
+        workspaceId,
+        'item',
+        BYPASS_PERMISSIONS,
+      );
     const items = await itemRepository.findBy({ id: In(itemIds) });
 
     return new Map(items.map((item) => [item.id, item]));
@@ -267,8 +264,7 @@ export class SalesInvoicePrintService {
         : asText(organization?.directorName),
     };
 
-    const lineBlockMatch = SCHET_TEMPLATE_HTML.match(LINE_BLOCK_PATTERN);
-    const lineBlockTemplate = lineBlockMatch?.[1] ?? '';
+    const lineBlockTemplate = extractLineBlockTemplate(SCHET_TEMPLATE_HTML);
 
     const renderedLines = computedLines
       .map(({ line, amountKopecks }, lineIndex) => {
@@ -291,10 +287,11 @@ export class SalesInvoicePrintService {
       })
       .join('');
 
-    return fillPlaceholders(
-      SCHET_TEMPLATE_HTML.replace(LINE_BLOCK_PATTERN, () => renderedLines),
+    return fillPrintTemplate({
+      template: SCHET_TEMPLATE_HTML,
       headerValues,
-    );
+      renderedLinesHtml: renderedLines,
+    });
   }
 
   private buildVatRow(

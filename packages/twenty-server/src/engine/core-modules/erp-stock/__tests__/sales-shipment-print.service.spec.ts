@@ -312,6 +312,32 @@ describe('SalesShipmentPrintService', () => {
     expect(html).toContain('&lt;script&gt;');
   });
 
+  // Phase 5 fast-follow (F5): /\{\{(\w+)\}\}/ only matches an ASCII (Latin)
+  // word — the old two-pass template composition ran the header
+  // fillPlaceholders over a string that already contained the rendered line
+  // block, so an item name literally containing "{{LatinWord}}" was
+  // silently eaten as if it were an unfilled placeholder.
+  it('prints an item name containing literal "{{LatinWord}}" without mangling it', async () => {
+    repositories.salesShipmentLine.findBy.mockResolvedValue([
+      {
+        id: 'line-1',
+        name: 'Кабель {{HDMI}} PRO',
+        quantity: 1,
+        price: rubles(1_000),
+        vatRate: 'VAT_20',
+        createdAt: '2026-08-26T10:00:00.000Z',
+      },
+    ]);
+
+    const html = await service.renderSalesShipmentUpdHtml(
+      WORKSPACE_ID,
+      SHIPMENT_ID,
+      '2',
+    );
+
+    expect(html).toContain('Кабель {{HDMI}} PRO');
+  });
+
   it('renders dashes for blank requisites instead of "undefined"', async () => {
     repositories.organization.findOneBy.mockResolvedValue({
       id: 'organization-1',
