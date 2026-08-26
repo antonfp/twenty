@@ -335,6 +335,45 @@ describe('PostingService', () => {
       ).not.toHaveBeenCalled();
     });
 
+    it('names the organization lockDate (not the document date) in the RU message', async () => {
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
+      ]);
+      // postingDate ≠ lockDate on purpose: substituting the document date
+      // into the message would be caught below.
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
+        {
+          id: RECORD_ID,
+          postingDate: '2026-05-09',
+          organizationId: ORGANIZATION_ID,
+        },
+      );
+
+      const error = await postingService
+        .post(WORKSPACE_ID, 'salesInvoice', RECORD_ID)
+        .then(
+          () => {
+            throw new Error('expected PERIOD_LOCKED');
+          },
+          (thrown) => thrown,
+        );
+
+      expect(error).toMatchObject({
+        code: ERP_POSTING_EXCEPTION_CODE.PERIOD_LOCKED,
+      });
+
+      const interpolatedValues = Object.values(
+        error.userFriendlyMessage?.values ?? {},
+      );
+
+      expect(error.userFriendlyMessage?.message).toContain(
+        'Период закрыт: изменения по',
+      );
+      expect(interpolatedValues).toContain('10.05.2026');
+      expect(interpolatedValues).not.toContain('09.05.2026');
+      expect(interpolatedValues).toContain('ООО «Ромашка»');
+    });
+
     it('allows posting after the lock date', async () => {
       executeRawQuery.mockResolvedValue([
         { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },

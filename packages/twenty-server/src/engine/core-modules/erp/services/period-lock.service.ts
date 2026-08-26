@@ -22,12 +22,10 @@ export type AssertPeriodOpenArgs = {
 };
 
 // DATE columns hydrate as 'YYYY-MM-DD' strings; postingDate may be a full
-// ISO timestamp — compare calendar days only.
+// ISO timestamp — compare calendar days only. No Date branch on purpose: a
+// UTC normalization of a locally-parsed Date would shift the day and weaken
+// the guard (fail-open), and no current path delivers a Date here.
 const toDateOnly = (value: unknown): string | null => {
-  if (value instanceof Date) {
-    return value.toISOString().slice(0, 10);
-  }
-
   if (typeof value === 'string' && value.length >= 10) {
     return value.slice(0, 10);
   }
@@ -80,13 +78,15 @@ export class PeriodLockService {
     if (postingDay <= lockDay) {
       const organizationName =
         typeof organization.name === 'string' ? organization.name : '';
-      const postingDayRu = formatDateOnlyRu(postingDay);
+      // Ruling: {дата} в сообщении — «Дата запрета изменений» организации
+      // (граница закрытого периода), не дата документа.
+      const lockDayRu = formatDateOnlyRu(lockDay);
 
       throw new ErpPostingException(
         `Period is locked for organization "${organizationId}": posting date ${postingDay} is on or before lock date ${lockDay}`,
         ERP_POSTING_EXCEPTION_CODE.PERIOD_LOCKED,
         {
-          userFriendlyMessage: msg`Период закрыт: изменения по ${postingDayRu} запрещены (организация „${organizationName}“)`,
+          userFriendlyMessage: msg`Период закрыт: изменения по ${lockDayRu} запрещены (организация „${organizationName}“)`,
         },
       );
     }
