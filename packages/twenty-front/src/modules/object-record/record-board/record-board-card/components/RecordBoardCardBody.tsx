@@ -1,4 +1,5 @@
 import { useGetIsMetadataItemFromStandardApplication } from '@/object-metadata/hooks/useGetIsMetadataItemFromStandardApplication';
+import { useIsRecordFieldReadOnlyDueToErpDocStatus } from '@/object-record/read-only/hooks/useIsRecordFieldReadOnlyDueToErpDocStatus';
 import { isRecordFieldReadOnly } from '@/object-record/read-only/utils/isRecordFieldReadOnly';
 import { RecordBoardContext } from '@/object-record/record-board/contexts/RecordBoardContext';
 import { StopPropagationContainer } from '@/object-record/record-board/record-board-card/components/StopPropagationContainer';
@@ -61,6 +62,12 @@ export const RecordBoardCardBody = () => {
   const getIsMetadataItemFromStandardApplication =
     useGetIsMetadataItemFromStandardApplication();
 
+  const isErpDocumentFieldReadOnlyDueToDocStatus =
+    useIsRecordFieldReadOnlyDueToErpDocStatus({
+      objectNameSingular: objectMetadataItem.nameSingular,
+      recordId,
+    });
+
   const handleMouseEnter = (index: number) => {
     setRecordBoardCardHoverPosition(index);
   };
@@ -90,6 +97,7 @@ export const RecordBoardCardBody = () => {
                       applicationId:
                         correspondingFieldDefinition.metadata.applicationId,
                     }),
+                  isErpDocumentFieldReadOnlyDueToDocStatus,
                   objectPermissions,
                   fieldMetadataItem: {
                     id: recordField.fieldMetadataItemId,

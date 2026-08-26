@@ -1,5 +1,6 @@
 import { useGetIsMetadataItemFromStandardApplication } from '@/object-metadata/hooks/useGetIsMetadataItemFromStandardApplication';
 import { useUpdateOneRecord } from '@/object-record/hooks/useUpdateOneRecord';
+import { useIsRecordFieldReadOnlyDueToErpDocStatus } from '@/object-record/read-only/hooks/useIsRecordFieldReadOnlyDueToErpDocStatus';
 import { isRecordFieldReadOnly } from '@/object-record/read-only/utils/isRecordFieldReadOnly';
 import { StopPropagationContainer } from '@/object-record/record-board/record-board-card/components/StopPropagationContainer';
 import { useRecordCalendarContextOrThrow } from '@/object-record/record-calendar/contexts/RecordCalendarContext';
@@ -72,6 +73,12 @@ export const RecordCalendarCardBody = ({
   const getIsMetadataItemFromStandardApplication =
     useGetIsMetadataItemFromStandardApplication();
 
+  const isErpDocumentFieldReadOnlyDueToDocStatus =
+    useIsRecordFieldReadOnlyDueToErpDocStatus({
+      objectNameSingular: objectMetadataItem.nameSingular,
+      recordId,
+    });
+
   const handleMouseEnter = (index: number) => {
     setRecordCalendarCardHoverPosition(index);
   };
@@ -99,6 +106,7 @@ export const RecordCalendarCardBody = ({
                       applicationId:
                         correspondingFieldDefinition.metadata.applicationId,
                     }),
+                  isErpDocumentFieldReadOnlyDueToDocStatus,
                   objectPermissions,
                   fieldMetadataItem: {
                     id: recordField.fieldMetadataItemId,
