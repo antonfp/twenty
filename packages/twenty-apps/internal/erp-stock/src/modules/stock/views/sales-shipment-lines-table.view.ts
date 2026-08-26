@@ -1,6 +1,7 @@
-import { AggregateOperations, defineView, ViewType } from 'twenty-sdk/define';
+import { AggregateOperations, ViewFilterOperand, defineView, ViewType } from 'twenty-sdk/define';
 import { SALES_SHIPMENT_LINE_UNIVERSAL_IDENTIFIER, SALES_SHIPMENT_LINE_NAME_FIELD_UNIVERSAL_IDENTIFIER } from '../objects/sales-shipment-line.object';
 import { ITEM_ON_SALES_SHIPMENT_LINE_ID } from '../fields/item-on-sales-shipment-line.field';
+import { SALES_SHIPMENT_ON_SALES_SHIPMENT_LINE_ID } from '../fields/sales-shipment-on-sales-shipment-line.field';
 
 export const SALES_SHIPMENT_LINES_TABLE_VIEW_ID = 'bc611995-3edb-4b62-9efc-65be593dcc6f';
 
@@ -17,5 +18,13 @@ export default defineView({
     { universalIdentifier: 'f48e9e30-8358-4577-9095-b2366a5126da', fieldMetadataUniversalIdentifier: 'e038c2d6-7241-4344-a7f4-adfc47c9100b', position: 4, isVisible: true }, // vatRate
     { universalIdentifier: '6d5381ba-7b9b-469f-92de-3505141c27c5', fieldMetadataUniversalIdentifier: '2c38f63a-9cd4-4468-a951-a3b638180d1b', position: 5, isVisible: true, aggregateOperation: AggregateOperations.SUM }, // amount
     { universalIdentifier: '52a01bf0-e35a-426e-aa3c-6ee429405996', fieldMetadataUniversalIdentifier: 'a9753b52-65f5-467b-b8fd-0a8299261da7', position: 6, isVisible: true }, // costAmount
+  ],
+  filters: [
+    {
+      universalIdentifier: 'f73f24ba-7b34-4b69-9a4c-460db2aaa6de',
+      fieldMetadataUniversalIdentifier: SALES_SHIPMENT_ON_SALES_SHIPMENT_LINE_ID,
+      operand: ViewFilterOperand.IS,
+      value: '{"selectedRecordIds":[],"isCurrentRecordSelected":true}',
+    },
   ],
 });

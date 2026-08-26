@@ -1,9 +1,10 @@
-import { AggregateOperations, defineView, ViewType } from 'twenty-sdk/define';
+import { AggregateOperations, ViewFilterOperand, defineView, ViewType } from 'twenty-sdk/define';
 import { MANUAL_ENTRY_LINE_UNIVERSAL_IDENTIFIER, MANUAL_ENTRY_LINE_NAME_FIELD_UNIVERSAL_IDENTIFIER } from '../objects/manual-entry-line.object';
 import { DEBIT_ACCOUNT_ON_MANUAL_ENTRY_LINE_ID } from '../fields/debit-account-on-manual-entry-line.field';
 import { CREDIT_ACCOUNT_ON_MANUAL_ENTRY_LINE_ID } from '../fields/credit-account-on-manual-entry-line.field';
 import { PARTY_ON_MANUAL_ENTRY_LINE_ID } from '../fields/party-on-manual-entry-line.field';
 import { ITEM_ON_MANUAL_ENTRY_LINE_ID } from '../fields/item-on-manual-entry-line.field';
+import { MANUAL_ENTRY_ON_MANUAL_ENTRY_LINE_ID } from '../fields/manual-entry-on-manual-entry-line.field';
 
 export const MANUAL_ENTRY_LINES_TABLE_VIEW_ID = '2fb57f83-e875-4aa6-a3dc-0dc6a73864b7';
 
@@ -19,5 +20,13 @@ export default defineView({
     { universalIdentifier: 'eb7f8d17-3d31-4c8d-9c6e-9537f7f98dce', fieldMetadataUniversalIdentifier: '68887efe-0e26-4eb3-8a85-0529d0b8ed28', position: 3, isVisible: true, aggregateOperation: AggregateOperations.SUM }, // amount
     { universalIdentifier: '62bc2365-7610-45b6-9a35-1d6e53e40f36', fieldMetadataUniversalIdentifier: PARTY_ON_MANUAL_ENTRY_LINE_ID, position: 4, isVisible: true }, // party
     { universalIdentifier: 'b8cfb533-6dbc-42c3-9320-a385ac436ba4', fieldMetadataUniversalIdentifier: ITEM_ON_MANUAL_ENTRY_LINE_ID, position: 5, isVisible: true }, // item
+  ],
+  filters: [
+    {
+      universalIdentifier: '1f4bd330-634e-4e36-8a9c-6d274e96d71c',
+      fieldMetadataUniversalIdentifier: MANUAL_ENTRY_ON_MANUAL_ENTRY_LINE_ID,
+      operand: ViewFilterOperand.IS,
+      value: '{"selectedRecordIds":[],"isCurrentRecordSelected":true}',
+    },
   ],
 });
