@@ -8,6 +8,11 @@ import { v4, v5 } from 'uuid';
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
 import { type FlatApplication } from 'src/engine/core-modules/application/types/flat-application.type';
 import { assertMetadataTargetObjectNotProtectedRegisterOrThrow } from 'src/engine/core-modules/erp/utils/assert-metadata-target-object-not-protected-register.util';
+import {
+  assertInstalledAppOwnedMetadataDeleteAllowedOrThrow,
+  assertInstalledAppOwnedMetadataUpdateIsCosmeticOrThrow,
+  OBJECT_COSMETIC_UPDATE_KEYS,
+} from 'src/engine/core-modules/erp/utils/assert-metadata-target-not-installed-app-owned.util';
 import { type FlatCommandMenuItem } from 'src/engine/metadata-modules/flat-command-menu-item/types/flat-command-menu-item.type';
 import {
   buildNavigationFlatCommandMenuItem,
@@ -95,6 +100,23 @@ export class ObjectMetadataService {
       objectMetadataId: updateObjectInput.id,
     });
 
+    const existingFlatObjectMetadata = findFlatEntityByIdInFlatEntityMaps({
+      flatEntityMaps: existingFlatObjectMetadataMaps,
+      flatEntityId: updateObjectInput.id,
+    });
+
+    assertInstalledAppOwnedMetadataUpdateIsCosmeticOrThrow({
+      targetApplicationId: existingFlatObjectMetadata?.applicationId,
+      exemptApplicationIds: new Set([
+        workspaceCustomFlatApplication.id,
+        twentyStandardFlatApplication.id,
+      ]),
+      ownerFlatApplicationOverride: ownerFlatApplication,
+      updatePayload: updateObjectInput.update,
+      allowedCosmeticKeys: OBJECT_COSMETIC_UPDATE_KEYS,
+      targetDescription: `Объект «${existingFlatObjectMetadata?.nameSingular}»`,
+    });
+
     const {
       otherObjectFlatFieldMetadatasToUpdate,
       flatObjectMetadataToUpdate,
@@ -110,11 +132,6 @@ export class ObjectMetadataService {
       flatViewFieldMaps: existingFlatViewFieldMaps,
       flatViewMaps: existingFlatViewMaps,
       flatSearchFieldMetadataMaps: existingFlatSearchFieldMetadataMaps,
-    });
-
-    const existingFlatObjectMetadata = findFlatEntityByIdInFlatEntityMaps({
-      flatEntityMaps: existingFlatObjectMetadataMaps,
-      flatEntityId: updateObjectInput.id,
     });
 
     const isActiveChangeDefined = isDefined(updateObjectInput.update.isActive);
@@ -298,13 +315,16 @@ export class ObjectMetadataService {
       return [];
     }
 
+    const { workspaceCustomFlatApplication, twentyStandardFlatApplication } =
+      await this.applicationService.findWorkspaceTwentyStandardAndCustomApplicationOrThrow(
+        { workspaceId },
+      );
     const resolvedOwnerFlatApplication =
-      ownerFlatApplication ??
-      (
-        await this.applicationService.findWorkspaceTwentyStandardAndCustomApplicationOrThrow(
-          { workspaceId },
-        )
-      ).workspaceCustomFlatApplication;
+      ownerFlatApplication ?? workspaceCustomFlatApplication;
+    const exemptApplicationIds = new Set([
+      workspaceCustomFlatApplication.id,
+      twentyStandardFlatApplication.id,
+    ]);
 
     const {
       flatObjectMetadataMaps,
@@ -328,6 +348,18 @@ export class ObjectMetadataService {
       assertMetadataTargetObjectNotProtectedRegisterOrThrow({
         flatObjectMetadataMaps,
         objectMetadataId: deleteObjectInput.id,
+      });
+
+      const targetFlatObjectMetadata = findFlatEntityByIdInFlatEntityMaps({
+        flatEntityMaps: flatObjectMetadataMaps,
+        flatEntityId: deleteObjectInput.id,
+      });
+
+      assertInstalledAppOwnedMetadataDeleteAllowedOrThrow({
+        targetApplicationId: targetFlatObjectMetadata?.applicationId,
+        exemptApplicationIds,
+        ownerFlatApplicationOverride: ownerFlatApplication,
+        targetDescription: `Объект «${targetFlatObjectMetadata?.nameSingular}»`,
       });
     }
 

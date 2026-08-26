@@ -7,6 +7,12 @@ import { type FindOneOptions, type Repository } from 'typeorm';
 import { ApplicationService } from 'src/engine/core-modules/application/application.service';
 import { type FlatApplication } from 'src/engine/core-modules/application/types/flat-application.type';
 import { assertMetadataTargetObjectNotProtectedRegisterOrThrow } from 'src/engine/core-modules/erp/utils/assert-metadata-target-object-not-protected-register.util';
+import {
+  assertInstalledAppOwnedMetadataDeleteAllowedOrThrow,
+  assertInstalledAppOwnedMetadataUpdateIsCosmeticOrThrow,
+  describeFieldTarget,
+  FIELD_COSMETIC_UPDATE_KEYS,
+} from 'src/engine/core-modules/erp/utils/assert-metadata-target-not-installed-app-owned.util';
 import { type CreateFieldInput } from 'src/engine/metadata-modules/field-metadata/dtos/create-field.input';
 import { type DeleteOneFieldInput } from 'src/engine/metadata-modules/field-metadata/dtos/delete-field.input';
 import { type UpdateFieldInput } from 'src/engine/metadata-modules/field-metadata/dtos/update-field.input';
@@ -99,13 +105,12 @@ export class FieldMetadataService {
     isSystemBuild?: boolean;
     ownerFlatApplication?: FlatApplication;
   }): Promise<FlatFieldMetadata> {
+    const { workspaceCustomFlatApplication, twentyStandardFlatApplication } =
+      await this.applicationService.findWorkspaceTwentyStandardAndCustomApplicationOrThrow(
+        { workspaceId },
+      );
     const resolvedOwnerFlatApplication =
-      ownerFlatApplication ??
-      (
-        await this.applicationService.findWorkspaceTwentyStandardAndCustomApplicationOrThrow(
-          { workspaceId },
-        )
-      ).workspaceCustomFlatApplication;
+      ownerFlatApplication ?? workspaceCustomFlatApplication;
 
     const {
       flatObjectMetadataMaps: existingFlatObjectMetadataMaps,
@@ -124,12 +129,24 @@ export class FieldMetadataService {
       },
     );
 
+    const targetFlatFieldMetadataToDelete = findFlatEntityByIdInFlatEntityMaps({
+      flatEntityMaps: existingFlatFieldMetadataMaps,
+      flatEntityId: deleteOneFieldInput.id,
+    });
+
     assertMetadataTargetObjectNotProtectedRegisterOrThrow({
       flatObjectMetadataMaps: existingFlatObjectMetadataMaps,
-      objectMetadataId: findFlatEntityByIdInFlatEntityMaps({
-        flatEntityMaps: existingFlatFieldMetadataMaps,
-        flatEntityId: deleteOneFieldInput.id,
-      })?.objectMetadataId,
+      objectMetadataId: targetFlatFieldMetadataToDelete?.objectMetadataId,
+    });
+
+    assertInstalledAppOwnedMetadataDeleteAllowedOrThrow({
+      targetApplicationId: targetFlatFieldMetadataToDelete?.applicationId,
+      exemptApplicationIds: new Set([
+        workspaceCustomFlatApplication.id,
+        twentyStandardFlatApplication.id,
+      ]),
+      ownerFlatApplicationOverride: ownerFlatApplication,
+      targetDescription: `Поле «${describeFieldTarget(targetFlatFieldMetadataToDelete, existingFlatObjectMetadataMaps)}»`,
     });
 
     const {
@@ -227,13 +244,12 @@ export class FieldMetadataService {
     isSystemBuild?: boolean;
     ownerFlatApplication?: FlatApplication;
   }): Promise<FlatFieldMetadata> {
+    const { workspaceCustomFlatApplication, twentyStandardFlatApplication } =
+      await this.applicationService.findWorkspaceTwentyStandardAndCustomApplicationOrThrow(
+        { workspaceId },
+      );
     const resolvedOwnerFlatApplication =
-      ownerFlatApplication ??
-      (
-        await this.applicationService.findWorkspaceTwentyStandardAndCustomApplicationOrThrow(
-          { workspaceId },
-        )
-      ).workspaceCustomFlatApplication;
+      ownerFlatApplication ?? workspaceCustomFlatApplication;
 
     const {
       flatObjectMetadataMaps: existingFlatObjectMetadataMaps,
@@ -258,12 +274,26 @@ export class FieldMetadataService {
       },
     );
 
+    const targetFlatFieldMetadataToUpdate = findFlatEntityByIdInFlatEntityMaps({
+      flatEntityMaps: existingFlatFieldMetadataMaps,
+      flatEntityId: updateFieldInput.id,
+    });
+
     assertMetadataTargetObjectNotProtectedRegisterOrThrow({
       flatObjectMetadataMaps: existingFlatObjectMetadataMaps,
-      objectMetadataId: findFlatEntityByIdInFlatEntityMaps({
-        flatEntityMaps: existingFlatFieldMetadataMaps,
-        flatEntityId: updateFieldInput.id,
-      })?.objectMetadataId,
+      objectMetadataId: targetFlatFieldMetadataToUpdate?.objectMetadataId,
+    });
+
+    assertInstalledAppOwnedMetadataUpdateIsCosmeticOrThrow({
+      targetApplicationId: targetFlatFieldMetadataToUpdate?.applicationId,
+      exemptApplicationIds: new Set([
+        workspaceCustomFlatApplication.id,
+        twentyStandardFlatApplication.id,
+      ]),
+      ownerFlatApplicationOverride: ownerFlatApplication,
+      updatePayload: updateFieldInput,
+      allowedCosmeticKeys: FIELD_COSMETIC_UPDATE_KEYS,
+      targetDescription: `Поле «${describeFieldTarget(targetFlatFieldMetadataToUpdate, existingFlatObjectMetadataMaps)}»`,
     });
 
     const inputTranspilationResult = fromUpdateFieldInputToFlatFieldMetadata({

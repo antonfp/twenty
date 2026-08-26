@@ -20,6 +20,9 @@
 //      (T2 review Finding 1: фронтир живёт в ObjectMetadataService/FieldMetadataService/
 //      ViewService, не только в MCP-диспатче);
 //      негатив: create_object_metadata для API-key без DATA_MODEL -> отказ
+//   -> T2 review round 3 (app-owned frontier в сервисном слое): негатив прямой
+//      POST /metadata deleteOneField на salesInvoice.total (app-owned, не
+//      регистр) -> RU-отказ
 //
 // Запуск: volta run --node 24.5.0 --yarn 4.13.0 -- npx tsx tools/erp-e2e/e2e_mcp.ts
 // (сервер на :3000, workspace ERP Dev, dev-логин). MCP endpoint: POST /mcp,
@@ -737,6 +740,42 @@ async function main() {
       `mutation($id: UUID!) { deleteOneRole(roleId: $id) }`,
       { id: noDataModelRoleId },
       token,
+    );
+  }
+
+  // 9. Негатив (T2 review round 3 — app-owned frontier at the service layer):
+  // прямой POST /metadata deleteOneField на salesInvoice.total (app-owned
+  // erp-sales field, не регистр) -> RU-отказ. Проверяет, что защита
+  // установленных приложений (ObjectMetadataService/FieldMetadataService)
+  // держит и вне MCP, тем же прямым GraphQL-каналом, что и Round 2's
+  // register-негатив (шаг 23).
+  const salesInvoiceFieldsOut = (await execTool(token, 'get_field_metadata', {
+    objectName: 'salesInvoice',
+    limit: 200,
+  })) as unknown as { id: string; name: string }[];
+  const totalFieldId = salesInvoiceFieldsOut.find(
+    (f) => f.name === 'total',
+  )?.id;
+  if (!totalFieldId)
+    throw new Error(
+      'salesInvoice.total field not found via get_field_metadata',
+    );
+
+  try {
+    await gql(
+      '/metadata',
+      `mutation($input: DeleteOneFieldInput!) { deleteOneField(input: $input) { id name } }`,
+      { input: { id: totalFieldId } },
+      token,
+    );
+    throw new Error(
+      'direct /metadata deleteOneField on salesInvoice.total (app-owned) must be denied, but succeeded',
+    );
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (!message.includes('установленному приложению')) throw e;
+    ok(
+      `negative: direct POST /metadata deleteOneField on app-owned salesInvoice.total denied — "${message.slice(0, 140)}"`,
     );
   }
 
