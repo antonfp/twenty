@@ -1,4 +1,19 @@
-import type { ListPlansQuery } from '~/generated-metadata/graphql';
+import {
+  BillingPlanKey,
+  type BillingLicensedProduct,
+  type BillingMeteredProduct,
+} from '~/generated-metadata/graphql';
+
+// The listPlans query itself was removed with the Enterprise billing
+// cluster, so there is no generated response type to cast against anymore;
+// this mirrors just the shape users.ts needs from the still-valid schema types.
+type MockBillingPlan = {
+  __typename: 'BillingPlan';
+  planKey: BillingPlanKey;
+  baseProducts: BillingLicensedProduct[];
+  resourceCreditProducts: BillingLicensedProduct[];
+  meteredProducts: BillingMeteredProduct[];
+};
 
 export const mockBillingPlans = {
   listPlans: [
@@ -589,4 +604,4 @@ export const mockBillingPlans = {
       ],
     },
   ],
-} as ListPlansQuery;
+} as { listPlans: MockBillingPlan[] };

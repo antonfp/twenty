@@ -4,7 +4,7 @@ import { IconInfoCircle } from 'twenty-ui/icon';
 import { AppTooltip, TooltipDelay } from 'twenty-ui/surfaces';
 import { themeCssVariables } from 'twenty-ui/theme-constants';
 
-type SettingsBillingLabelValueItemProps = {
+type LabelValueItemProps = {
   label: string;
   value: ReactNode;
   isValueInPrimaryColor?: boolean;
@@ -44,13 +44,13 @@ const StyledValueSpan = styled.span<{ isPrimaryColor: boolean }>`
   font-weight: ${themeCssVariables.font.weight.medium};
 `;
 
-export const SettingsBillingLabelValueItem = ({
+export const LabelValueItem = ({
   label,
   value,
   isValueInPrimaryColor = false,
   tooltipText,
   tooltipId,
-}: SettingsBillingLabelValueItemProps) => {
+}: LabelValueItemProps) => {
   return (
     <StyledContainer>
       <StyledLabelWrapper>

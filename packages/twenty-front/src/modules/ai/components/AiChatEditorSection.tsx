@@ -8,7 +8,6 @@ import { isDefined } from 'twenty-shared/utils';
 import { AiChatBanner } from '@/ai/components/AiChatBanner';
 import { AiChatEmptyState } from '@/ai/components/AiChatEmptyState';
 import { AiChatQuestionCard } from '@/ai/components/AiChatQuestionCard';
-import { AIChatNoMoreBillingCreditsBanner } from '@/ai/components/AIChatNoMoreBillingCreditsBanner';
 import { AiChatStandaloneError } from '@/ai/components/AiChatStandaloneError';
 import { AgentChatContextPreview } from '@/ai/components/internal/AgentChatContextPreview';
 import { AgentChatFileUploadButton } from '@/ai/components/internal/AgentChatFileUploadButton';
@@ -159,7 +158,12 @@ export const AiChatEditorSection = () => {
             variant="warning"
           />
         )}
-        {hasReachedAiChatCreditsCap && <AIChatNoMoreBillingCreditsBanner />}
+        {hasReachedAiChatCreditsCap && (
+          <AiChatBanner
+            message={t`Your workspace hit its AI usage limit. Ask an admin for more credits.`}
+            variant="warning"
+          />
+        )}
         {isDefined(pendingQuestion) ? (
           <AiChatQuestionCard pendingQuestion={pendingQuestion} />
         ) : (

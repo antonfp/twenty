@@ -9,7 +9,7 @@ import { ThemeContext, themeCssVariables } from 'twenty-ui/theme-constants';
 import { useLingui } from '@lingui/react/macro';
 import { type DataMessagePart } from 'twenty-shared/ai';
 import { type JsonValue } from 'type-fest';
-import { useUsageValueFormatter } from '@/settings/usage/hooks/useUsageValueFormatter';
+import { useUsageValueFormatter } from '@/ai/hooks/useUsageValueFormatter';
 import { useCopyToClipboard } from '~/hooks/useCopyToClipboard';
 
 const StyledContainer = styled.div`

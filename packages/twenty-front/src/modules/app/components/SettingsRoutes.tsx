@@ -242,12 +242,6 @@ const SettingsAI = lazy(() =>
   })),
 );
 
-const SettingsAiUsageUserDetail = lazy(() =>
-  import('~/pages/settings/ai/SettingsAiUsageUserDetail').then((module) => ({
-    default: module.SettingsAiUsageUserDetail,
-  })),
-);
-
 const SettingsToolDetail = lazy(() =>
   import('~/pages/settings/ai/SettingsToolDetail').then((module) => ({
     default: module.SettingsToolDetail,
@@ -427,18 +421,6 @@ const SettingsBilling = lazy(() =>
 const SettingsBillingPlans = lazy(() =>
   import('~/pages/settings/billing/SettingsBillingPlans').then((module) => ({
     default: module.SettingsBillingPlans,
-  })),
-);
-
-const SettingsUsage = lazy(() =>
-  import('~/pages/settings/billing/SettingsUsage').then((module) => ({
-    default: module.SettingsUsage,
-  })),
-);
-
-const SettingsUsageUserDetail = lazy(() =>
-  import('~/pages/settings/billing/SettingsUsageUserDetail').then((module) => ({
-    default: module.SettingsUsageUserDetail,
   })),
 );
 
@@ -731,11 +713,6 @@ export const SettingsRoutes = ({ isAdminPageEnabled }: SettingsRoutesProps) => (
           path={SettingsPath.BillingPlans}
           element={<SettingsBillingPlans />}
         />
-        <Route path={SettingsPath.Usage} element={<SettingsUsage />} />
-        <Route
-          path={SettingsPath.UsageUserDetail}
-          element={<SettingsUsageUserDetail />}
-        />
         <Route
           path={SettingsPath.Subdomain}
           element={<SettingsSubdomainPage />}
@@ -778,10 +755,6 @@ export const SettingsRoutes = ({ isAdminPageEnabled }: SettingsRoutesProps) => (
         <Route
           path={SettingsPath.AiSkillDetail}
           element={<SettingsSkillForm mode="edit" />}
-        />
-        <Route
-          path={SettingsPath.AiUsageUserDetail}
-          element={<SettingsAiUsageUserDetail />}
         />
         <Route
           path={SettingsPath.AiToolDetail}

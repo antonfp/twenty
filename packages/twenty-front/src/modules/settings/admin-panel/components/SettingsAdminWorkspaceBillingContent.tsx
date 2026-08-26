@@ -28,7 +28,7 @@ import { SettingsAdminWorkspaceCreditGrantsTable } from '@/settings/admin-panel/
 import { useModal } from '@/ui/layout/modal/hooks/useModal';
 import { GET_WORKSPACE_BILLING_ADMIN_PANEL } from '@/settings/admin-panel/graphql/queries/getWorkspaceBillingAdminPanel';
 import { SettingsTableCard } from '@/settings/components/SettingsTableCard';
-import { PlansTags } from '@/settings/billing/components/internal/PlansTags';
+import { PlansTags } from '@/settings/admin-panel/components/PlansTags';
 import { SettingsSectionSkeletonLoader } from '@/settings/components/SettingsSectionSkeletonLoader';
 import { useNumberFormat } from '@/localization/hooks/useNumberFormat';
 import { beautifyExactDate } from '~/utils/date-utils';

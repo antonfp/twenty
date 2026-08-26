@@ -15,8 +15,8 @@ import {
 } from '@/ai/states/agentChatUsageComponentFamilyState';
 import { currentAiChatThreadState } from '@/ai/states/currentAiChatThreadState';
 import { billingState } from '@/client-config/states/billingState';
-import { SettingsBillingLabelValueItem } from '@/settings/billing/components/internal/SettingsBillingLabelValueItem';
-import { useUsageValueFormatter } from '@/settings/usage/hooks/useUsageValueFormatter';
+import { LabelValueItem } from '@/ai/components/internal/LabelValueItem';
+import { useUsageValueFormatter } from '@/ai/hooks/useUsageValueFormatter';
 import { useAtomComponentFamilyStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentFamilyStateValue';
 import { useAtomComponentSelectorValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentSelectorValue';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
@@ -197,21 +197,21 @@ export const AiChatContextUsageButton = () => {
               />
               <StyledSection>
                 <StyledSectionTitle>{t`Last message`}</StyledSectionTitle>
-                <SettingsBillingLabelValueItem
+                <LabelValueItem
                   label={t`Input tokens`}
                   value={`${formatNumber(lastMessage.inputTokens, {
                     abbreviate: true,
                     decimals: 1,
                   })}${getCachedLabel(lastMessage)}`}
                 />
-                <SettingsBillingLabelValueItem
+                <LabelValueItem
                   label={t`Output tokens`}
                   value={formatNumber(lastMessage.outputTokens, {
                     abbreviate: true,
                     decimals: 1,
                   })}
                 />
-                <SettingsBillingLabelValueItem
+                <LabelValueItem
                   label={t`Cost`}
                   value={formatChatCost(
                     lastMessage.inputCredits + lastMessage.outputCredits,
@@ -227,21 +227,21 @@ export const AiChatContextUsageButton = () => {
           />
           <StyledSection>
             <StyledSectionTitle>{t`Conversation`}</StyledSectionTitle>
-            <SettingsBillingLabelValueItem
+            <LabelValueItem
               label={t`Input tokens`}
               value={formatNumber(agentChatUsage.inputTokens, {
                 abbreviate: true,
                 decimals: 1,
               })}
             />
-            <SettingsBillingLabelValueItem
+            <LabelValueItem
               label={t`Output tokens`}
               value={formatNumber(agentChatUsage.outputTokens, {
                 abbreviate: true,
                 decimals: 1,
               })}
             />
-            <SettingsBillingLabelValueItem
+            <LabelValueItem
               label={t`Total cost`}
               value={formatChatCost(totalCredits)}
             />

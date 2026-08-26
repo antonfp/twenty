@@ -14,8 +14,9 @@ export const AiChatErrorRenderer = ({
   onRetry,
 }: AiChatErrorRendererProps) => {
   if (isGraphqlErrorOfType(error, AiChatErrorCode.BILLING_CREDITS_EXHAUSTED)) {
-    // Handled by AIChatNoMoreBillingCreditsBanner, which useHasReachedAiChatCreditsCap
-    // keeps mounted for exactly this error so nothing is swallowed here
+    // Handled by the AiChatBanner in AiChatEditorSection, which
+    // useHasReachedAiChatCreditsCap keeps mounted for exactly this error
+    // so nothing is swallowed here
     return null;
   }
 

@@ -697,7 +697,6 @@ export type Query = {
   findAllApplicationRegistrations: PaginatedApplicationRegistrations;
   findOneAdminApplicationRegistration: ApplicationRegistration;
   getAdminAiModels: AdminAiModels;
-  getAdminAiUsageByWorkspace: Array<UsageBreakdownItem>;
   getAdminChatThreadMessages: AdminChatThreadMessages;
   getAdminChatThreads: PaginatedAdminChatThreads;
   getAdminWorkspaceChatThreads: Array<AdminWorkspaceChatThread>;
@@ -762,12 +761,6 @@ export type QueryFindAllApplicationRegistrationsArgs = {
 
 export type QueryFindOneAdminApplicationRegistrationArgs = {
   id: Scalars['String']['input'];
-};
-
-
-export type QueryGetAdminAiUsageByWorkspaceArgs = {
-  periodEnd?: InputMaybe<Scalars['DateTime']['input']>;
-  periodStart?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 
@@ -995,13 +988,6 @@ export enum UpgradeHealth {
   UP_TO_DATE = 'UP_TO_DATE'
 }
 
-export type UsageBreakdownItem = {
-  __typename?: 'UsageBreakdownItem';
-  creditsUsed: Scalars['Float']['output'];
-  key: Scalars['String']['output'];
-  label?: Maybe<Scalars['String']['output']>;
-};
-
 export type UserInfo = {
   __typename?: 'UserInfo';
   avatarUrl?: Maybe<Scalars['String']['output']>;
@@ -1161,14 +1147,6 @@ export type GetAdminAiModelsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type GetAdminAiModelsQuery = { __typename?: 'Query', getAdminAiModels: { __typename?: 'AdminAiModels', defaultSmartModelId?: string | null, defaultFastModelId?: string | null, models: Array<{ __typename?: 'AdminAiModelConfig', modelId: string, label: string, modelFamily?: ModelFamily | null, sdkPackage?: string | null, isAvailable: boolean, isAdminEnabled: boolean, isDeprecated?: boolean | null, isRecommended?: boolean | null, contextWindowTokens?: number | null, maxOutputTokens?: number | null, inputCostPerMillionTokens?: number | null, outputCostPerMillionTokens?: number | null, providerName?: string | null, providerLabel?: string | null, name?: string | null, dataResidency?: string | null }> } };
-
-export type GetAdminAiUsageByWorkspaceQueryVariables = Exact<{
-  periodStart?: InputMaybe<Scalars['DateTime']['input']>;
-  periodEnd?: InputMaybe<Scalars['DateTime']['input']>;
-}>;
-
-
-export type GetAdminAiUsageByWorkspaceQuery = { __typename?: 'Query', getAdminAiUsageByWorkspace: Array<{ __typename?: 'UsageBreakdownItem', key: string, label?: string | null, creditsUsed: number }> };
 
 export type GetAiProvidersQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1507,7 +1485,6 @@ export const SetAdminAiModelsEnabledDocument = {"kind":"Document","definitions":
 export const SetAdminAiModelsRecommendedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SetAdminAiModelsRecommended"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"modelIds"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"recommended"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setAdminAiModelsRecommended"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"modelIds"},"value":{"kind":"Variable","name":{"kind":"Name","value":"modelIds"}}},{"kind":"Argument","name":{"kind":"Name","value":"recommended"},"value":{"kind":"Variable","name":{"kind":"Name","value":"recommended"}}}]}]}}]} as unknown as DocumentNode<SetAdminAiModelsRecommendedMutation, SetAdminAiModelsRecommendedMutationVariables>;
 export const SetAdminDefaultAiModelDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SetAdminDefaultAiModel"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"role"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AiModelRole"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"modelId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setAdminDefaultAiModel"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"role"},"value":{"kind":"Variable","name":{"kind":"Name","value":"role"}}},{"kind":"Argument","name":{"kind":"Name","value":"modelId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"modelId"}}}]}]}}]} as unknown as DocumentNode<SetAdminDefaultAiModelMutation, SetAdminDefaultAiModelMutationVariables>;
 export const GetAdminAiModelsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetAdminAiModels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getAdminAiModels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"defaultSmartModelId"}},{"kind":"Field","name":{"kind":"Name","value":"defaultFastModelId"}},{"kind":"Field","name":{"kind":"Name","value":"models"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"modelId"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"modelFamily"}},{"kind":"Field","name":{"kind":"Name","value":"sdkPackage"}},{"kind":"Field","name":{"kind":"Name","value":"isAvailable"}},{"kind":"Field","name":{"kind":"Name","value":"isAdminEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"isDeprecated"}},{"kind":"Field","name":{"kind":"Name","value":"isRecommended"}},{"kind":"Field","name":{"kind":"Name","value":"contextWindowTokens"}},{"kind":"Field","name":{"kind":"Name","value":"maxOutputTokens"}},{"kind":"Field","name":{"kind":"Name","value":"inputCostPerMillionTokens"}},{"kind":"Field","name":{"kind":"Name","value":"outputCostPerMillionTokens"}},{"kind":"Field","name":{"kind":"Name","value":"providerName"}},{"kind":"Field","name":{"kind":"Name","value":"providerLabel"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"dataResidency"}}]}}]}}]}}]} as unknown as DocumentNode<GetAdminAiModelsQuery, GetAdminAiModelsQueryVariables>;
-export const GetAdminAiUsageByWorkspaceDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetAdminAiUsageByWorkspace"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"periodStart"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"periodEnd"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getAdminAiUsageByWorkspace"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"periodStart"},"value":{"kind":"Variable","name":{"kind":"Name","value":"periodStart"}}},{"kind":"Argument","name":{"kind":"Name","value":"periodEnd"},"value":{"kind":"Variable","name":{"kind":"Name","value":"periodEnd"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"creditsUsed"}}]}}]}}]} as unknown as DocumentNode<GetAdminAiUsageByWorkspaceQuery, GetAdminAiUsageByWorkspaceQueryVariables>;
 export const GetAiProvidersDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetAiProviders"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getAiProviders"}}]}}]} as unknown as DocumentNode<GetAiProvidersQuery, GetAiProvidersQueryVariables>;
 export const GetModelsDevProvidersDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetModelsDevProviders"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getModelsDevProviders"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"modelCount"}},{"kind":"Field","name":{"kind":"Name","value":"npm"}}]}}]}}]} as unknown as DocumentNode<GetModelsDevProvidersQuery, GetModelsDevProvidersQueryVariables>;
 export const GetModelsDevSuggestionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetModelsDevSuggestions"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"providerType"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getModelsDevSuggestions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"providerType"},"value":{"kind":"Variable","name":{"kind":"Name","value":"providerType"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"modelId"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"inputCostPerMillionTokens"}},{"kind":"Field","name":{"kind":"Name","value":"outputCostPerMillionTokens"}},{"kind":"Field","name":{"kind":"Name","value":"cachedInputCostPerMillionTokens"}},{"kind":"Field","name":{"kind":"Name","value":"cacheCreationCostPerMillionTokens"}},{"kind":"Field","name":{"kind":"Name","value":"contextWindowTokens"}},{"kind":"Field","name":{"kind":"Name","value":"maxOutputTokens"}},{"kind":"Field","name":{"kind":"Name","value":"modalities"}},{"kind":"Field","name":{"kind":"Name","value":"supportsReasoning"}}]}}]}}]} as unknown as DocumentNode<GetModelsDevSuggestionsQuery, GetModelsDevSuggestionsQueryVariables>;

@@ -247,6 +247,7 @@ export enum MessageChannelVisibility {
 export type Mutation = {
   __typename?: 'Mutation';
   activateWorkflowVersion: Scalars['Boolean']['output'];
+  cancelDocument: Scalars['Boolean']['output'];
   computeStepOutputSchema: Scalars['JSON']['output'];
   createDraftFromWorkflowVersion: WorkflowVersionDto;
   createWorkflowVersionEdge: WorkflowVersionStepChanges;
@@ -259,6 +260,7 @@ export type Mutation = {
   duplicateWorkflow: WorkflowVersionDto;
   duplicateWorkflowVersionStep: WorkflowVersionStepChanges;
   generateSignedDpa: GenerateSignedDpaResult;
+  postDocument: Scalars['Boolean']['output'];
   retryWorkflowRun: WorkflowRun;
   runWorkflowVersion: RunWorkflowVersion;
   stopWorkflowRun: WorkflowRun;
@@ -273,6 +275,12 @@ export type Mutation = {
 
 export type MutationActivateWorkflowVersionArgs = {
   workflowVersionId: Scalars['UUID']['input'];
+};
+
+
+export type MutationCancelDocumentArgs = {
+  objectNameSingular: Scalars['String']['input'];
+  recordId: Scalars['UUID']['input'];
 };
 
 
@@ -328,6 +336,12 @@ export type MutationDuplicateWorkflowVersionStepArgs = {
 
 export type MutationGenerateSignedDpaArgs = {
   input: GenerateSignedDpaInput;
+};
+
+
+export type MutationPostDocumentArgs = {
+  objectNameSingular: Scalars['String']['input'];
+  recordId: Scalars['UUID']['input'];
 };
 
 
