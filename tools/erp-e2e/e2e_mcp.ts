@@ -1117,7 +1117,9 @@ async function main() {
     })) as RpcWithStatus,
   ) as { success: boolean; id: string; message: string };
   if (!updateOut.success)
-    throw new Error(`update_print_template failed: ${JSON.stringify(updateOut)}`);
+    throw new Error(
+      `update_print_template failed: ${JSON.stringify(updateOut)}`,
+    );
   const printTemplateId = updateOut.id;
   ok(`update_print_template: ${updateOut.message}`);
 
@@ -1159,16 +1161,25 @@ async function main() {
     // 11e. Revert to the built-in template — deactivate the override record
     // via the standard printTemplate CRUD tool (no dedicated "reset" tool by
     // design: an ordinary object, ordinary object-permission CRUD covers it).
-    const deactivateOut = await execTool(token, 'update_one_print_template', {
-      id: printTemplateId,
-      isActive: false,
-    });
-    if (!deactivateOut.success)
-      throw new Error(
-        `update_one_print_template (deactivate) failed: ${JSON.stringify(deactivateOut)}`,
-      );
+    // A throw here would mask a genuine assertion failure from the try body
+    // (no-unsafe-finally) — log loudly instead; the 11f fallback asserts will
+    // fail anyway if the deactivate did not take effect.
+    try {
+      const deactivateOut = await execTool(token, 'update_one_print_template', {
+        id: printTemplateId,
+        isActive: false,
+      });
+      if (!deactivateOut.success)
+        console.error(
+          `WARN cleanup: update_one_print_template (deactivate) failed: ${JSON.stringify(deactivateOut)}`,
+        );
+    } catch (cleanupError) {
+      console.error('WARN cleanup: deactivate threw:', cleanupError);
+    }
   }
-  ok(`cleanup: update_one_print_template(${printTemplateId}, isActive=false) done`);
+  ok(
+    `cleanup: update_one_print_template(${printTemplateId}, isActive=false) done`,
+  );
 
   // 11f. ASSERT fallback: both render_print_preview and the REST endpoint
   // are back to the built-in template — no marker anywhere.
@@ -1178,7 +1189,10 @@ async function main() {
       recordId: invoice.id,
     })) as RpcWithStatus,
   ) as { html: string; source: string };
-  if (fallbackPreview.source !== 'built-in' || fallbackPreview.html.includes(MARKER))
+  if (
+    fallbackPreview.source !== 'built-in' ||
+    fallbackPreview.html.includes(MARKER)
+  )
     throw new Error(
       `ASSERT fallback: expected built-in template without marker, got: source=${fallbackPreview.source}, hasMarker=${fallbackPreview.html.includes(MARKER)}`,
     );
@@ -1188,8 +1202,12 @@ async function main() {
     })
   ).text();
   if (fallbackRestHtml.includes(MARKER))
-    throw new Error('ASSERT fallback (REST): marker still present after deactivation');
-  ok('ASSERT fallback: render_print_preview and REST print both back to built-in, no marker');
+    throw new Error(
+      'ASSERT fallback (REST): marker still present after deactivation',
+    );
+  ok(
+    'ASSERT fallback: render_print_preview and REST print both back to built-in, no marker',
+  );
 
   console.log(`\n=== E2E MCP ПРОЙДЕН (${steps} шагов) ===`);
 }
