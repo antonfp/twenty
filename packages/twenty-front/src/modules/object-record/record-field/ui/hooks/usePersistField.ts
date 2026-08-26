@@ -26,6 +26,7 @@ import { isFieldRawJsonValue } from '@/object-record/record-field/ui/types/guard
 import { isFieldSelect } from '@/object-record/record-field/ui/types/guards/isFieldSelect';
 import { isFieldSelectValue } from '@/object-record/record-field/ui/types/guards/isFieldSelectValue';
 import { recordStoreFamilySelector } from '@/object-record/record-store/states/selectors/recordStoreFamilySelector';
+import { logError } from '~/utils/logError';
 
 import { maybeSyncErpLineAmountOnPersist } from '@/erp-documents/utils/maybeSyncErpLineAmountOnPersist';
 import { useObjectMetadataItemById } from '@/object-metadata/hooks/useObjectMetadataItemById';
@@ -286,13 +287,20 @@ export const usePersistField = ({
         // ERP-specific: recalculate an ERP document line's `amount` when
         // quantity/price was just persisted (no-op for every other object).
         // See packages/twenty-front/src/modules/erp-documents/utils/maybeSyncErpLineAmountOnPersist.ts
-        maybeSyncErpLineAmountOnPersist({
-          objectNameSingular: objectMetadataItem.nameSingular,
-          recordId,
-          fieldName,
-          store,
-          updateOneRecord,
-        });
+        // try/catch: this is a UX affordance riding along the generic persist
+        // path for every object — it must never take the real field persist
+        // above (already sent) down with it.
+        try {
+          maybeSyncErpLineAmountOnPersist({
+            objectNameSingular: objectMetadataItem.nameSingular,
+            recordId,
+            fieldName,
+            store,
+            updateOneRecord,
+          });
+        } catch (error) {
+          logError(error);
+        }
       } else {
         throw new Error(
           `Invalid value to persist: ${JSON.stringify(

@@ -52,10 +52,6 @@ const StyledLinksContainer = styled.div`
   }
 `;
 
-const StyledSeparator = styled.span`
-  color: ${themeCssVariables.font.color.tertiary};
-`;
-
 type FooterNoteProps = {
   secondaryAgreement?: 'privacyPolicy' | 'dataProcessingAgreement';
 };
@@ -68,65 +64,35 @@ export const FooterNote = ({
   const { shouldOfferBypass, shouldUseBypass, enableBypass } =
     useWorkspaceBypass();
 
+  // No ERPilot-hosted Terms/Privacy/DPA pages exist yet, and twenty.com/legal
+  // is the real upstream Twenty vendor's legal site, not ours — linking there
+  // under an ERPilot sign-in page would misattribute those terms to us. Same
+  // "drop instead of relabel" call the branding cleanup made for other links
+  // with no ERPilot equivalent (see commit fe0d8a47aa).
   if (!isOnAWorkspace) {
     return (
       <StyledCopyContainer>
-        <Trans>By using ERPilot, you agree to the</Trans>{' '}
-        <a
-          href="https://twenty.com/legal/terms"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Trans>Terms of Service</Trans>
-        </a>{' '}
+        <Trans>By using ERPilot, you agree to the Terms of Service</Trans>{' '}
         <Trans>and</Trans>{' '}
         {secondaryAgreement === 'dataProcessingAgreement' ? (
-          <a
-            href="https://twenty.com/legal/dpa"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Trans>Data Processing Agreement</Trans>
-          </a>
+          <Trans>Data Processing Agreement</Trans>
         ) : (
-          <a
-            href="https://twenty.com/legal/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Trans>Privacy Policy</Trans>
-          </a>
+          <Trans>Privacy Policy</Trans>
         )}
         .
       </StyledCopyContainer>
     );
   }
 
+  if (!shouldOfferBypass || shouldUseBypass) {
+    return null;
+  }
+
   return (
     <StyledLinksContainer>
-      {shouldOfferBypass && !shouldUseBypass && (
-        <>
-          <button type="button" onClick={enableBypass}>
-            <Trans>Bypass SSO</Trans>
-          </button>
-          <StyledSeparator>•</StyledSeparator>
-        </>
-      )}
-      <a
-        href="https://twenty.com/legal/privacy"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <Trans>Privacy Policy</Trans>
-      </a>
-      <StyledSeparator>•</StyledSeparator>
-      <a
-        href="https://twenty.com/legal/terms"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <Trans>Terms of Service</Trans>
-      </a>
+      <button type="button" onClick={enableBypass}>
+        <Trans>Bypass SSO</Trans>
+      </button>
     </StyledLinksContainer>
   );
 };

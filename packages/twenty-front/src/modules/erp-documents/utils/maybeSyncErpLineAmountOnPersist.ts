@@ -9,6 +9,7 @@ import { type FieldCurrencyValue } from '@/object-record/record-field/ui/types/F
 import { type useUpdateOneRecord } from '@/object-record/hooks/useUpdateOneRecord';
 import { recordStoreFamilySelector } from '@/object-record/record-store/states/selectors/recordStoreFamilySelector';
 import { isDeeplyEqual } from '~/utils/isDeeplyEqual';
+import { logError } from '~/utils/logError';
 
 const LINE_OBJECTS_WITH_PRICE = new Set(
   ERP_DOCUMENT_OBJECTS.LINE_OBJECTS_WITH_PRICE_NAME_SINGULARS,
@@ -108,9 +109,13 @@ export const maybeSyncErpLineAmountOnPersist = ({
     newAmount,
   );
 
+  // Fire-and-forget: the cell already reflects newAmount via the store.set
+  // above, so nothing here awaits this mutation. Still needs its own .catch
+  // — an unhandled rejection on a fire-and-forget call bypasses the
+  // synchronous try/catch usePersistField wraps this whole function in.
   updateOneRecord({
     objectNameSingular,
     idToUpdate: recordId,
     updateOneRecordInput: { [AMOUNT_FIELD_NAME]: newAmount },
-  });
+  }).catch(logError);
 };

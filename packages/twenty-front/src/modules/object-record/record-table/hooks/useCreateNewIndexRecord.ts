@@ -10,6 +10,7 @@ import { useUpsertRecordsInStore } from '@/object-record/record-store/hooks/useU
 import { useBuildRecordInputFromFilters } from '@/object-record/record-table/hooks/useBuildRecordInputFromFilters';
 import { newRecordTitleCellToOpenState } from '@/object-record/record-title-cell/states/newRecordTitleCellToOpenState';
 import { type ObjectRecord } from '@/object-record/types/ObjectRecord';
+import { getErpDocumentParentNameSingularForLine } from '@/object-record/read-only/utils/isErpDocumentFieldReadOnlyDueToDocStatus';
 import { useOpenRecordInSidePanel } from '@/side-panel/hooks/useOpenRecordInSidePanel';
 import { useSidePanelMenu } from '@/side-panel/hooks/useSidePanelMenu';
 import { useAtomComponentFamilyStateCallbackState } from '@/ui/utilities/state/jotai/hooks/useAtomComponentFamilyStateCallbackState';
@@ -83,28 +84,41 @@ export const useCreateNewIndexRecord = ({
         ...mergedRecordInput,
       });
 
-      if (openRecordIn === OpenRecordIn.SIDE_PANEL) {
-        openRecordInSidePanel({
-          recordId,
-          objectNameSingular: objectMetadataItem.nameSingular,
-          isNewRecord: true,
-        });
-      } else {
-        const labelIdentifierFieldMetadataItem =
-          getLabelIdentifierFieldMetadataItem(objectMetadataItem);
+      // ERP line objects (salesInvoiceLine, ...) are only ever entered through
+      // their parent document's table part — auto-opening a side panel or
+      // navigating to the line's own record page after each row is an extra
+      // step that breaks rapid keyboard entry (row after row via "+ Добавить
+      // новый"). Skip both so focus stays in the table.
+      const isErpLineObject = isDefined(
+        getErpDocumentParentNameSingularForLine(
+          objectMetadataItem.nameSingular,
+        ),
+      );
 
-        if (isDefined(labelIdentifierFieldMetadataItem)) {
-          store.set(newRecordTitleCellToOpenState.atom, {
+      if (!isErpLineObject) {
+        if (openRecordIn === OpenRecordIn.SIDE_PANEL) {
+          openRecordInSidePanel({
             recordId,
-            fieldName: labelIdentifierFieldMetadataItem.name,
+            objectNameSingular: objectMetadataItem.nameSingular,
+            isNewRecord: true,
+          });
+        } else {
+          const labelIdentifierFieldMetadataItem =
+            getLabelIdentifierFieldMetadataItem(objectMetadataItem);
+
+          if (isDefined(labelIdentifierFieldMetadataItem)) {
+            store.set(newRecordTitleCellToOpenState.atom, {
+              recordId,
+              fieldName: labelIdentifierFieldMetadataItem.name,
+            });
+          }
+
+          closeSidePanelMenu();
+          navigate(AppPath.RecordShowPage, {
+            objectNameSingular: objectMetadataItem.nameSingular,
+            objectRecordId: recordId,
           });
         }
-
-        closeSidePanelMenu();
-        navigate(AppPath.RecordShowPage, {
-          objectNameSingular: objectMetadataItem.nameSingular,
-          objectRecordId: recordId,
-        });
       }
 
       if (isDefined(recordIndexGroupFieldMetadataItem)) {
