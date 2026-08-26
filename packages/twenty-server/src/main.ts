@@ -81,7 +81,14 @@ const bootstrap = async () => {
     limit: settings.storage.maxFileSize,
     extended: true,
   });
-  app.useBodyParser('text', { type: 'text/plain', limit: '1024kb' });
+  // application/octet-stream added for the bank-statement import endpoint
+  // (erp-accounting): the file may be windows-1251, so the controller reads
+  // request.rawBody (captured by the `rawBody: true` option above) instead
+  // of this parser's UTF-8-decoded request.body.
+  app.useBodyParser('text', {
+    type: ['text/plain', 'application/octet-stream'],
+    limit: '1024kb',
+  });
 
   app.use(
     `/${ApiPath.GraphQL}`,

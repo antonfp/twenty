@@ -5,8 +5,10 @@ import { GlContributorRegistry } from 'src/engine/core-modules/erp/gl-contributo
 import { PostingRulesRegistry } from 'src/engine/core-modules/erp/posting-rules.registry';
 import { ErpDocumentGuardService } from 'src/engine/core-modules/erp-sales/services/erp-document-guard.service';
 import { ErpDocumentLineGuardService } from 'src/engine/core-modules/erp-sales/services/erp-document-line-guard.service';
+import { BankStatementImportController } from 'src/engine/core-modules/erp-accounting/controllers/bank-statement-import.controller';
 import { TrialBalanceController } from 'src/engine/core-modules/erp-accounting/controllers/trial-balance.controller';
 import { ERP_ACCOUNTING_GUARD_HOOKS } from 'src/engine/core-modules/erp-accounting/query-hooks/erp-accounting-guard.pre-query.hooks';
+import { BankStatementImportService } from 'src/engine/core-modules/erp-accounting/services/bank-statement-import.service';
 import { GlContributorsService } from 'src/engine/core-modules/erp-accounting/services/gl-contributors.service';
 import { ManualEntryPostingRulesService } from 'src/engine/core-modules/erp-accounting/services/manual-entry-posting-rules.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
@@ -20,11 +22,11 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
 // его строки и регистр glEntry + печатный ОСВ-отчёт (Task 3). Guard-сервисы
 // переиспользуются из erp-sales (объект-агностичные), explicit registration
 // per erp/WIRING.md §3. stockTransfer контрибьютора не имеет — ruling: БЕЗ
-// проводок. TrialBalanceService is exported for the MCP trial_balance tool
-// (see api/mcp/mcp.module.ts).
+// проводок. TrialBalanceService/BankStatementImportService are exported for
+// the MCP trial_balance/import_bank_statement tools (see api/mcp/mcp.module.ts).
 @Module({
   imports: [ErpModule, TokenModule, WorkspaceCacheStorageModule],
-  controllers: [TrialBalanceController],
+  controllers: [TrialBalanceController, BankStatementImportController],
   providers: [
     JwtAuthGuard,
     WorkspaceAuthGuard,
@@ -33,9 +35,10 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     GlContributorsService,
     ManualEntryPostingRulesService,
     TrialBalanceService,
+    BankStatementImportService,
     ...ERP_ACCOUNTING_GUARD_HOOKS,
   ],
-  exports: [TrialBalanceService],
+  exports: [TrialBalanceService, BankStatementImportService],
 })
 export class ErpAccountingModule implements OnModuleInit {
   constructor(

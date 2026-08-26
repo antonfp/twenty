@@ -20,6 +20,11 @@ import {
   createCancelDocumentTool,
 } from 'src/engine/api/mcp/tools/cancel-document.tool';
 import {
+  createImportBankStatementTool,
+  IMPORT_BANK_STATEMENT_TOOL_NAME,
+  importBankStatementInputSchema,
+} from 'src/engine/api/mcp/tools/import-bank-statement.tool';
+import {
   createListObjectMetadataNamesTool,
   LIST_OBJECT_METADATA_NAMES_TOOL_NAME,
   listObjectMetadataNamesInputSchema,
@@ -50,6 +55,7 @@ import { ApiKeyRoleService } from 'src/engine/core-modules/api-key/services/api-
 import { DadataService } from 'src/engine/core-modules/dadata/services/dadata.service';
 import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
+import { BankStatementImportService } from 'src/engine/core-modules/erp-accounting/services/bank-statement-import.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { type FlatApiKey } from 'src/engine/core-modules/api-key/types/flat-api-key.type';
 import { type WorkspaceAuthContext } from 'src/engine/core-modules/auth/types/workspace-auth-context.type';
@@ -124,6 +130,7 @@ export class McpProtocolService {
     private readonly erpObjectPermissionGuardService: ErpObjectPermissionGuardService,
     private readonly dadataService: DadataService,
     private readonly trialBalanceService: TrialBalanceService,
+    private readonly bankStatementImportService: BankStatementImportService,
   ) {}
 
   async handleInitialize(requestId: string | number, workspaceId: string) {
@@ -351,6 +358,15 @@ export class McpProtocolService {
         ),
         inputSchema: zodSchema(trialBalanceInputSchema),
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [IMPORT_BANK_STATEMENT_TOOL_NAME]: {
+        ...createImportBankStatementTool(
+          this.bankStatementImportService,
+          workspace.id,
+          assertCanUpdateObjectRecords,
+        ),
+        inputSchema: zodSchema(importBankStatementInputSchema),
+        annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
     };
   }
