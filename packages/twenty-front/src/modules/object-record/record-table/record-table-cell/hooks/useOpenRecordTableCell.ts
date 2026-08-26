@@ -19,6 +19,7 @@ import { useSetActiveDropdownFocusIdAndMemorizePrevious } from '@/ui/layout/drop
 import { useRecordFieldsScopeContextOrThrow } from '@/object-record/record-field-list/contexts/RecordFieldsScopeContext';
 import { useRecordIndexContextOrThrow } from '@/object-record/record-index/contexts/RecordIndexContext';
 import { useResolveOpenRecordIn } from '@/object-record/record-index/hooks/useResolveOpenRecordIn';
+import { getErpDocumentParentNameSingularForLine } from '@/object-record/read-only/utils/isErpDocumentFieldReadOnlyDueToDocStatus';
 import { useOpenRecordFromIndexView } from '@/object-record/record-index/hooks/useOpenRecordFromIndexView';
 import { useActiveRecordTableRow } from '@/object-record/record-table/hooks/useActiveRecordTableRow';
 import { useFocusedRecordTableRow } from '@/object-record/record-table/hooks/useFocusedRecordTableRow';
@@ -32,6 +33,7 @@ import { useSetAtomComponentState } from '@/ui/utilities/state/jotai/hooks/useSe
 import { useStore } from 'jotai';
 import { useCallback } from 'react';
 import { OpenRecordIn } from 'twenty-shared/types';
+import { isDefined } from 'twenty-shared/utils';
 
 export type OpenTableCellArgs = {
   initialValue?: string;
@@ -119,7 +121,18 @@ export const useOpenRecordTableCell = (recordTableId: string) => {
         fieldValue,
       });
 
-      if ((isFirstColumnCell && !isEmpty) || isNavigating) {
+      // "Умный грид" (Task 5): the first column edits inline instead of
+      // opening the record card for ERP document lines — a line only ever
+      // has meaning inside its parent document's table part, so there is no
+      // useful "open salesInvoiceLine's own record page" destination.
+      const isErpLineObject = isDefined(
+        getErpDocumentParentNameSingularForLine(objectNameSingular),
+      );
+
+      if (
+        !isErpLineObject &&
+        ((isFirstColumnCell && !isEmpty) || isNavigating)
+      ) {
         leaveTableFocus();
 
         if (openRecordIn === OpenRecordIn.SIDE_PANEL) {
@@ -201,6 +214,7 @@ export const useOpenRecordTableCell = (recordTableId: string) => {
       activateRecordTableRow,
       unfocusRecordTableRow,
       store,
+      objectNameSingular,
     ],
   );
 
