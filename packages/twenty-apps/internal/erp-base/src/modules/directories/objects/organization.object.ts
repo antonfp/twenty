@@ -170,5 +170,18 @@ export default defineObject({
       icon: 'IconStar',
       defaultValue: false,
     },
+    {
+      // Phase 6 Task 1 (erp-accounting): период до этой даты закрыт для
+      // изменений документов — проверяется серверной логикой проведения
+      // (erp-accounting Task 2), не платформой.
+      universalIdentifier: 'ae50f0bc-2338-4f7c-844c-5bc29af690ff',
+      type: FieldType.DATE,
+      name: 'lockDate',
+      label: 'Дата запрета изменений',
+      description:
+        'Документы с датой проведения не позже этой даты нельзя создавать/изменять/отменять',
+      icon: 'IconLock',
+      isNullable: true,
+    },
   ],
 });
