@@ -3,6 +3,7 @@ import { useObjectMetadataItemById } from '@/object-metadata/hooks/useObjectMeta
 import { formatFieldMetadataItemAsFieldDefinition } from '@/object-metadata/utils/formatFieldMetadataItemAsFieldDefinition';
 import { getObjectPermissionsForObject } from '@/object-metadata/utils/getObjectPermissionsForObject';
 import { useObjectPermissions } from '@/object-record/hooks/useObjectPermissions';
+import { useIsRecordFieldReadOnlyDueToErpDocStatus } from '@/object-record/read-only/hooks/useIsRecordFieldReadOnlyDueToErpDocStatus';
 import { useIsRecordReadOnly } from '@/object-record/read-only/hooks/useIsRecordReadOnly';
 import { isRecordFieldReadOnly } from '@/object-record/read-only/utils/isRecordFieldReadOnly';
 
@@ -39,6 +40,12 @@ export const useIsRecordFieldReadOnly = ({
     objectMetadataId,
   });
 
+  const isErpDocumentFieldReadOnlyDueToDocStatus =
+    useIsRecordFieldReadOnlyDueToErpDocStatus({
+      objectNameSingular: objectMetadataItem.nameSingular,
+      recordId,
+    });
+
   if (!fieldMetadataItem) {
     return false;
   }
@@ -53,6 +60,7 @@ export const useIsRecordFieldReadOnly = ({
     isSystemObject: objectMetadataItem.isSystem,
     isFieldFromStandardApplication:
       getIsMetadataItemFromStandardApplication(fieldMetadataItem),
+    isErpDocumentFieldReadOnlyDueToDocStatus,
     objectPermissions,
     fieldMetadataItem,
     fieldDefinition,

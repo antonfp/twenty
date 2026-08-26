@@ -3,6 +3,7 @@ import { useGetIsMetadataItemFromStandardApplication } from '@/object-metadata/h
 import { type FieldMetadataItem } from '@/object-metadata/types/FieldMetadataItem';
 import { type EnrichedObjectMetadataItem } from '@/object-metadata/types/EnrichedObjectMetadataItem';
 import { formatFieldMetadataItemAsColumnDefinition } from '@/object-metadata/utils/formatFieldMetadataItemAsColumnDefinition';
+import { useIsRecordFieldReadOnlyDueToErpDocStatus } from '@/object-record/read-only/hooks/useIsRecordFieldReadOnlyDueToErpDocStatus';
 import { isRecordFieldReadOnly } from '@/object-record/read-only/utils/isRecordFieldReadOnly';
 import { isActivityTargetField } from '@/object-record/record-field-list/utils/categorizeRelationFields';
 import {
@@ -54,6 +55,12 @@ export const FieldsWidgetFieldItem = ({
   const getIsMetadataItemFromStandardApplication =
     useGetIsMetadataItemFromStandardApplication();
 
+  const isErpDocumentFieldReadOnlyDueToDocStatus =
+    useIsRecordFieldReadOnlyDueToErpDocStatus({
+      objectNameSingular: objectMetadataItem.nameSingular,
+      recordId,
+    });
+
   const isActivityTarget = isActivityTargetField(
     fieldMetadataItem.name,
     targetObjectNameSingular,
@@ -86,6 +93,7 @@ export const FieldsWidgetFieldItem = ({
           }),
           isFieldFromStandardApplication:
             getIsMetadataItemFromStandardApplication(fieldMetadataItem),
+          isErpDocumentFieldReadOnlyDueToDocStatus,
           fieldMetadataItem: {
             id: fieldMetadataItem.id,
             isUIEditable: fieldMetadataItem.isUIEditable ?? true,

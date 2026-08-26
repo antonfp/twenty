@@ -16,6 +16,7 @@ type IsRecordFieldReadOnlyParams = {
   isRecordReadOnly: boolean;
   isSystemObject?: boolean;
   isFieldFromStandardApplication?: boolean;
+  isErpDocumentFieldReadOnlyDueToDocStatus?: boolean;
   fieldMetadataItem: Pick<FieldMetadataItem, 'id' | 'isUIEditable'>;
   objectPermissions: ObjectPermission;
   fieldDefinition?: FieldDefinition<FieldMetadata>;
@@ -27,6 +28,7 @@ export const isRecordFieldReadOnly = ({
   isRecordReadOnly,
   isSystemObject,
   isFieldFromStandardApplication,
+  isErpDocumentFieldReadOnlyDueToDocStatus = false,
   fieldMetadataItem,
   fieldDefinition,
   objectPermissionsByObjectMetadataId,
@@ -54,6 +56,7 @@ export const isRecordFieldReadOnly = ({
     isReadOnlyStandardFieldOnSystemObject ||
     !(fieldMetadataItem.isUIEditable ?? true) ||
     fieldReadOnlyByPermissions ||
-    oneToManyTargetReadOnly
+    oneToManyTargetReadOnly ||
+    isErpDocumentFieldReadOnlyDueToDocStatus
   );
 };

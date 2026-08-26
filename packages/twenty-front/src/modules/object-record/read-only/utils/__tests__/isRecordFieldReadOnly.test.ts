@@ -139,4 +139,29 @@ describe('isRecordFieldReadOnly', () => {
 
     expect(result).toBe(false);
   });
+
+  it('should return true when the ERP document docStatus check reports read-only', () => {
+    const result = isRecordFieldReadOnly({
+      ...mockParams,
+      isErpDocumentFieldReadOnlyDueToDocStatus: true,
+      fieldMetadataItem: {
+        id: 'field-123',
+        isUIEditable: true,
+      },
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it('should return false when isErpDocumentFieldReadOnlyDueToDocStatus is omitted (defaults to editable)', () => {
+    const result = isRecordFieldReadOnly({
+      ...mockParams,
+      fieldMetadataItem: {
+        id: 'field-123',
+        isUIEditable: true,
+      },
+    });
+
+    expect(result).toBe(false);
+  });
 });

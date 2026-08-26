@@ -1,6 +1,7 @@
 import { useGetIsMetadataItemFromStandardApplication } from '@/object-metadata/hooks/useGetIsMetadataItemFromStandardApplication';
 import { getObjectPermissionsForObject } from '@/object-metadata/utils/getObjectPermissionsForObject';
 import { isLabelIdentifierField } from '@/object-metadata/utils/isLabelIdentifierField';
+import { useIsRecordFieldReadOnlyDueToErpDocStatus } from '@/object-record/read-only/hooks/useIsRecordFieldReadOnlyDueToErpDocStatus';
 import { isRecordFieldReadOnly } from '@/object-record/read-only/utils/isRecordFieldReadOnly';
 import { type RecordField } from '@/object-record/record-field/types/RecordField';
 import { FieldContext } from '@/object-record/record-field/ui/contexts/FieldContext';
@@ -46,6 +47,12 @@ export const RecordTableCellFieldContextGeneric = ({
   const updateRecord = useContext(RecordTableUpdateContext);
   const getIsMetadataItemFromStandardApplication =
     useGetIsMetadataItemFromStandardApplication();
+
+  const isErpDocumentFieldReadOnlyDueToDocStatus =
+    useIsRecordFieldReadOnlyDueToErpDocStatus({
+      objectNameSingular: objectMetadataItem.nameSingular,
+      recordId,
+    });
 
   let hasObjectReadPermissions = objectPermissions.canReadObjectRecords;
 
@@ -117,6 +124,7 @@ export const RecordTableCellFieldContextGeneric = ({
               getIsMetadataItemFromStandardApplication({
                 applicationId: fieldDefinition.metadata.applicationId,
               }),
+            isErpDocumentFieldReadOnlyDueToDocStatus,
             objectPermissions,
             fieldMetadataItem: {
               id: fieldDefinition.fieldMetadataId,
