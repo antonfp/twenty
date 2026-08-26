@@ -20,8 +20,6 @@ const context: ToolProviderContext = {
   },
 };
 
-const stubTool = { description: 'stub' };
-
 // Regression for a real production bug: post_document/cancel_document/
 // trial_balance are delegated to ErpAgentToolService (same ToolCategory.ACTION
 // as this provider's own generic tools). ToolExecutorService.dispatchStaticTool
@@ -29,6 +27,12 @@ const stubTool = { description: 'stub' };
 // dispatch actually reaches — must both list AND execute them, not just list.
 describe('ActionToolProvider — ERP tool delegation', () => {
   const buildProvider = () => {
+    const stubTool = {
+      description: 'stub',
+      execute: jest
+        .fn()
+        .mockResolvedValue({ success: true, message: 'stub-ok' }),
+    };
     const erpAgentToolService = {
       ownsTool: jest.fn((toolName: string) =>
         ['post_document', 'cancel_document', 'trial_balance'].includes(
@@ -92,7 +96,7 @@ describe('ActionToolProvider — ERP tool delegation', () => {
       erpAgentToolService,
     );
 
-    return { provider, erpAgentToolService };
+    return { provider, erpAgentToolService, stubTool };
   };
 
   it('lists trial_balance/post_document/cancel_document in generateDescriptors', async () => {
@@ -134,5 +138,32 @@ describe('ActionToolProvider — ERP tool delegation', () => {
     await expect(
       provider.executeStaticTool('not_a_real_tool', {}, context),
     ).rejects.toThrow('Unknown action tool "not_a_real_tool"');
+  });
+
+  // Task 6 parked minor: the delegation refactor (erpAgentToolService.ownsTool
+  // check added ahead of the toolMap lookup) must not swallow the pre-existing
+  // generic ACTION tools it now sits in front of — a tool nobody owns via ERP
+  // delegation still reaches toolMap.get() and its own execute().
+  it('still executes a pre-existing generic ACTION tool (search_help_center) after the ERP delegation refactor', async () => {
+    const { provider, erpAgentToolService, stubTool } = buildProvider();
+
+    const output = await provider.executeStaticTool(
+      'search_help_center',
+      { query: 'how to post an invoice' },
+      context,
+    );
+
+    expect(output).toEqual({ success: true, message: 'stub-ok' });
+    expect(stubTool.execute).toHaveBeenCalledWith(
+      { query: 'how to post an invoice' },
+      {
+        workspaceId: WORKSPACE_ID,
+        userId: undefined,
+        userWorkspaceId: undefined,
+        threadId: undefined,
+        onCodeExecutionUpdate: undefined,
+      },
+    );
+    expect(erpAgentToolService.executeStaticTool).not.toHaveBeenCalled();
   });
 });

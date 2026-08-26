@@ -102,7 +102,9 @@ export function findName(names: string[], exact: string): string {
       n.toLowerCase().includes(exact.slice(6, 12).toLowerCase()),
     );
 
-    throw new Error(`no mutation named ${exact}; have: ${JSON.stringify(hint)}`);
+    throw new Error(
+      `no mutation named ${exact}; have: ${JSON.stringify(hint)}`,
+    );
   }
 
   return found;
@@ -119,12 +121,18 @@ export function getExtensionMessage(errResponse: JsonRecord): string {
   const errors = (errResponse.errors as JsonRecord[] | undefined) ?? [];
 
   if (errors.length === 0) {
-    throw new Error(`expected GraphQL errors, got ${JSON.stringify(errResponse)}`);
+    throw new Error(
+      `expected GraphQL errors, got ${JSON.stringify(errResponse)}`,
+    );
   }
 
   const ext = (errors[0].extensions as JsonRecord | undefined) ?? {};
 
-  return (ext.userFriendlyMessage as string | undefined) ?? (errors[0].message as string) ?? '';
+  return (
+    (ext.userFriendlyMessage as string | undefined) ??
+    (errors[0].message as string) ??
+    ''
+  );
 }
 
 export type JsonRpcResponse = {

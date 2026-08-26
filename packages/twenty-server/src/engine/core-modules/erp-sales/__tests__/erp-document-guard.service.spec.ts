@@ -102,6 +102,36 @@ describe('ErpDocumentGuardService', () => {
         }),
       ).resolves.toBeUndefined();
     });
+
+    // Task 6 parked minor: the create path guards docStatus and the other
+    // POSTING_MANAGED_FIELD_NAMES the same way (touchesPostingManagedField),
+    // but only docStatus had a create-path test — postedAt/cancelledAt were
+    // only covered on the update path.
+    it('blocks createOne with postedAt set', async () => {
+      const { service } = createService();
+
+      await expect(
+        service.assertDocumentMutationAllowed({
+          workspaceId: WORKSPACE_ID,
+          objectNameSingular: OBJECT_NAME,
+          operation: 'createOne',
+          payload: { data: { postedAt: new Date().toISOString() } },
+        }),
+      ).rejects.toThrow(CommonQueryRunnerException);
+    });
+
+    it('blocks createOne with cancelledAt set', async () => {
+      const { service } = createService();
+
+      await expect(
+        service.assertDocumentMutationAllowed({
+          workspaceId: WORKSPACE_ID,
+          objectNameSingular: OBJECT_NAME,
+          operation: 'createOne',
+          payload: { data: { cancelledAt: new Date().toISOString() } },
+        }),
+      ).rejects.toThrow(CommonQueryRunnerException);
+    });
   });
 
   describe('update', () => {
