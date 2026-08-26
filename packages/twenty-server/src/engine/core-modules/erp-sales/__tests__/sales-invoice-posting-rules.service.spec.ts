@@ -19,6 +19,7 @@ const createMockRepository = () => ({
   update: jest.fn().mockResolvedValue(undefined),
   findOneBy: jest.fn(),
   findBy: jest.fn(),
+  findOne: jest.fn(),
 });
 
 type MockRepository = ReturnType<typeof createMockRepository>;
@@ -256,10 +257,16 @@ describe('SalesInvoicePostingRulesService', () => {
   });
 
   describe('onCancel', () => {
-    it('allows cancelling an invoice with no payments at all', async () => {
-      const repositories = { payment: createMockRepository() };
+    const createRepositories = () => ({
+      payment: createMockRepository(),
+      salesShipment: createMockRepository(),
+    });
+
+    it('allows cancelling an invoice with no payments and no shipments', async () => {
+      const repositories = createRepositories();
 
       repositories.payment.findOneBy.mockResolvedValue(null);
+      repositories.salesShipment.findOne.mockResolvedValue(null);
       const { service } = createService();
 
       await expect(
@@ -269,14 +276,19 @@ describe('SalesInvoicePostingRulesService', () => {
         salesInvoiceId: INVOICE_ID,
         docStatus: 'POSTED',
       });
+      expect(repositories.salesShipment.findOne).toHaveBeenCalledWith({
+        where: { salesInvoiceId: INVOICE_ID, docStatus: 'POSTED' },
+        withDeleted: true,
+      });
     });
 
     it('allows cancelling an invoice whose only payment is cancelled', async () => {
-      const repositories = { payment: createMockRepository() };
+      const repositories = createRepositories();
 
       // The docStatus:POSTED filter itself excludes a CANCELLED payment;
       // simulated here by the mock returning no match.
       repositories.payment.findOneBy.mockResolvedValue(null);
+      repositories.salesShipment.findOne.mockResolvedValue(null);
       const { service } = createService();
 
       await expect(
@@ -285,13 +297,53 @@ describe('SalesInvoicePostingRulesService', () => {
     });
 
     it('blocks cancelling an invoice with a posted payment still linked', async () => {
-      const repositories = { payment: createMockRepository() };
+      const repositories = createRepositories();
 
       repositories.payment.findOneBy.mockResolvedValue({
         id: 'payment-1',
         salesInvoiceId: INVOICE_ID,
         docStatus: 'POSTED',
       });
+      repositories.salesShipment.findOne.mockResolvedValue(null);
+      const { service } = createService();
+
+      await expect(
+        service.onCancel(createContext(repositories), invoice()),
+      ).rejects.toThrow(ErpPostingException);
+    });
+
+    it('blocks cancelling an invoice with a posted shipment still linked', async () => {
+      const repositories = createRepositories();
+
+      repositories.payment.findOneBy.mockResolvedValue(null);
+      repositories.salesShipment.findOne.mockResolvedValue({
+        id: 'shipment-1',
+        salesInvoiceId: INVOICE_ID,
+        docStatus: 'POSTED',
+      });
+      const { service } = createService();
+
+      await expect(
+        service.onCancel(createContext(repositories), invoice()),
+      ).rejects.toThrow(ErpPostingException);
+    });
+
+    it('blocks cancelling even when the posted shipment is soft-deleted', async () => {
+      const repositories = createRepositories();
+
+      repositories.payment.findOneBy.mockResolvedValue(null);
+      // The service must query withDeleted:true — this mock simulates the
+      // withDeleted lookup surfacing a soft-deleted-but-POSTED shipment.
+      repositories.salesShipment.findOne.mockImplementation(
+        async ({ withDeleted }: { withDeleted?: boolean }) =>
+          withDeleted === true
+            ? {
+                id: 'shipment-2',
+                salesInvoiceId: INVOICE_ID,
+                docStatus: 'POSTED',
+              }
+            : null,
+      );
       const { service } = createService();
 
       await expect(

@@ -33,6 +33,7 @@ const SALES_INVOICE_OBJECT_NAME = 'salesInvoice';
 const SALES_INVOICE_LINE_OBJECT_NAME = 'salesInvoiceLine';
 const SALES_INVOICE_NUMBER_PREFIX = 'SI';
 const PAYMENT_OBJECT_NAME = 'payment';
+const SALES_SHIPMENT_OBJECT_NAME = 'salesShipment';
 const BYPASS_PERMISSIONS = { shouldBypassPermissionChecks: true } as const;
 
 @Injectable()
@@ -177,6 +178,33 @@ export class SalesInvoicePostingRulesService implements PostingRulesProvider {
         ERP_POSTING_EXCEPTION_CODE.POSTING_FAILED,
         {
           userFriendlyMessage: msg`Сначала отмените оплаты по счёту.`,
+        },
+      );
+    }
+
+    // Mirrors the payment check: a POSTED shipment already moved stock off
+    // this invoice. withDeleted — a soft-deleted shipment is invisible to a
+    // plain lookup and would wrongly let the invoice cancel out from
+    // under it while it's still POSTED.
+    const postedShipment = await context.transactionScope
+      .getRepository<ErpDocumentRecord>(
+        SALES_SHIPMENT_OBJECT_NAME,
+        BYPASS_PERMISSIONS,
+      )
+      .findOne({
+        where: {
+          salesInvoiceId: document.id,
+          docStatus: DOC_STATUS.POSTED,
+        },
+        withDeleted: true,
+      });
+
+    if (isDefined(postedShipment)) {
+      throw new ErpPostingException(
+        `Cannot cancel sales invoice "${document.id}": posted shipment "${postedShipment.id}" is still linked to it`,
+        ERP_POSTING_EXCEPTION_CODE.POSTING_FAILED,
+        {
+          userFriendlyMessage: msg`Сначала отмените реализации по счёту.`,
         },
       );
     }
