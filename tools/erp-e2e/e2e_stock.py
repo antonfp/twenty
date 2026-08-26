@@ -132,6 +132,17 @@ def main():
         }}) {{ actualQty avgCost {{ amountMicros }} }} }}''', token=token)['itemBalance']
         return d
 
+    def ledger_entries(warehouse_id=None, voucher_id=None):
+        parts = [f'itemId: {{ eq: "{item["id"]}" }}']
+        if warehouse_id:
+            parts.append(f'warehouseId: {{ eq: "{warehouse_id}" }}')
+        if voucher_id:
+            parts.append(f'voucherId: {{ eq: "{voucher_id}" }}')
+        d = gql('/graphql', f'''{{ stockLedgerEntries(filter: {{ {', '.join(parts)} }}) {{
+          edges {{ node {{ actualQty qtyAfter valuationRate {{ amountMicros }}
+            voucherType voucherId isCancelled isCancellation }} }} }} }}''', token=token)['stockLedgerEntries']
+        return [e['node'] for e in d['edges']]
+
     # 2. Поступление 1: 10 x 100 -> остаток 10, средняя 100
     gr1 = gql('/graphql', f'''mutation {{ {create_gr}(data: {{
       organizationId: "{org['id']}", warehouseId: "{w1['id']}"
@@ -150,6 +161,19 @@ def main():
     assert bal['actualQty'] == 10, bal
     assert int(bal['avgCost']['amountMicros']) / 1e6 == 100, bal
     print(f"GR1 {gr1q['number']} POSTED, total=1000, w1: qty=10 avg=100 ok")
+
+    # Регистр движений (не только остаток): ровно одна строка по GR1, +10,
+    # qtyAfter 10, себестоимость за ед. 100, ссылается на GR1.
+    gr1_rows = ledger_entries(warehouse_id=w1['id'], voucher_id=gr1['id'])
+    assert len(gr1_rows) == 1, gr1_rows
+    gr1_row = gr1_rows[0]
+    assert gr1_row['actualQty'] == 10, gr1_row
+    assert gr1_row['qtyAfter'] == 10, gr1_row
+    assert int(gr1_row['valuationRate']['amountMicros']) / 1e6 == 100, gr1_row
+    assert gr1_row['voucherType'] == 'goodsReceipt', gr1_row
+    assert gr1_row['voucherId'] == gr1['id'], gr1_row
+    assert gr1_row['isCancellation'] is False, gr1_row
+    print('stockLedgerEntry GR1: 1 row, +10, qtyAfter=10, valuationRate=100 ok')
 
     # 3. Поступление 2: 10 x 200 -> остаток 20, средняя (1000+2000)/20=150
     gr2 = gql('/graphql', f'''mutation {{ {create_gr}(data: {{
@@ -285,6 +309,18 @@ def main():
     assert bal['actualQty'] == 13, bal
     assert int(bal['avgCost']['amountMicros']) / 1e6 == 150, bal
     print('storno SS1 ok: docStatus=CANCELLED, w1: qty=13 (9+4) avg=150 ok')
+
+    # Регистр движений после сторно: исходная строка (-4) + реверс-строка
+    # (isCancellation=true, +4) по одному и тому же voucherId; сумма = 0.
+    ss1_rows = ledger_entries(warehouse_id=w1['id'], voucher_id=ss1['id'])
+    originals = [r for r in ss1_rows if not r['isCancellation']]
+    reversals = [r for r in ss1_rows if r['isCancellation']]
+    assert len(originals) == 1 and len(reversals) == 1, ss1_rows
+    assert originals[0]['actualQty'] == -4, originals
+    assert reversals[0]['actualQty'] == 4, reversals
+    assert all(r['voucherId'] == ss1['id'] for r in ss1_rows), ss1_rows
+    assert sum(r['actualQty'] for r in ss1_rows) == 0, ss1_rows
+    print('stockLedgerEntry SS1 storno: original -4 + reversal +4, sum=0 ok')
 
     print('\n=== E2E ЦИКЛ СКЛАДА ПРОЙДЕН ===')
 
