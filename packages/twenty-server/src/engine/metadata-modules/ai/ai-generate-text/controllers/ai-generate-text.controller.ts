@@ -66,6 +66,12 @@ export class AiGenerateTextController {
       await this.aiModelRegistryService.resolveModelForAgent({
         modelId: resolvedModelId,
       });
+    // Registry is the single source of truth for a model's output cap —
+    // see agent-async-executor.service.ts for why this can't be omitted.
+    const { maxOutputTokens } =
+      this.aiModelRegistryService.getEffectiveModelConfig(
+        registeredModel.modelId,
+      );
 
     let result: Awaited<ReturnType<typeof generateText>> | undefined;
 
@@ -73,6 +79,7 @@ export class AiGenerateTextController {
       result = await withDedicatedAiTrace(() =>
         generateText({
           model: registeredModel.model,
+          maxOutputTokens,
           system: body.systemPrompt,
           prompt: body.userPrompt,
           experimental_telemetry: buildAiTelemetry({

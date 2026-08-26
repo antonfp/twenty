@@ -43,8 +43,16 @@ export class AgentTitleGenerationService {
     let steps: StepResult<ToolSet>[] | undefined;
 
     try {
+      // Registry is the single source of truth for a model's output cap —
+      // see agent-async-executor.service.ts for why this can't be omitted.
+      const { maxOutputTokens } =
+        this.aiModelRegistryService.getEffectiveModelConfig(
+          defaultModel.modelId,
+        );
+
       const result = await generateText({
         model: defaultModel.model,
+        maxOutputTokens,
         prompt: `Generate a concise, descriptive title (maximum 60 characters) for a chat thread based on the following message. The title should capture the main topic or purpose of the conversation. Return only the title, nothing else. Message: "${messageContent}"`,
         experimental_telemetry: buildAiTelemetry({
           functionId: 'agent-title-generation',

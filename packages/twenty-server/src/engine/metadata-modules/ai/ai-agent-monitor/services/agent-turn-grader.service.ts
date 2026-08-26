@@ -81,8 +81,16 @@ Provide:
 Respond ONLY with valid JSON in this exact format:
 {"score": <number>, "comment": "<string>"}`;
 
+      // Registry is the single source of truth for a model's output cap —
+      // see agent-async-executor.service.ts for why this can't be omitted.
+      const { maxOutputTokens } =
+        this.aiModelRegistryService.getEffectiveModelConfig(
+          defaultModel.modelId,
+        );
+
       const result = await generateText({
         model: defaultModel.model,
+        maxOutputTokens,
         prompt,
         temperature: 0.3,
         experimental_telemetry: buildAiTelemetry({

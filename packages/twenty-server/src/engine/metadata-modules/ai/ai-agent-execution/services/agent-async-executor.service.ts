@@ -302,6 +302,15 @@ export class AgentAsyncExecutorService {
 
       const registeredModel =
         await this.aiModelRegistryService.resolveModelForAgent(agent);
+      // Registry is the single source of truth for a model's output cap.
+      // generateText has no default of its own — omitting this lets the
+      // provider fall back to ITS default (e.g. 65536 for some OpenRouter
+      // models), which can exceed the workspace's available credits
+      // regardless of what's configured here.
+      const { maxOutputTokens } =
+        this.aiModelRegistryService.getEffectiveModelConfig(
+          registeredModel.modelId,
+        );
 
       let tools: ToolSet = {};
       let toolCatalogSection = '';
@@ -378,6 +387,7 @@ export class AgentAsyncExecutorService {
         system: `${baseSystemPrompt}\n\n${agent ? tipTapDocumentToMarkdown(agent.prompt) : ''}${toolCatalogSection}`,
         tools,
         model: registeredModel.model,
+        maxOutputTokens,
         messages: messages.map(
           (message): ModelMessage => ({
             role: message.role,
@@ -468,6 +478,7 @@ export class AgentAsyncExecutorService {
             inputSchema,
             error,
             model: registeredModel.model,
+            maxOutputTokens,
           });
         },
       });
@@ -492,6 +503,7 @@ export class AgentAsyncExecutorService {
         const structuredResult = await generateText({
           system: STRUCTURED_OUTPUT_SYSTEM_PROMPT,
           model: registeredModel.model,
+          maxOutputTokens,
           prompt: `Based on the following execution results, generate the structured output according to the schema:
 
                  Execution Results: ${textResponse.text}

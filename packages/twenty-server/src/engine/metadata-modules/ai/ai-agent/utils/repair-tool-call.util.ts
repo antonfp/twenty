@@ -35,6 +35,7 @@ export const repairToolCall = async ({
   inputSchema,
   error,
   model,
+  maxOutputTokens,
   billingContext,
 }: {
   toolCall: ToolCall;
@@ -42,6 +43,9 @@ export const repairToolCall = async ({
   inputSchema: (toolCall: { toolName: string }) => unknown;
   error: Error;
   model: LanguageModel;
+  // Same model's registry-configured output cap as the call being repaired
+  // — see agent-async-executor.service.ts/chat-execution.service.ts callers.
+  maxOutputTokens?: number;
   billingContext?: RepairToolCallBillingContext;
 }): Promise<ToolCall | null> => {
   // Don't attempt to fix invalid tool names
@@ -67,6 +71,7 @@ export const repairToolCall = async ({
   try {
     const result = await generateText({
       model,
+      maxOutputTokens,
       output: Output.object({ schema: schema as z.ZodTypeAny }),
       prompt: [
         `The AI model attempted to call the tool "${toolCall.toolName}" with invalid input.`,

@@ -473,6 +473,9 @@ export class ChatExecutionService {
 
     const stream = streamText({
       model: registeredModel.model,
+      // Registry is the single source of truth for a model's output cap —
+      // see agent-async-executor.service.ts for why this can't be omitted.
+      maxOutputTokens: modelConfig.maxOutputTokens,
       messages: [systemMessage, ...modelMessages],
       tools: activeTools,
       // Every step of the kickoff turn is forced so it cannot end in prose; stopWhen ends it at the first ask_questions.
@@ -624,6 +627,7 @@ export class ChatExecutionService {
           inputSchema,
           error,
           model: registeredModel.model,
+          maxOutputTokens: modelConfig.maxOutputTokens,
           billingContext: {
             aiBillingService: this.aiBillingService,
             modelId: registeredModel.modelId,
