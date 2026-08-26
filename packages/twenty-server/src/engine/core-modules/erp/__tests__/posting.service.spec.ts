@@ -624,8 +624,12 @@ describe('PostingService', () => {
     // history, it is never deleted or reused.
     it('allows re-posting after cancel and writes a new register row', async () => {
       executeRawQuery
-        .mockResolvedValueOnce([{ id: RECORD_ID, docStatus: DOC_STATUS.POSTED }])
-        .mockResolvedValueOnce([{ id: RECORD_ID, docStatus: DOC_STATUS.DRAFT }]);
+        .mockResolvedValueOnce([
+          { id: RECORD_ID, docStatus: DOC_STATUS.POSTED },
+        ])
+        .mockResolvedValueOnce([
+          { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
+        ]);
 
       await postingService.cancel(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
 
