@@ -13,6 +13,7 @@ export const ERP_DOCUMENT_OBJECTS = {
     'stockTransfer',
     'goodsWriteOff',
     'goodsPosting',
+    'manualEntry',
   ] as readonly string[],
   SALES_INVOICE_NAME_SINGULAR: 'salesInvoice',
   SALES_SHIPMENT_NAME_SINGULAR: 'salesShipment',
