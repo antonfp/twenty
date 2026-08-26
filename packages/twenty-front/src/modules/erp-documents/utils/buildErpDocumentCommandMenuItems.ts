@@ -1,10 +1,7 @@
 import { t } from '@lingui/core/macro';
 import { isNonEmptyString } from '@sniptt/guards';
 
-import {
-  ERP_DOCUMENT_OBJECT_NAME_SINGULARS,
-  ERP_SALES_INVOICE_OBJECT_NAME_SINGULAR,
-} from '@/erp-documents/constants/ErpDocumentObjects';
+import { ERP_DOCUMENT_OBJECTS } from '@/erp-documents/constants/ErpDocumentObjects';
 import { ERP_ENGINE_COMPONENT_KEYS } from '@/erp-documents/constants/ErpEngineComponentKeys';
 import {
   CommandMenuItemAvailabilityType,
@@ -67,7 +64,7 @@ export const buildErpDocumentCommandMenuItems = (
   if (
     !isNonEmptyString(objectMetadataId) ||
     !isNonEmptyString(nameSingular) ||
-    !ERP_DOCUMENT_OBJECT_NAME_SINGULARS.includes(nameSingular)
+    !ERP_DOCUMENT_OBJECTS.NAME_SINGULARS.includes(nameSingular)
   ) {
     return [];
   }
@@ -93,12 +90,26 @@ export const buildErpDocumentCommandMenuItems = (
     }),
   ];
 
-  if (nameSingular === ERP_SALES_INVOICE_OBJECT_NAME_SINGULAR) {
+  if (nameSingular === ERP_DOCUMENT_OBJECTS.SALES_INVOICE_NAME_SINGULAR) {
     items.push(
       buildErpDocumentCommandMenuItem({
         idPrefix: 'erp-print-sales-invoice',
         engineComponentKey: ERP_ENGINE_COMPONENT_KEYS.PRINT_SALES_INVOICE,
         label: t`Печать счёта`,
+        icon: 'IconPrinter',
+        position: 9002,
+        conditionalAvailabilityExpression: SINGLE_RECORD_EXPRESSION,
+        objectMetadataId,
+      }),
+    );
+  }
+
+  if (nameSingular === ERP_DOCUMENT_OBJECTS.SALES_SHIPMENT_NAME_SINGULAR) {
+    items.push(
+      buildErpDocumentCommandMenuItem({
+        idPrefix: 'erp-print-sales-shipment-upd',
+        engineComponentKey: ERP_ENGINE_COMPONENT_KEYS.PRINT_SALES_SHIPMENT_UPD,
+        label: t`Печать УПД`,
         icon: 'IconPrinter',
         position: 9002,
         conditionalAvailabilityExpression: SINGLE_RECORD_EXPRESSION,
