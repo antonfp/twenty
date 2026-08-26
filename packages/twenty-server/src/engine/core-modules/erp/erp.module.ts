@@ -6,6 +6,7 @@ import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permi
 import { UserRoleModule } from 'src/engine/metadata-modules/user-role/user-role.module';
 import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache.module';
 import { PostingRulesRegistry } from 'src/engine/core-modules/erp/posting-rules.registry';
+import { ErpActorRoleResolverService } from 'src/engine/core-modules/erp/services/erp-actor-role-resolver.service';
 import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { DocumentNumberingService } from 'src/engine/core-modules/erp/services/document-numbering.service';
 import { PeriodLockService } from 'src/engine/core-modules/erp/services/period-lock.service';
@@ -29,6 +30,7 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
     DocumentNumberingService,
     PostingService,
     ErpObjectPermissionGuardService,
+    ErpActorRoleResolverService,
     ErpPostingResolver,
   ],
   exports: [
@@ -37,6 +39,7 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
     DocumentNumberingService,
     PostingService,
     ErpObjectPermissionGuardService,
+    ErpActorRoleResolverService,
   ],
 })
 export class ErpModule {}

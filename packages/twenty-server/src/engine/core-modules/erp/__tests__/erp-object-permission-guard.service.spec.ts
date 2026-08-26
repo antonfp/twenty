@@ -98,4 +98,60 @@ describe('ErpObjectPermissionGuardService', () => {
     ).rejects.toThrow(ForbiddenException);
     expect(workspaceCacheService.getOrRecompute).not.toHaveBeenCalled();
   });
+
+  it('resolves when the role can read the object records', async () => {
+    const service = new ErpObjectPermissionGuardService(
+      buildWorkspaceCacheService({
+        [ROLE_ID]: { [OBJECT_METADATA_ID]: { canReadObjectRecords: true } },
+      }),
+      buildFlatEntityMapsCacheService(),
+    );
+
+    await expect(
+      service.assertCanReadObjectRecords({
+        workspaceId: WORKSPACE_ID,
+        roleId: ROLE_ID,
+        objectNameSingular: OBJECT_NAME_SINGULAR,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects when the role lacks canReadObjectRecords on the object', async () => {
+    const service = new ErpObjectPermissionGuardService(
+      buildWorkspaceCacheService({
+        [ROLE_ID]: {
+          [OBJECT_METADATA_ID]: {
+            // Update access alone must not grant read — the two are checked
+            // independently.
+            canUpdateObjectRecords: true,
+            canReadObjectRecords: false,
+          },
+        },
+      }),
+      buildFlatEntityMapsCacheService(),
+    );
+
+    await expect(
+      service.assertCanReadObjectRecords({
+        workspaceId: WORKSPACE_ID,
+        roleId: ROLE_ID,
+        objectNameSingular: OBJECT_NAME_SINGULAR,
+      }),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('rejects a read check when the role has no permissions entry at all', async () => {
+    const service = new ErpObjectPermissionGuardService(
+      buildWorkspaceCacheService({}),
+      buildFlatEntityMapsCacheService(),
+    );
+
+    await expect(
+      service.assertCanReadObjectRecords({
+        workspaceId: WORKSPACE_ID,
+        roleId: ROLE_ID,
+        objectNameSingular: OBJECT_NAME_SINGULAR,
+      }),
+    ).rejects.toThrow(ForbiddenException);
+  });
 });

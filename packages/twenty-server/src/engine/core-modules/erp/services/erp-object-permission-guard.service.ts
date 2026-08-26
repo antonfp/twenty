@@ -26,6 +26,49 @@ export class ErpObjectPermissionGuardService {
     roleId: string;
     objectNameSingular: string;
   }): Promise<void> {
+    await this.assertObjectPermission({
+      workspaceId,
+      roleId,
+      objectNameSingular,
+      permissionField: 'canUpdateObjectRecords',
+      forbiddenMessage: `Недостаточно прав: операция с документами «${objectNameSingular}» требует права на изменение записей этого объекта.`,
+    });
+  }
+
+  // Used by print endpoints: printing a document only reads it, so it
+  // requires the same permission as reading that object's records directly
+  // — not canUpdateObjectRecords, which would over-restrict read-only access.
+  async assertCanReadObjectRecords({
+    workspaceId,
+    roleId,
+    objectNameSingular,
+  }: {
+    workspaceId: string;
+    roleId: string;
+    objectNameSingular: string;
+  }): Promise<void> {
+    await this.assertObjectPermission({
+      workspaceId,
+      roleId,
+      objectNameSingular,
+      permissionField: 'canReadObjectRecords',
+      forbiddenMessage: `Недостаточно прав: операция с документами «${objectNameSingular}» требует права на чтение записей этого объекта.`,
+    });
+  }
+
+  private async assertObjectPermission({
+    workspaceId,
+    roleId,
+    objectNameSingular,
+    permissionField,
+    forbiddenMessage,
+  }: {
+    workspaceId: string;
+    roleId: string;
+    objectNameSingular: string;
+    permissionField: 'canUpdateObjectRecords' | 'canReadObjectRecords';
+    forbiddenMessage: string;
+  }): Promise<void> {
     const { flatObjectMetadataMaps } =
       await this.flatEntityMapsCacheService.getOrRecomputeManyOrAllFlatEntityMaps(
         {
@@ -38,8 +81,7 @@ export class ErpObjectPermissionGuardService {
       flatObjectMetadataMaps.byUniversalIdentifier,
     ).find(
       (flatObject) =>
-        isDefined(flatObject) &&
-        flatObject.nameSingular === objectNameSingular,
+        isDefined(flatObject) && flatObject.nameSingular === objectNameSingular,
     );
 
     if (!isDefined(objectMetadata)) {
@@ -48,18 +90,15 @@ export class ErpObjectPermissionGuardService {
       );
     }
 
-    const { rolesPermissions } = await this.workspaceCacheService.getOrRecompute(
-      workspaceId,
-      ['rolesPermissions'],
-    );
+    const { rolesPermissions } =
+      await this.workspaceCacheService.getOrRecompute(workspaceId, [
+        'rolesPermissions',
+      ]);
 
     if (
-      rolesPermissions[roleId]?.[objectMetadata.id]?.canUpdateObjectRecords !==
-      true
+      rolesPermissions[roleId]?.[objectMetadata.id]?.[permissionField] !== true
     ) {
-      throw new ForbiddenException(
-        `Недостаточно прав: операция с документами «${objectNameSingular}» требует права на изменение записей этого объекта.`,
-      );
+      throw new ForbiddenException(forbiddenMessage);
     }
   }
 }
