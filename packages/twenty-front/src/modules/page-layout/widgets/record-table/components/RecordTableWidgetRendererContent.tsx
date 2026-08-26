@@ -1,10 +1,12 @@
 import { getContextStoreViewType } from '@/context-store/utils/getContextStoreViewType';
+import { getErpLineItemPickerConfig } from '@/erp-documents/utils/erpLineSmartGrid';
 import { useObjectMetadataItemById } from '@/object-metadata/hooks/useObjectMetadataItemById';
 import { RecordBoardWidget } from '@/object-record/record-board-widget/components/RecordBoardWidget';
 import { RecordCalendarWidget } from '@/object-record/record-calendar-widget/components/RecordCalendarWidget';
 import { RecordListWidget } from '@/object-record/record-list-widget/components/RecordListWidget';
 import { RecordTableWidget } from '@/object-record/record-table-widget/components/RecordTableWidget';
 import { RecordTableWidgetProvider } from '@/object-record/record-table-widget/components/RecordTableWidgetProvider';
+import { RecordTableWidgetQuickAddRow } from '@/object-record/record-table-widget/components/RecordTableWidgetQuickAddRow';
 import { type RecordTableWidgetNestedRelationCreateThrough } from '@/object-record/record-table-widget/contexts/RecordTableWidgetContext';
 import { useIsPageLayoutInEditMode } from '@/page-layout/hooks/useIsPageLayoutInEditMode';
 import { recordTableWidgetViewDraftByWidgetIdComponentFamilySelector } from '@/page-layout/states/selectors/recordTableWidgetViewDraftByWidgetIdComponentFamilySelector';
@@ -87,14 +89,24 @@ export const RecordTableWidgetRendererContent = ({
   // widget calendars editable. Object permissions still gate the drag.
   const calendarIsReadOnly = !canEditCalendar;
 
+  // Task 6, quick-add: renders only for the 7-of-8 ERP line objects Task 5's
+  // own item picker targets (manualEntryLine has no quantity field and is
+  // excluded there already) — undefined for every other object, so this
+  // mount point is a no-op everywhere else in the app.
+  const erpLineItemPickerConfig =
+    getErpLineItemPickerConfig(objectMetadataItem);
+
   // Keyed rather than chained so a layout added to RECORD_TABLE_WIDGET_LAYOUTS
   // fails to compile here instead of silently rendering as a table.
   const renderWidgetForLayout = {
     [ViewType.TABLE]: () => (
-      <RecordTableWidget
-        isReadOnly={isReadOnly}
-        isEmptyStateHidden={isEmptyStateHidden}
-      />
+      <>
+        {isDefined(erpLineItemPickerConfig) && <RecordTableWidgetQuickAddRow />}
+        <RecordTableWidget
+          isReadOnly={isReadOnly}
+          isEmptyStateHidden={isEmptyStateHidden}
+        />
+      </>
     ),
     [ViewType.KANBAN]: () => <RecordBoardWidget isReadOnly={isReadOnly} />,
     [ViewType.LIST]: () => <RecordListWidget />,

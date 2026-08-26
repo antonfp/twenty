@@ -1,8 +1,10 @@
 import { type EnrichedObjectMetadataItem } from '@/object-metadata/types/EnrichedObjectMetadataItem';
 import {
   buildErpLineCreateInputFromItem,
+  buildErpLineQuantityIncrementUpdateInput,
   computeErpLineTabConveyorTarget,
   getErpLineItemPickerConfig,
+  getErpLineParentDocumentJoinColumnName,
 } from '@/erp-documents/utils/erpLineSmartGrid';
 import { type ObjectRecord } from '@/object-record/types/ObjectRecord';
 
@@ -146,6 +148,92 @@ describe('buildErpLineCreateInputFromItem', () => {
     });
 
     expect(input.name).toBe('');
+  });
+});
+
+describe('getErpLineParentDocumentJoinColumnName', () => {
+  it('derives the join column from the parent document for every ERP line object', () => {
+    expect(getErpLineParentDocumentJoinColumnName('salesInvoiceLine')).toBe(
+      'salesInvoiceId',
+    );
+    expect(getErpLineParentDocumentJoinColumnName('stockTransferLine')).toBe(
+      'stockTransferId',
+    );
+    expect(getErpLineParentDocumentJoinColumnName('manualEntryLine')).toBe(
+      'manualEntryId',
+    );
+  });
+
+  it('returns undefined for a non-ERP line object', () => {
+    expect(getErpLineParentDocumentJoinColumnName('person')).toBeUndefined();
+  });
+});
+
+describe('buildErpLineQuantityIncrementUpdateInput', () => {
+  // Task 6 quick-add's "duplicate" path (picking an item that is already a
+  // line on this document): quantity+1 and a recomputed amount must land in
+  // the SAME updateOneRecordInput object — a direct updateOneRecord call
+  // bypasses Task 3's usePersistField-driven amount sync, so this is the
+  // only place amount gets recomputed on increment.
+  it('increments quantity and recomputes amount in the same input for a full line object', () => {
+    const input = buildErpLineQuantityIncrementUpdateInput({
+      lineObjectMetadataItem: { fields: fieldsOf(FULL_LINE_FIELD_NAMES) },
+      existingLine: {
+        __typename: 'SalesInvoiceLine',
+        id: 'line-1',
+        quantity: 2,
+        price: { amountMicros: 54_000_000, currencyCode: 'RUB' },
+      },
+    });
+
+    expect(input).toEqual({
+      quantity: 3,
+      amount: { amountMicros: 162_000_000, currencyCode: 'RUB' },
+    });
+  });
+
+  it('treats a missing/non-numeric quantity as 0 before incrementing', () => {
+    const input = buildErpLineQuantityIncrementUpdateInput({
+      lineObjectMetadataItem: { fields: fieldsOf(FULL_LINE_FIELD_NAMES) },
+      existingLine: {
+        __typename: 'SalesInvoiceLine',
+        id: 'line-1',
+        quantity: null,
+        price: { amountMicros: 54_000_000, currencyCode: 'RUB' },
+      },
+    });
+
+    expect(input.quantity).toBe(1);
+  });
+
+  it('omits amount for a line object with no amount field (stockTransferLine)', () => {
+    const input = buildErpLineQuantityIncrementUpdateInput({
+      lineObjectMetadataItem: {
+        fields: fieldsOf(QUANTITY_ONLY_LINE_FIELD_NAMES),
+      },
+      existingLine: {
+        __typename: 'StockTransferLine',
+        id: 'line-1',
+        quantity: 1,
+        price: { amountMicros: 54_000_000, currencyCode: 'RUB' },
+      },
+    });
+
+    expect(input).toEqual({ quantity: 2 });
+  });
+
+  it('omits amount when the existing line has no price to recompute from', () => {
+    const input = buildErpLineQuantityIncrementUpdateInput({
+      lineObjectMetadataItem: { fields: fieldsOf(FULL_LINE_FIELD_NAMES) },
+      existingLine: {
+        __typename: 'SalesInvoiceLine',
+        id: 'line-1',
+        quantity: 1,
+        price: null,
+      },
+    });
+
+    expect(input).toEqual({ quantity: 2 });
   });
 });
 

@@ -18,7 +18,9 @@ const VAT_RATE_FIELD_NAME = 'vatRate';
 const AMOUNT_FIELD_NAME = 'amount';
 const DEFAULT_QUANTITY_ON_CREATE = 1;
 
-const ITEM_JOIN_COLUMN_NAME = computeRelationGqlFieldJoinColumnName({
+// Exported: Task 6's quick-add row matches a findMany result's item join
+// column against the picked item id (see erpLineSmartGrid usage there).
+export const ITEM_JOIN_COLUMN_NAME = computeRelationGqlFieldJoinColumnName({
   name: ITEM_RELATION_FIELD_NAME,
 });
 
@@ -42,11 +44,20 @@ export const getErpLineItemPickerConfig = (
       lineObjectMetadataItem.nameSingular,
     ),
   );
-  const hasQuantityField = lineObjectMetadataItem.fields.some(
+
+  // Short-circuits before touching .fields: Task 6's quick-add row calls
+  // this for EVERY object table's mount point (RecordTableWidgetRendererContent),
+  // not just ERP lines, so most calls now hit a non-ERP object whose test
+  // doubles / not-yet-loaded metadata may omit fields entirely.
+  if (!isErpLine) {
+    return undefined;
+  }
+
+  const hasQuantityField = (lineObjectMetadataItem.fields ?? []).some(
     (field) => field.name === QUANTITY_FIELD_NAME,
   );
 
-  if (!isErpLine || !hasQuantityField) {
+  if (!hasQuantityField) {
     return undefined;
   }
 
@@ -117,6 +128,79 @@ export const buildErpLineCreateInputFromItem = ({
     isDefined(itemRecord.vatRate)
   ) {
     input[VAT_RATE_FIELD_NAME] = itemRecord.vatRate;
+  }
+
+  return input;
+};
+
+// Task 6 quick-add: the line object's own join column to its parent document
+// (e.g. salesInvoiceLine → salesInvoiceId), derived from the same
+// doc/line-name convention getErpDocumentParentNameSingularForLine already
+// encodes — the relation field name on every line object equals its parent
+// document's nameSingular (verified against all 7 *-on-*-line.field.ts
+// definitions), so no second hardcoded map is needed. Used to scope a
+// server findMany to "this document's own lines" when checking for a
+// duplicate item before quick-add creates a new row.
+export const getErpLineParentDocumentJoinColumnName = (
+  lineObjectNameSingular: string,
+): string | undefined => {
+  const parentDocumentNameSingular = getErpDocumentParentNameSingularForLine(
+    lineObjectNameSingular,
+  );
+
+  if (!isDefined(parentDocumentNameSingular)) {
+    return undefined;
+  }
+
+  return computeRelationGqlFieldJoinColumnName({
+    name: parentDocumentNameSingular,
+  });
+};
+
+// Task 6 quick-add: builds the ONE updateOne input that bumps an existing
+// line's quantity when the same item is picked again — {quantity: +1,
+// amount?} in a single call. A direct updateOneRecord (unlike a grid-cell
+// edit that goes through usePersistField) never triggers Task 3's
+// maybeSyncErpLineAmountOnPersist, so amount has to be recomputed here too,
+// in the same mutation, or the line would show a stale amount until its
+// next manual edit. Mirrors buildErpLineCreateInputFromItem's field-presence
+// gating: only writes amount when the line object actually has one and the
+// existing line carries a price to recompute from.
+export const buildErpLineQuantityIncrementUpdateInput = ({
+  lineObjectMetadataItem,
+  existingLine,
+}: {
+  lineObjectMetadataItem: Pick<EnrichedObjectMetadataItem, 'fields'>;
+  existingLine: ObjectRecord;
+}): Partial<ObjectRecord> => {
+  const lineFieldNames = new Set(
+    lineObjectMetadataItem.fields.map((field) => field.name),
+  );
+
+  const currentQuantity =
+    typeof existingLine.quantity === 'number' ? existingLine.quantity : 0;
+  const newQuantity = currentQuantity + 1;
+
+  const input: Partial<ObjectRecord> = {
+    [QUANTITY_FIELD_NAME]: newQuantity,
+  };
+
+  const existingPrice = existingLine.price as
+    | FieldCurrencyValue
+    | null
+    | undefined;
+
+  if (
+    lineFieldNames.has(AMOUNT_FIELD_NAME) &&
+    isDefined(existingPrice?.amountMicros)
+  ) {
+    input[AMOUNT_FIELD_NAME] = {
+      currencyCode: existingPrice.currencyCode,
+      amountMicros: computeErpLineAmountMicros(
+        newQuantity,
+        existingPrice.amountMicros,
+      ),
+    } satisfies FieldCurrencyValue;
   }
 
   return input;
