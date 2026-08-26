@@ -86,6 +86,22 @@ describe('ErpDocumentGuardService', () => {
         }),
       ).rejects.toThrow(CommonQueryRunnerException);
     });
+
+    // Coordinator fix-round (integrity finding): create must default to DRAFT
+    // when docStatus is simply omitted — only an explicit non-DRAFT value is
+    // rejected by assertCreateDataIsDraft.
+    it('allows createOne with docStatus omitted (defaults to DRAFT)', async () => {
+      const { service } = createService();
+
+      await expect(
+        service.assertDocumentMutationAllowed({
+          workspaceId: WORKSPACE_ID,
+          objectNameSingular: OBJECT_NAME,
+          operation: 'createOne',
+          payload: { data: { name: 'x' } },
+        }),
+      ).resolves.toBeUndefined();
+    });
   });
 
   describe('update', () => {
@@ -117,6 +133,61 @@ describe('ErpDocumentGuardService', () => {
           payload: { id: RECORD_ID, data: { name: 'x' } },
         }),
       ).resolves.toBeUndefined();
+    });
+
+    // Coordinator fix-round (integrity finding): docStatus/postedAt/cancelledAt
+    // are lifecycle fields the posting flow owns — reject a manual write even
+    // when the record itself is currently DRAFT (this check runs independently
+    // of, and before, the "record must be DRAFT" check above).
+    it('blocks updateOne setting docStatus on a currently-DRAFT document', async () => {
+      const { service } = createService([
+        { id: RECORD_ID, docStatus: 'DRAFT' },
+      ]);
+
+      await expect(
+        service.assertDocumentMutationAllowed({
+          workspaceId: WORKSPACE_ID,
+          objectNameSingular: OBJECT_NAME,
+          operation: 'updateOne',
+          payload: { id: RECORD_ID, data: { docStatus: 'POSTED' } },
+        }),
+      ).rejects.toThrow(CommonQueryRunnerException);
+    });
+
+    it('blocks updateOne setting postedAt manually on a currently-DRAFT document', async () => {
+      const { service } = createService([
+        { id: RECORD_ID, docStatus: 'DRAFT' },
+      ]);
+
+      await expect(
+        service.assertDocumentMutationAllowed({
+          workspaceId: WORKSPACE_ID,
+          objectNameSingular: OBJECT_NAME,
+          operation: 'updateOne',
+          payload: {
+            id: RECORD_ID,
+            data: { postedAt: new Date().toISOString() },
+          },
+        }),
+      ).rejects.toThrow(CommonQueryRunnerException);
+    });
+
+    it('blocks updateOne setting cancelledAt manually on a currently-DRAFT document', async () => {
+      const { service } = createService([
+        { id: RECORD_ID, docStatus: 'DRAFT' },
+      ]);
+
+      await expect(
+        service.assertDocumentMutationAllowed({
+          workspaceId: WORKSPACE_ID,
+          objectNameSingular: OBJECT_NAME,
+          operation: 'updateOne',
+          payload: {
+            id: RECORD_ID,
+            data: { cancelledAt: new Date().toISOString() },
+          },
+        }),
+      ).rejects.toThrow(CommonQueryRunnerException);
     });
   });
 

@@ -422,6 +422,28 @@ async function main() {
     'ASSERT docStatus DRAFT after cancel_document (not terminal CANCELLED — Phase 7 T7), postedAt/cancelledAt null',
   );
 
+  // 3e. Негатив (coordinator fix-round, integrity finding): generic CRUD
+  // update_one_sales_invoice не должен уметь выставить docStatus напрямую —
+  // это поле принадлежит потоку проведения (ErpDocumentGuardService,
+  // pre-query hook на updateOne), даже когда документ прямо сейчас DRAFT.
+  const denyDocStatusOut = await execTool(token, 'update_one_sales_invoice', {
+    id: invoice.id,
+    docStatus: 'POSTED',
+  });
+  if (denyDocStatusOut.success) {
+    throw new Error(
+      `update_one_sales_invoice must reject a manual docStatus write, got: ${JSON.stringify(denyDocStatusOut)}`,
+    );
+  }
+  if (!denyDocStatusOut.error?.includes('managed by the posting flow')) {
+    throw new Error(
+      `update_one_sales_invoice docStatus denial has unexpected error: ${JSON.stringify(denyDocStatusOut)}`,
+    );
+  }
+  ok(
+    `negative: update_one_sales_invoice(docStatus) denied — "${denyDocStatusOut.error}"`,
+  );
+
   // 4. lookup_party_by_inn без DADATA_API_KEY -> грейсфул-ошибка, не 500.
   const lookupRpc = (await mcpToolCall(token, 'lookup_party_by_inn', {
     inn: '7728168971',
