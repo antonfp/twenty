@@ -6,6 +6,7 @@ import { isDefined } from 'twenty-shared/utils';
 
 import { ScalarsExplorerService } from 'src/engine/api/graphql/services/scalars-explorer.service';
 import { WorkspaceGraphQLSchemaGenerator } from 'src/engine/api/graphql/workspace-schema-builder/workspace-graphql-schema.factory';
+import { resolveInstalledDependencyApplicationIds } from 'src/engine/core-modules/application/utils/resolve-installed-dependency-application-ids.util';
 import { FlatWorkspace } from 'src/engine/core-modules/workspace/types/flat-workspace.type';
 import {
   FlatEntityMapsException,
@@ -87,9 +88,23 @@ export class WorkspaceGraphqlSchemaSDLService {
           TWENTY_STANDARD_APPLICATION.universalIdentifier
         ];
 
-      const applicationIds = isDefined(twentyStandardApplicationId)
-        ? [twentyStandardApplicationId, applicationId]
-        : [applicationId];
+      // Declared dependency applications must stay visible in the
+      // application-scoped schema, otherwise relation fields pointing at
+      // their objects have no target and client-gen breaks after apply.
+      const declaredDependencyApplicationIds = isDefined(flatApplicationMaps)
+        ? resolveInstalledDependencyApplicationIds({
+            dependencies: flatApplicationMaps.byId[applicationId]?.dependencies,
+            flatApplicationMaps,
+          })
+        : [];
+
+      const applicationIds = [
+        ...(isDefined(twentyStandardApplicationId)
+          ? [twentyStandardApplicationId]
+          : []),
+        applicationId,
+        ...declaredDependencyApplicationIds,
+      ];
 
       flatObjectMetadataMaps = this.filterFlatEntityMapsByApplicationIds(
         allFlatObjectMetadataMaps,
