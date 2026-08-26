@@ -4,11 +4,14 @@ import { isNonEmptyString } from '@sniptt/guards';
 import { In } from 'typeorm';
 import { isDefined } from 'twenty-shared/utils';
 
+import { PrintTemplateService } from 'src/engine/core-modules/erp/services/print-template.service';
 import { amountInWordsRu } from 'src/engine/core-modules/erp/utils/amount-in-words-ru.util';
 import {
   extractLineBlockTemplate,
   fillPlaceholders,
   fillPrintTemplate,
+  getTemplatePlaceholderNames,
+  withUnknownPlaceholdersPreserved,
 } from 'src/engine/core-modules/erp/utils/fill-print-template.util';
 import {
   type ComputedInvoiceLine,
@@ -95,10 +98,19 @@ const buildComposerLine = (party: WorkspaceRecord | null): string => {
   );
 };
 
+// Placeholder names the built-in template (and this service's fill code)
+// supports — get_print_template exposes this list; an active override
+// template's own unsupported placeholder is left literal instead of blanked
+// (see withUnknownPlaceholdersPreserved), not treated as an error.
+export const SALES_SHIPMENT_PLACEHOLDER_NAMES: ReadonlySet<string> = new Set(
+  getTemplatePlaceholderNames(UPD_TEMPLATE_HTML),
+);
+
 @Injectable()
 export class SalesShipmentPrintService {
   constructor(
     private readonly globalWorkspaceOrmManager: GlobalWorkspaceOrmManager,
+    private readonly printTemplateService: PrintTemplateService,
   ) {}
 
   async renderSalesShipmentUpdHtml(
@@ -154,6 +166,16 @@ export class SalesShipmentPrintService {
     );
     const itemsById = await this.loadItemsById(workspaceId, lines);
 
+    const activeOverride = await this.printTemplateService.findActiveTemplate(
+      workspaceId,
+      'UPD',
+    );
+    const { html: templateHtml } =
+      this.printTemplateService.resolveTemplateHtml(
+        activeOverride,
+        UPD_TEMPLATE_HTML,
+      );
+
     return this.render({
       shipment,
       lines,
@@ -161,6 +183,7 @@ export class SalesShipmentPrintService {
       customer,
       itemsById,
       status,
+      templateHtml,
     });
   }
 
@@ -241,6 +264,7 @@ export class SalesShipmentPrintService {
     customer,
     itemsById,
     status,
+    templateHtml,
   }: {
     shipment: WorkspaceRecord;
     lines: WorkspaceRecord[];
@@ -248,6 +272,7 @@ export class SalesShipmentPrintService {
     customer: WorkspaceRecord | null;
     itemsById: Map<string, WorkspaceRecord>;
     status: UpdStatus;
+    templateHtml: string;
   }): string {
     // Totals are recomputed from the lines so the print form is correct for
     // drafts too, not only for posted shipments.
@@ -307,20 +332,28 @@ export class SalesShipmentPrintService {
       buyer_composer: buildComposerLine(customer),
     };
 
-    const lineBlockTemplate = extractLineBlockTemplate(UPD_TEMPLATE_HTML);
+    const lineBlockTemplate = extractLineBlockTemplate(templateHtml);
 
     const renderedLines = computedLines
       .map((computedLine, lineIndex) =>
         fillPlaceholders(
           lineBlockTemplate,
-          this.buildLineValues(computedLine, lineIndex, itemsById, status),
+          withUnknownPlaceholdersPreserved(
+            lineBlockTemplate,
+            this.buildLineValues(computedLine, lineIndex, itemsById, status),
+            SALES_SHIPMENT_PLACEHOLDER_NAMES,
+          ),
         ),
       )
       .join('');
 
     return fillPrintTemplate({
-      template: UPD_TEMPLATE_HTML,
-      headerValues,
+      template: templateHtml,
+      headerValues: withUnknownPlaceholdersPreserved(
+        templateHtml,
+        headerValues,
+        SALES_SHIPMENT_PLACEHOLDER_NAMES,
+      ),
       renderedLinesHtml: renderedLines,
     });
   }

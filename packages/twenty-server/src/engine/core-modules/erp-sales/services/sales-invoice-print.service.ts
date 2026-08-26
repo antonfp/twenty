@@ -4,11 +4,14 @@ import { isNonEmptyString } from '@sniptt/guards';
 import { In } from 'typeorm';
 import { isDefined } from 'twenty-shared/utils';
 
+import { PrintTemplateService } from 'src/engine/core-modules/erp/services/print-template.service';
 import { amountInWordsRu } from 'src/engine/core-modules/erp/utils/amount-in-words-ru.util';
 import {
   extractLineBlockTemplate,
   fillPlaceholders,
   fillPrintTemplate,
+  getTemplatePlaceholderNames,
+  withUnknownPlaceholdersPreserved,
 } from 'src/engine/core-modules/erp/utils/fill-print-template.util';
 import { SCHET_TEMPLATE_HTML } from 'src/engine/core-modules/erp-sales/constants/schet-template.constant';
 import { type CurrencyFieldValue } from 'src/engine/core-modules/erp-sales/types/erp-sales.types';
@@ -75,10 +78,19 @@ const buildRequisitesLine = (party: WorkspaceRecord | null): string => {
     .join(', ');
 };
 
+// Placeholder names the built-in template (and this service's fill code)
+// supports — get_print_template exposes this list; an active override
+// template's own unsupported placeholder is left literal instead of blanked
+// (see withUnknownPlaceholdersPreserved), not treated as an error.
+export const SALES_INVOICE_PLACEHOLDER_NAMES: ReadonlySet<string> = new Set(
+  getTemplatePlaceholderNames(SCHET_TEMPLATE_HTML),
+);
+
 @Injectable()
 export class SalesInvoicePrintService {
   constructor(
     private readonly globalWorkspaceOrmManager: GlobalWorkspaceOrmManager,
+    private readonly printTemplateService: PrintTemplateService,
   ) {}
 
   async renderSalesInvoiceHtml(
@@ -134,7 +146,24 @@ export class SalesInvoicePrintService {
     );
     const itemsById = await this.loadItemsById(workspaceId, lines);
 
-    return this.render({ invoice, lines, organization, customer, itemsById });
+    const activeOverride = await this.printTemplateService.findActiveTemplate(
+      workspaceId,
+      'SCHET',
+    );
+    const { html: templateHtml } =
+      this.printTemplateService.resolveTemplateHtml(
+        activeOverride,
+        SCHET_TEMPLATE_HTML,
+      );
+
+    return this.render({
+      invoice,
+      lines,
+      organization,
+      customer,
+      itemsById,
+      templateHtml,
+    });
   }
 
   private async loadOrganization(
@@ -215,12 +244,14 @@ export class SalesInvoicePrintService {
     organization,
     customer,
     itemsById,
+    templateHtml,
   }: {
     invoice: WorkspaceRecord;
     lines: WorkspaceRecord[];
     organization: WorkspaceRecord | null;
     customer: WorkspaceRecord | null;
     itemsById: Map<string, WorkspaceRecord>;
+    templateHtml: string;
   }): string {
     // Totals are recomputed from the lines so the print form is correct for
     // drafts too, not only for posted invoices.
@@ -264,7 +295,7 @@ export class SalesInvoicePrintService {
         : asText(organization?.directorName),
     };
 
-    const lineBlockTemplate = extractLineBlockTemplate(SCHET_TEMPLATE_HTML);
+    const lineBlockTemplate = extractLineBlockTemplate(templateHtml);
 
     const renderedLines = computedLines
       .map(({ line, amountKopecks }, lineIndex) => {
@@ -273,8 +304,7 @@ export class SalesInvoicePrintService {
             ? itemsById.get(line.itemId)
             : undefined;
         const unitValue = asText(line.unit) || asText(item?.unit);
-
-        return fillPlaceholders(lineBlockTemplate, {
+        const lineValues = {
           row_number: String(lineIndex + 1),
           item_name: asText(line.name) || asText(item?.name),
           quantity: formatQuantityRu(Number(line.quantity ?? 0)),
@@ -283,13 +313,26 @@ export class SalesInvoicePrintService {
             currencyToKopecks(line.price as CurrencyFieldValue),
           ),
           amount: formatMoneyRu(amountKopecks),
-        });
+        };
+
+        return fillPlaceholders(
+          lineBlockTemplate,
+          withUnknownPlaceholdersPreserved(
+            lineBlockTemplate,
+            lineValues,
+            SALES_INVOICE_PLACEHOLDER_NAMES,
+          ),
+        );
       })
       .join('');
 
     return fillPrintTemplate({
-      template: SCHET_TEMPLATE_HTML,
-      headerValues,
+      template: templateHtml,
+      headerValues: withUnknownPlaceholdersPreserved(
+        templateHtml,
+        headerValues,
+        SALES_INVOICE_PLACEHOLDER_NAMES,
+      ),
       renderedLinesHtml: renderedLines,
     });
   }

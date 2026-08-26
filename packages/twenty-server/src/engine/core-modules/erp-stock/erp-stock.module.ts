@@ -40,6 +40,9 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     SalesShipmentPrintService,
     ...ERP_STOCK_GUARD_HOOKS,
   ],
+  // SalesShipmentPrintService is consumed by McpModule's print-template
+  // tools (get_print_template/render_print_preview need to actually render УПД).
+  exports: [SalesShipmentPrintService],
 })
 export class ErpStockModule implements OnModuleInit {
   constructor(

@@ -53,6 +53,21 @@ import {
   postDocumentInputSchema,
 } from 'src/engine/api/mcp/tools/post-document.tool';
 import {
+  createGetPrintTemplateTool,
+  GET_PRINT_TEMPLATE_TOOL_NAME,
+  getPrintTemplateInputSchema,
+} from 'src/engine/api/mcp/tools/get-print-template.tool';
+import {
+  createUpdatePrintTemplateTool,
+  UPDATE_PRINT_TEMPLATE_TOOL_NAME,
+  updatePrintTemplateInputSchema,
+} from 'src/engine/api/mcp/tools/update-print-template.tool';
+import {
+  createRenderPrintPreviewTool,
+  RENDER_PRINT_PREVIEW_TOOL_NAME,
+  renderPrintPreviewInputSchema,
+} from 'src/engine/api/mcp/tools/render-print-preview.tool';
+import {
   createTrialBalanceTool,
   TRIAL_BALANCE_TOOL_NAME,
   trialBalanceInputSchema,
@@ -69,8 +84,11 @@ import { DadataService } from 'src/engine/core-modules/dadata/services/dadata.se
 import { ErpCustomizationSurfaceService } from 'src/engine/core-modules/erp/services/erp-customization-surface.service';
 import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
+import { PrintTemplateService } from 'src/engine/core-modules/erp/services/print-template.service';
 import { BankStatementImportService } from 'src/engine/core-modules/erp-accounting/services/bank-statement-import.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
+import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
+import { SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
 import { type FlatApiKey } from 'src/engine/core-modules/api-key/types/flat-api-key.type';
 import { type WorkspaceAuthContext } from 'src/engine/core-modules/auth/types/workspace-auth-context.type';
 import { buildApiKeyAuthContext } from 'src/engine/core-modules/auth/utils/build-api-key-auth-context.util';
@@ -146,6 +164,9 @@ export class McpProtocolService {
     private readonly trialBalanceService: TrialBalanceService,
     private readonly bankStatementImportService: BankStatementImportService,
     private readonly erpCustomizationSurfaceService: ErpCustomizationSurfaceService,
+    private readonly printTemplateService: PrintTemplateService,
+    private readonly salesInvoicePrintService: SalesInvoicePrintService,
+    private readonly salesShipmentPrintService: SalesShipmentPrintService,
   ) {}
 
   async handleInitialize(requestId: string | number, workspaceId: string) {
@@ -413,6 +434,35 @@ export class McpProtocolService {
         ),
         inputSchema: zodSchema(importBankStatementInputSchema),
         annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [GET_PRINT_TEMPLATE_TOOL_NAME]: {
+        ...createGetPrintTemplateTool(
+          this.printTemplateService,
+          workspace.id,
+          assertCanReadObjectRecords,
+        ),
+        inputSchema: zodSchema(getPrintTemplateInputSchema),
+        annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [UPDATE_PRINT_TEMPLATE_TOOL_NAME]: {
+        ...createUpdatePrintTemplateTool(
+          this.printTemplateService,
+          workspace.id,
+          assertCanUpdateObjectRecords,
+        ),
+        inputSchema: zodSchema(updatePrintTemplateInputSchema),
+        annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [RENDER_PRINT_PREVIEW_TOOL_NAME]: {
+        ...createRenderPrintPreviewTool(
+          this.printTemplateService,
+          this.salesInvoicePrintService,
+          this.salesShipmentPrintService,
+          workspace.id,
+          assertCanReadObjectRecords,
+        ),
+        inputSchema: zodSchema(renderPrintPreviewInputSchema),
+        annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
     };
   }

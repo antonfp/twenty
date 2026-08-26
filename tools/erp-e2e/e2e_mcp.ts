@@ -39,6 +39,7 @@
 // docs/erp-design/mcp-surface.md).
 
 import {
+  BASE,
   gql,
   login,
   mcpRpc,
@@ -130,6 +131,9 @@ async function main() {
     'import_bank_statement',
     'list_customization_surface',
     'list_workflow_capabilities',
+    'get_print_template',
+    'update_print_template',
+    'render_print_preview',
   ];
   const EXPECTED_PLATFORM_TOOLS = [
     'search_help_center',
@@ -1059,6 +1063,133 @@ async function main() {
       token,
     );
   }
+
+  // 11. Phase 8 T4 (переопределяемые печатные формы): get_print_template /
+  // update_print_template / render_print_preview + REST print endpoint,
+  // through the workspace printTemplate object applied by erp-base. Reuses
+  // `invoice` from step 3 — printTemplate has just been applied for the
+  // first time in this workspace, so there is no pre-existing SCHET override
+  // to disturb.
+  const MARKER = 'Спасибо за покупку!';
+
+  // 11a. get_print_template: baseline is the built-in template (no active
+  // override exists yet), with the placeholder list this print service fills.
+  const baselineTemplateRpc = (await mcpToolCall(token, 'get_print_template', {
+    documentType: 'SCHET',
+  })) as RpcWithStatus;
+  const baselineTemplate = mcpToolResultJson(baselineTemplateRpc) as {
+    source: string;
+    templateHtml: string;
+    fallbackReason: string | null;
+    availablePlaceholders: string[];
+  };
+  if (baselineTemplate.source !== 'built-in')
+    throw new Error(
+      `get_print_template (baseline): expected source built-in, got: ${JSON.stringify(baselineTemplate)}`,
+    );
+  if (!baselineTemplate.availablePlaceholders.includes('invoice_number'))
+    throw new Error(
+      `get_print_template (baseline): expected "invoice_number" placeholder, got: ${JSON.stringify(baselineTemplate.availablePlaceholders)}`,
+    );
+  ok(
+    `get_print_template (baseline): source=built-in, ${baselineTemplate.availablePlaceholders.length} known placeholders`,
+  );
+
+  // 11b. update_print_template: replace the SCHET template with a valid
+  // custom one (known placeholders + a required line block) carrying the
+  // marker string.
+  const customSchetHtml = [
+    '<!doctype html><html><body>',
+    `<div>Счёт № {{invoice_number}} от {{invoice_date}}</div>`,
+    `<div class="marker">${MARKER}</div>`,
+    '<table><tbody>',
+    '<!-- BEGIN line -->',
+    '<tr><td>{{row_number}}</td><td>{{item_name}}</td><td>{{amount}}</td></tr>',
+    '<!-- END line -->',
+    '</tbody></table>',
+    '</body></html>',
+  ].join('\n');
+
+  const updateOut = mcpToolResultJson(
+    (await mcpToolCall(token, 'update_print_template', {
+      documentType: 'SCHET',
+      html: customSchetHtml,
+    })) as RpcWithStatus,
+  ) as { success: boolean; id: string; message: string };
+  if (!updateOut.success)
+    throw new Error(`update_print_template failed: ${JSON.stringify(updateOut)}`);
+  const printTemplateId = updateOut.id;
+  ok(`update_print_template: ${updateOut.message}`);
+
+  try {
+    // 11c. render_print_preview: the marker shows up, source is "custom".
+    const previewRpc = (await mcpToolCall(token, 'render_print_preview', {
+      documentType: 'SCHET',
+      recordId: invoice.id,
+    })) as RpcWithStatus;
+    const preview = mcpToolResultJson(previewRpc) as {
+      html: string;
+      source: string;
+      fallbackReason: string | null;
+      unfilledPlaceholders: string[];
+    };
+    if (preview.source !== 'custom' || !preview.html.includes(MARKER))
+      throw new Error(
+        `render_print_preview: expected custom template with marker, got source=${preview.source}, html contains marker=${preview.html.includes(MARKER)}`,
+      );
+    ok(`render_print_preview: custom template rendered, marker present`);
+
+    // 11d. Same document through the REST print endpoint (not just MCP) —
+    // the override must be visible on the actual print route too.
+    const restPrintRes = await fetch(
+      `${BASE}/rest/erp/sales-invoices/${invoice.id}/print`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!restPrintRes.ok)
+      throw new Error(
+        `REST print endpoint failed: HTTP ${restPrintRes.status}`,
+      );
+    const restPrintHtml = await restPrintRes.text();
+    if (!restPrintHtml.includes(MARKER))
+      throw new Error(
+        'REST print endpoint: expected marker in rendered HTML, not found',
+      );
+    ok('REST /rest/erp/sales-invoices/:id/print: marker present');
+  } finally {
+    // 11e. Revert to the built-in template — deactivate the override record
+    // via the standard printTemplate CRUD tool (no dedicated "reset" tool by
+    // design: an ordinary object, ordinary object-permission CRUD covers it).
+    const deactivateOut = await execTool(token, 'update_one_print_template', {
+      id: printTemplateId,
+      isActive: false,
+    });
+    if (!deactivateOut.success)
+      throw new Error(
+        `update_one_print_template (deactivate) failed: ${JSON.stringify(deactivateOut)}`,
+      );
+  }
+  ok(`cleanup: update_one_print_template(${printTemplateId}, isActive=false) done`);
+
+  // 11f. ASSERT fallback: both render_print_preview and the REST endpoint
+  // are back to the built-in template — no marker anywhere.
+  const fallbackPreview = mcpToolResultJson(
+    (await mcpToolCall(token, 'render_print_preview', {
+      documentType: 'SCHET',
+      recordId: invoice.id,
+    })) as RpcWithStatus,
+  ) as { html: string; source: string };
+  if (fallbackPreview.source !== 'built-in' || fallbackPreview.html.includes(MARKER))
+    throw new Error(
+      `ASSERT fallback: expected built-in template without marker, got: source=${fallbackPreview.source}, hasMarker=${fallbackPreview.html.includes(MARKER)}`,
+    );
+  const fallbackRestHtml = await (
+    await fetch(`${BASE}/rest/erp/sales-invoices/${invoice.id}/print`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  ).text();
+  if (fallbackRestHtml.includes(MARKER))
+    throw new Error('ASSERT fallback (REST): marker still present after deactivation');
+  ok('ASSERT fallback: render_print_preview and REST print both back to built-in, no marker');
 
   console.log(`\n=== E2E MCP ПРОЙДЕН (${steps} шагов) ===`);
 }

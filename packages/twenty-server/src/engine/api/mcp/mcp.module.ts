@@ -9,6 +9,8 @@ import { ApiKeyModule } from 'src/engine/core-modules/api-key/api-key.module';
 import { DadataModule } from 'src/engine/core-modules/dadata/dadata.module';
 import { ErpModule } from 'src/engine/core-modules/erp/erp.module';
 import { ErpAccountingModule } from 'src/engine/core-modules/erp-accounting/erp-accounting.module';
+import { ErpSalesModule } from 'src/engine/core-modules/erp-sales/erp-sales.module';
+import { ErpStockModule } from 'src/engine/core-modules/erp-stock/erp-stock.module';
 import { MetricsModule } from 'src/engine/core-modules/metrics/metrics.module';
 import { TokenModule } from 'src/engine/core-modules/auth/token/token.module';
 import { TwentyConfigModule } from 'src/engine/core-modules/twenty-config/twenty-config.module';
@@ -28,6 +30,8 @@ import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache
     DadataModule,
     ErpModule,
     ErpAccountingModule,
+    ErpSalesModule,
+    ErpStockModule,
     MetricsModule,
     TokenModule,
     WorkspaceCacheStorageModule,

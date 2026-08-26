@@ -15,6 +15,7 @@ import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/ser
 import { DocumentNumberingService } from 'src/engine/core-modules/erp/services/document-numbering.service';
 import { PeriodLockService } from 'src/engine/core-modules/erp/services/period-lock.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
+import { PrintTemplateService } from 'src/engine/core-modules/erp/services/print-template.service';
 
 // GlobalWorkspaceOrmManager comes from the @Global()
 // GlobalWorkspaceDatasourceModule, so no imports are needed.
@@ -38,6 +39,7 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
     PeriodLockService,
     DocumentNumberingService,
     PostingService,
+    PrintTemplateService,
     ErpObjectPermissionGuardService,
     ErpActorRoleResolverService,
     ErpMetadataToolGuardService,
@@ -50,6 +52,7 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
     PeriodLockService,
     DocumentNumberingService,
     PostingService,
+    PrintTemplateService,
     ErpObjectPermissionGuardService,
     ErpActorRoleResolverService,
     ErpMetadataToolGuardService,

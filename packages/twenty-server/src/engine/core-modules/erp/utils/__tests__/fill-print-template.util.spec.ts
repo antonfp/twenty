@@ -2,6 +2,9 @@ import {
   extractLineBlockTemplate,
   fillPlaceholders,
   fillPrintTemplate,
+  findUnknownPlaceholderNames,
+  getTemplatePlaceholderNames,
+  withUnknownPlaceholdersPreserved,
 } from 'src/engine/core-modules/erp/utils/fill-print-template.util';
 
 const TEMPLATE = [
@@ -76,5 +79,50 @@ describe('fillPrintTemplate', () => {
     });
 
     expect(result).toContain('ООО «Ромашка {{PLUS}}»');
+  });
+});
+
+// T4 (Phase 8): a workspace print-template override may use a placeholder
+// name the print service doesn't fill (typo or genuinely unsupported) — the
+// ruling says that's not an error and it should stay visible, not be
+// silently blanked the way fillPlaceholders treats a normal missing key.
+describe('getTemplatePlaceholderNames / findUnknownPlaceholderNames / withUnknownPlaceholdersPreserved', () => {
+  it('lists distinct placeholder names in a template, deduplicated', () => {
+    expect(getTemplatePlaceholderNames('{{a}} {{b}} {{a}}')).toEqual([
+      'a',
+      'b',
+    ]);
+  });
+
+  it('finds only the placeholder names not in the known set', () => {
+    const result = findUnknownPlaceholderNames(
+      '{{known}} {{typo}} {{known}}',
+      new Set(['known']),
+    );
+
+    expect(result).toEqual(['typo']);
+  });
+
+  it('leaves an unknown placeholder as literal text through fillPlaceholders instead of blanking it', () => {
+    const augmented = withUnknownPlaceholdersPreserved(
+      '{{known}} {{clown_car}}',
+      { known: 'значение' },
+      new Set(['known']),
+    );
+
+    expect(fillPlaceholders('{{known}} {{clown_car}}', augmented)).toBe(
+      'значение {{clown_car}}',
+    );
+  });
+
+  it('is a no-op when every placeholder in the template is known', () => {
+    const values = { known: 'значение' };
+    const augmented = withUnknownPlaceholdersPreserved(
+      '{{known}}',
+      values,
+      new Set(['known']),
+    );
+
+    expect(augmented).toEqual(values);
   });
 });

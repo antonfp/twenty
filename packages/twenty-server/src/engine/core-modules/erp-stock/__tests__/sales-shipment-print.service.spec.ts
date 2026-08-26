@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 
+import { type PrintTemplateService } from 'src/engine/core-modules/erp/services/print-template.service';
 import { formatMoneyRu } from 'src/engine/core-modules/erp-sales/utils/format-ru.util';
 import { SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
 import { type GlobalWorkspaceOrmManager } from 'src/engine/twenty-orm/global-workspace-datasource/global-workspace-orm.manager';
@@ -95,9 +96,32 @@ const createMockRepository = () => ({
 
 type MockRepository = ReturnType<typeof createMockRepository>;
 
+// Defaults to "no active override -> render the built-in template
+// unchanged", matching prior behaviour exactly, so every pre-existing test
+// below is unaffected by this service now taking PrintTemplateService.
+// Individual tests override resolveTemplateHtml's mock to exercise the
+// custom-template wiring instead.
+type ResolvedTemplate = {
+  html: string;
+  source: 'custom' | 'built-in';
+  fallbackReason: string | null;
+};
+
+const createMockPrintTemplateService = () => ({
+  findActiveTemplate: jest.fn().mockResolvedValue(null),
+  resolveTemplateHtml: jest.fn(
+    (_activeOverride: unknown, builtInHtml: string): ResolvedTemplate => ({
+      html: builtInHtml,
+      source: 'built-in',
+      fallbackReason: null,
+    }),
+  ),
+});
+
 describe('SalesShipmentPrintService', () => {
   let service: SalesShipmentPrintService;
   let repositories: Record<string, MockRepository>;
+  let printTemplateService: ReturnType<typeof createMockPrintTemplateService>;
 
   beforeEach(() => {
     repositories = {
@@ -127,8 +151,11 @@ describe('SalesShipmentPrintService', () => {
       ),
     };
 
+    printTemplateService = createMockPrintTemplateService();
+
     service = new SalesShipmentPrintService(
       ormManager as unknown as GlobalWorkspaceOrmManager,
+      printTemplateService as unknown as PrintTemplateService,
     );
   });
 
@@ -356,5 +383,86 @@ describe('SalesShipmentPrintService', () => {
     // ИП без КПП — только ИНН.
     expect(html).toContain('772816897100');
     expect(html).not.toContain('772816897100/');
+  });
+
+  // T4 (Phase 8): a workspace printTemplate override renders through the
+  // exact same fillPlaceholders/fillPrintTemplate pass as the built-in
+  // template — this proves the wiring, not the sanity-check logic itself
+  // (that's PrintTemplateService.resolveTemplateHtml, tested in isolation).
+  describe('workspace print-template override', () => {
+    const CUSTOM_TEMPLATE = [
+      '<div>УПД № {{document_number}} от {{document_date}}</div>',
+      '<div class="marker">Спасибо за покупку!</div>',
+      '<table><tbody>',
+      '<!-- BEGIN line -->',
+      '<tr><td>{{row_number}}</td><td>{{item_name}}</td><td>{{amount_gross}}</td></tr>',
+      '<!-- END line -->',
+      '</tbody></table>',
+    ].join('\n');
+
+    const useCustomTemplate = (): void => {
+      printTemplateService.resolveTemplateHtml.mockReturnValue({
+        html: CUSTOM_TEMPLATE,
+        source: 'custom',
+        fallbackReason: null,
+      });
+    };
+
+    it('renders the active override instead of the built-in template', async () => {
+      useCustomTemplate();
+
+      const html = await service.renderSalesShipmentUpdHtml(
+        WORKSPACE_ID,
+        SHIPMENT_ID,
+        '1',
+      );
+
+      expect(html).toContain('Спасибо за покупку!');
+      expect(html).toContain('№ 7 от 26 августа 2026 г.');
+      expect(html).toContain('Ноутбук Lenovo ThinkPad E16');
+      // Built-in-only markup must be gone — the override fully replaced it.
+      expect(html).not.toContain('Продавец:');
+    });
+
+    it('keeps a literal "{{LatinWord}}" inside line data intact through the override path (Phase 6 guarantee)', async () => {
+      useCustomTemplate();
+      repositories.salesShipmentLine.findBy.mockResolvedValue([
+        {
+          id: 'line-1',
+          name: 'Кабель {{HDMI}} PRO',
+          quantity: 1,
+          price: rubles(1_000),
+          vatRate: 'VAT_20',
+          createdAt: '2026-08-26T10:00:00.000Z',
+        },
+      ]);
+
+      const html = await service.renderSalesShipmentUpdHtml(
+        WORKSPACE_ID,
+        SHIPMENT_ID,
+        '2',
+      );
+
+      expect(html).toContain('Кабель {{HDMI}} PRO');
+    });
+
+    it('leaves a placeholder the override introduces but this service does not fill as literal text, not blank', async () => {
+      printTemplateService.resolveTemplateHtml.mockReturnValue({
+        html: CUSTOM_TEMPLATE.replace(
+          'Спасибо за покупку!',
+          'Спасибо, {{clown_car}}!',
+        ),
+        source: 'custom',
+        fallbackReason: null,
+      });
+
+      const html = await service.renderSalesShipmentUpdHtml(
+        WORKSPACE_ID,
+        SHIPMENT_ID,
+        '2',
+      );
+
+      expect(html).toContain('Спасибо, {{clown_car}}!');
+    });
   });
 });

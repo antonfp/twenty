@@ -29,6 +29,9 @@ import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/serv
     SalesInvoicePrintService,
     ...ERP_SALES_GUARD_HOOKS,
   ],
+  // SalesInvoicePrintService is consumed by McpModule's print-template tools
+  // (get_print_template/render_print_preview need to actually render SCHET).
+  exports: [SalesInvoicePrintService],
 })
 export class ErpSalesModule implements OnModuleInit {
   constructor(
