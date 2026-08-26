@@ -19,8 +19,10 @@ import { recordTableFocusPositionComponentState } from '@/object-record/record-t
 import { type MoveFocusDirection } from '@/object-record/record-table/types/MoveFocusDirection';
 import { type TableCellPosition } from '@/object-record/record-table/types/TableCellPosition';
 import { useOpenDropdown } from '@/ui/layout/dropdown/hooks/useOpenDropdown';
-import { useAtomComponentSelectorValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentSelectorValue';
+import { useAtomComponentSelectorCallbackState } from '@/ui/utilities/state/jotai/hooks/useAtomComponentSelectorCallbackState';
+import { useAtomComponentStateCallbackState } from '@/ui/utilities/state/jotai/hooks/useAtomComponentStateCallbackState';
 import { useAtomComponentStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentStateValue';
+import { useStore } from 'jotai';
 import { type ReactNode, useMemo } from 'react';
 import { isDefined } from 'twenty-shared/utils';
 
@@ -46,17 +48,25 @@ export const RecordTableNoRecordGroupBodyContextProvider = ({
 
   const { openDropdown } = useOpenDropdown();
 
+  const store = useStore();
+
   const erpLineItemPickerConfig = useMemo(
     () => getErpLineItemPickerConfig(objectMetadataItem),
     [objectMetadataItem],
   );
 
-  const recordTableFocusPosition = useAtomComponentStateValue(
+  // Read via callback-state (no subscription) rather than
+  // useAtomComponentStateValue/useAtomComponentSelectorValue: the conveyor
+  // only needs these at the moment Tab fires, not on every render. A
+  // subscription here would re-render this provider — and its per-cell
+  // context consumers — on every focus move in every non-grouped table
+  // (CRM Companies/People included, not just ERP lines).
+  const recordTableFocusPositionState = useAtomComponentStateCallbackState(
     recordTableFocusPositionComponentState,
     recordTableId,
   );
 
-  const allRecordIds = useAtomComponentSelectorValue(
+  const allRecordIdsState = useAtomComponentSelectorCallbackState(
     recordIndexAllRecordIdsComponentSelector,
     recordTableId,
   );
@@ -75,6 +85,8 @@ export const RecordTableNoRecordGroupBodyContextProvider = ({
   // on the next cell so Tab still works across the row.
   const handleMoveFocus = (direction: MoveFocusDirection) => {
     if (direction === 'right') {
+      const recordTableFocusPosition = store.get(recordTableFocusPositionState);
+
       const conveyorTarget = computeErpLineTabConveyorTarget({
         isEligible: isDefined(erpLineItemPickerConfig),
         focusPosition: recordTableFocusPosition,
@@ -89,6 +101,7 @@ export const RecordTableNoRecordGroupBodyContextProvider = ({
       }
 
       if (conveyorTarget.type === 'openCell') {
+        const allRecordIds = store.get(allRecordIdsState);
         const recordId = allRecordIds[recordTableFocusPosition?.row ?? -1];
         const nextRecordField = visibleRecordFields[conveyorTarget.column];
         const nextFieldDefinition = isDefined(nextRecordField)
