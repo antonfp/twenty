@@ -58,6 +58,45 @@ type StockLedgerRow = Record<string, unknown> & { id: string };
 // приход/расход по скользящей средней, откат при отмене документа.
 @Injectable()
 export class ItemBalanceService {
+  // Deadlock prevention for documents touching several pairs (multi-line,
+  // transfer's from/to, cancel's per-pair rollback): acquire every distinct
+  // pair's lock upfront in one fixed lexicographic order, BEFORE the normal
+  // per-line processing (which still runs in document order and re-acquires
+  // the same locks). Two transactions that would otherwise lock overlapping
+  // pairs in opposite row order — e.g. different document types — now both
+  // take them low-to-high, so no circular wait can form. Postgres advisory
+  // xact locks are session-reentrant: the later re-acquire by the same
+  // transaction is a cheap no-op, not a second lock.
+  async lockPairsInOrder(
+    context: PostingContext,
+    keys: ItemBalanceKey[],
+  ): Promise<void> {
+    const uniquePairs = new Map<string, ItemBalanceKey>();
+
+    for (const key of keys) {
+      uniquePairs.set(`${key.itemId}:${key.warehouseId}`, key);
+    }
+
+    const sortedPairs = [...uniquePairs.values()].sort((a, b) => {
+      if (a.itemId !== b.itemId) {
+        return a.itemId < b.itemId ? -1 : 1;
+      }
+
+      if (a.warehouseId === b.warehouseId) {
+        return 0;
+      }
+
+      return a.warehouseId < b.warehouseId ? -1 : 1;
+    });
+
+    for (const key of sortedPairs) {
+      await context.transactionScope.executeRawQuery(
+        `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+        [`erp-stock:item-balance:${key.itemId}:${key.warehouseId}`],
+      );
+    }
+  }
+
   // itemBalance has NO unique constraint on item×warehouse — dedup is this
   // service's responsibility: an advisory xact lock closes the get-or-create
   // race (FOR UPDATE alone locks nothing when the row doesn't exist yet).
@@ -220,6 +259,11 @@ export class ItemBalanceService {
       );
       deltaByPair.set(pairKey, delta);
     }
+
+    await this.lockPairsInOrder(
+      context,
+      [...deltaByPair.values()].map((delta) => delta.key),
+    );
 
     for (const {
       key,

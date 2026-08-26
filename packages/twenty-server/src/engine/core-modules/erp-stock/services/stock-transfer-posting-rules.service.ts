@@ -89,6 +89,18 @@ export class StockTransferPostingRulesService implements PostingRulesProvider {
         : null;
     const ledgerRows: ErpStockLedgerEntryRow[] = [];
 
+    await this.itemBalanceService.lockPairsInOrder(
+      context,
+      lines.flatMap((line) => {
+        const itemId = line.itemId as string;
+
+        return [
+          { itemId, warehouseId: warehouseFromId },
+          { itemId, warehouseId: warehouseToId },
+        ];
+      }),
+    );
+
     for (const line of lines) {
       const quantity = Number(line.quantity);
       const itemId = line.itemId as string;

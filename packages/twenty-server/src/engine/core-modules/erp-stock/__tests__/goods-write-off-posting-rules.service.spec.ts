@@ -47,6 +47,7 @@ const createService = () => {
   const itemBalanceService = {
     applyIssue: jest.fn(),
     cancelBalanceEffects: jest.fn().mockResolvedValue(undefined),
+    lockPairsInOrder: jest.fn().mockResolvedValue(undefined),
   };
 
   return {

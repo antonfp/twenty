@@ -305,6 +305,31 @@ describe('ItemBalanceService', () => {
     });
   });
 
+  describe('lockPairsInOrder', () => {
+    it('locks distinct pairs once each, sorted lexicographically by (itemId, warehouseId)', async () => {
+      await run(() =>
+        service.lockPairsInOrder(context, [
+          { itemId: 'item-2', warehouseId: 'warehouse-1' },
+          { itemId: 'item-1', warehouseId: 'warehouse-2' },
+          { itemId: 'item-1', warehouseId: 'warehouse-1' },
+          { itemId: 'item-1', warehouseId: 'warehouse-1' }, // duplicate pair
+        ]),
+      );
+
+      const lockCalls = executeRawQuery.mock.calls.filter(([sql]: [string]) =>
+        sql.includes('pg_advisory_xact_lock'),
+      );
+
+      expect(
+        lockCalls.map(([, parameters]: [string, string[]]) => parameters[0]),
+      ).toEqual([
+        'erp-stock:item-balance:item-1:warehouse-1',
+        'erp-stock:item-balance:item-1:warehouse-2',
+        'erp-stock:item-balance:item-2:warehouse-1',
+      ]);
+    });
+  });
+
   describe('cancelBalanceEffects', () => {
     const ledgerRow = (overrides: Record<string, unknown>) => ({
       id: 'ledger-1',

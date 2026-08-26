@@ -49,6 +49,7 @@ const createService = () => {
     applyIssue: jest.fn(),
     applyReceipt: jest.fn(),
     cancelBalanceEffects: jest.fn().mockResolvedValue(undefined),
+    lockPairsInOrder: jest.fn().mockResolvedValue(undefined),
   };
 
   return {

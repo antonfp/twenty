@@ -84,6 +84,11 @@ export abstract class InflowDocumentPostingRulesService implements PostingRulesP
     const ledgerRows: ErpStockLedgerEntryRow[] = [];
     let totalKopecks = 0;
 
+    await this.itemBalanceService.lockPairsInOrder(
+      context,
+      lines.map((line) => ({ itemId: line.itemId as string, warehouseId })),
+    );
+
     for (const line of lines) {
       const quantity = Number(line.quantity);
       const priceKopecks = currencyToKopecks(line.price as CurrencyFieldValue);

@@ -45,6 +45,7 @@ const createItemBalanceServiceMock = () => ({
   applyReceipt: jest.fn(),
   applyIssue: jest.fn(),
   cancelBalanceEffects: jest.fn().mockResolvedValue(undefined),
+  lockPairsInOrder: jest.fn().mockResolvedValue(undefined),
 });
 
 const createService = (documentNumber = 'GR-000007') => {

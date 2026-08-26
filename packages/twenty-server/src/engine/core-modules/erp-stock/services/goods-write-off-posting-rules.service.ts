@@ -61,6 +61,11 @@ export class GoodsWriteOffPostingRulesService implements PostingRulesProvider {
 
     const ledgerRows: ErpStockLedgerEntryRow[] = [];
 
+    await this.itemBalanceService.lockPairsInOrder(
+      context,
+      lines.map((line) => ({ itemId: line.itemId as string, warehouseId })),
+    );
+
     for (const line of lines) {
       const quantity = Number(line.quantity);
       const issueResult = await this.itemBalanceService.applyIssue(

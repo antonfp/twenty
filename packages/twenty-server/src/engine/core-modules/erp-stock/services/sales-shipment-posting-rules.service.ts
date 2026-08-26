@@ -84,6 +84,11 @@ export class SalesShipmentPostingRulesService implements PostingRulesProvider {
     let totalCostKopecks = 0;
     let currencyCode: string | null = null;
 
+    await this.itemBalanceService.lockPairsInOrder(
+      context,
+      lines.map((line) => ({ itemId: line.itemId as string, warehouseId })),
+    );
+
     for (const line of lines) {
       const quantity = Number(line.quantity);
       const issueResult = await this.itemBalanceService.applyIssue(
