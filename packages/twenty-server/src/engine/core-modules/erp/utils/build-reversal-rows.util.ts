@@ -1,8 +1,12 @@
+// stockValueDiff is the value measure of the stockLedgerEntry register
+// installed by the erp-stock app (Phase 5); like the other measures it must
+// flip sign in a сторно row (valuationRate/qtyAfter stay descriptive).
 const REVERSIBLE_NUMERIC_FIELD_NAMES: readonly string[] = [
   'amount',
   'debit',
   'credit',
   'actualQty',
+  'stockValueDiff',
 ];
 
 // Repositories may flatten CURRENCY composites into `${field}AmountMicros` columns.

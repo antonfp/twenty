@@ -1,5 +1,6 @@
 import { type Type } from '@nestjs/common';
 
+import { type MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';
 import { assertIsDefinedOrThrow } from 'twenty-shared/utils';
 
@@ -21,19 +22,23 @@ import { ErpDocumentLineGuardService } from 'src/engine/core-modules/erp-sales/s
 
 const ERP_DOCUMENT_OBJECT_NAMES = ['salesInvoice', 'payment'] as const;
 
-const ERP_DOCUMENT_GUARD_OPERATIONS: readonly ErpDocumentGuardOperation[] = [
-  'createOne',
-  'createMany',
-  'updateOne',
-  'updateMany',
-  'deleteOne',
-  'deleteMany',
-  'destroyOne',
-  'destroyMany',
-  'restoreOne',
-  'restoreMany',
-  'mergeMany',
-];
+// Exported (with the factories below) so other ERP block modules
+// (erp-purchases, erp-stock) can register the same guards for their own
+// objects without duplicating the check wiring.
+export const ERP_DOCUMENT_GUARD_OPERATIONS: readonly ErpDocumentGuardOperation[] =
+  [
+    'createOne',
+    'createMany',
+    'updateOne',
+    'updateMany',
+    'deleteOne',
+    'deleteMany',
+    'destroyOne',
+    'destroyMany',
+    'restoreOne',
+    'restoreMany',
+    'mergeMany',
+  ];
 
 const SALES_INVOICE_LINE_OBJECT_NAME = 'salesInvoiceLine';
 const SALES_INVOICE_LINE_PARENT_FIELD_NAME = 'salesInvoiceId';
@@ -41,24 +46,12 @@ const SALES_INVOICE_OBJECT_NAME = 'salesInvoice';
 
 const PARTY_LEDGER_ENTRY_OBJECT_NAME = 'partyLedgerEntry';
 
-const ERP_REGISTER_GUARD_OPERATIONS = [
-  'createOne',
-  'createMany',
-  'updateOne',
-  'updateMany',
-  'deleteOne',
-  'deleteMany',
-  'destroyOne',
-  'destroyMany',
-  'restoreOne',
-  'restoreMany',
-  'mergeMany',
-] as const;
+const PARTY_LEDGER_ENTRY_BLOCKED_MESSAGE = msg`Регистр взаиморасчётов формируется автоматически при проведении документов — ручные изменения запрещены.`;
 
 // One decorated class per (object, operation) hook key: the query-hook
 // storage holds a single key per class, so hooks cannot be merged further.
-const createErpDocumentGuardHook = (
-  objectNameSingular: (typeof ERP_DOCUMENT_OBJECT_NAMES)[number],
+export const createErpDocumentGuardHook = (
+  objectNameSingular: string,
   operation: ErpDocumentGuardOperation,
 ): Type<WorkspacePreQueryHookInstance> => {
   @WorkspaceQueryHook(`${objectNameSingular}.${operation}`)
@@ -93,7 +86,7 @@ const createErpDocumentGuardHook = (
 // One decorated class per (lineObject, operation) hook key, mirroring
 // createErpDocumentGuardHook above — the shared check itself lives in
 // ErpDocumentLineGuardService so it isn't duplicated per document type.
-const createErpDocumentLineGuardHook = (
+export const createErpDocumentLineGuardHook = (
   lineObjectNameSingular: string,
   parentFieldName: string,
   parentObjectNameSingular: string,
@@ -130,19 +123,22 @@ const createErpDocumentLineGuardHook = (
   return ErpDocumentLineGuardPreQueryHook;
 };
 
-const createErpRegisterGuardHook = (
-  operation: (typeof ERP_REGISTER_GUARD_OPERATIONS)[number],
+export const createErpRegisterGuardHook = (
+  registerObjectNameSingular: string,
+  operation: ErpDocumentGuardOperation,
+  userFriendlyMessage: MessageDescriptor,
 ): Type<WorkspacePreQueryHookInstance> => {
-  @WorkspaceQueryHook(`${PARTY_LEDGER_ENTRY_OBJECT_NAME}.${operation}`)
+  @WorkspaceQueryHook(`${registerObjectNameSingular}.${operation}`)
   class ErpRegisterGuardPreQueryHook implements WorkspacePreQueryHookInstance {
     async execute(): Promise<ResolverArgs> {
-      // Registers are written only by PostingService inside the posting
-      // transaction; every external write path is blocked unconditionally.
+      // Registers are written only inside the posting transaction; every
+      // external write path is blocked unconditionally (upsert included —
+      // createOne/createMany throw before the flag is even inspected).
       throw new CommonQueryRunnerException(
-        `Register "${PARTY_LEDGER_ENTRY_OBJECT_NAME}" is server-written only`,
+        `Register "${registerObjectNameSingular}" is server-written only`,
         CommonQueryRunnerExceptionCode.BAD_REQUEST,
         {
-          userFriendlyMessage: msg`Регистр взаиморасчётов формируется автоматически при проведении документов — ручные изменения запрещены.`,
+          userFriendlyMessage,
         },
       );
     }
@@ -165,7 +161,11 @@ export const ERP_SALES_GUARD_HOOKS: Type<WorkspacePreQueryHookInstance>[] = [
       operation,
     ),
   ),
-  ...ERP_REGISTER_GUARD_OPERATIONS.map((operation) =>
-    createErpRegisterGuardHook(operation),
+  ...ERP_DOCUMENT_GUARD_OPERATIONS.map((operation) =>
+    createErpRegisterGuardHook(
+      PARTY_LEDGER_ENTRY_OBJECT_NAME,
+      operation,
+      PARTY_LEDGER_ENTRY_BLOCKED_MESSAGE,
+    ),
   ),
 ];

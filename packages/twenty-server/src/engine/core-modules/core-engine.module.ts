@@ -31,6 +31,7 @@ import { EmailModule } from 'src/engine/core-modules/email/email.module';
 import { ErpModule } from 'src/engine/core-modules/erp/erp.module';
 import { ErpPurchasesModule } from 'src/engine/core-modules/erp-purchases/erp-purchases.module';
 import { ErpSalesModule } from 'src/engine/core-modules/erp-sales/erp-sales.module';
+import { ErpStockModule } from 'src/engine/core-modules/erp-stock/erp-stock.module';
 import { EmailingDomainModule } from 'src/engine/core-modules/emailing-domain/emailing-domain.module';
 import { EmailingModule } from 'src/modules/emailing/emailing.module';
 import { EnvironmentModule } from 'src/engine/core-modules/environment/environment.module';
@@ -116,6 +117,7 @@ import { FileModule } from './file/file.module';
     ErpModule,
     ErpPurchasesModule,
     ErpSalesModule,
+    ErpStockModule,
     PublicDomainModule,
     DnsManagerModule,
     WorkflowApiModule,

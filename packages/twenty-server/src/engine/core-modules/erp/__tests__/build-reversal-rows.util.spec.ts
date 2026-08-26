@@ -45,6 +45,27 @@ describe('buildReversalRows', () => {
     });
   });
 
+  it('negates stockValueDiff but not valuationRate or qtyAfter', () => {
+    const [reversalRow] = buildReversalRows([
+      {
+        id: 'row-1',
+        actualQty: 5,
+        qtyAfter: 12,
+        stockValueDiff: { amountMicros: 5_000_000, currencyCode: 'RUB' },
+        valuationRate: { amountMicros: 1_000_000, currencyCode: 'RUB' },
+      },
+    ]);
+
+    expect(reversalRow).toEqual({
+      actualQty: -5,
+      qtyAfter: 12,
+      stockValueDiff: { amountMicros: -5_000_000, currencyCode: 'RUB' },
+      valuationRate: { amountMicros: 1_000_000, currencyCode: 'RUB' },
+      isCancellation: true,
+      isCancelled: false,
+    });
+  });
+
   it('builds one reversal per original row', () => {
     const reversalRows = buildReversalRows([
       { id: 'row-1', amount: 10 },
