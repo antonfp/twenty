@@ -25,6 +25,11 @@ import {
   importBankStatementInputSchema,
 } from 'src/engine/api/mcp/tools/import-bank-statement.tool';
 import {
+  createListCustomizationSurfaceTool,
+  LIST_CUSTOMIZATION_SURFACE_TOOL_NAME,
+  listCustomizationSurfaceInputSchema,
+} from 'src/engine/api/mcp/tools/list-customization-surface.tool';
+import {
   createListObjectMetadataNamesTool,
   LIST_OBJECT_METADATA_NAMES_TOOL_NAME,
   listObjectMetadataNamesInputSchema,
@@ -53,6 +58,7 @@ import { type McpToolAnnotations } from 'src/engine/api/mcp/types/mcp-tool-annot
 import { wrapJsonRpcResponse } from 'src/engine/api/mcp/utils/wrap-jsonrpc-response.util';
 import { ApiKeyRoleService } from 'src/engine/core-modules/api-key/services/api-key-role.service';
 import { DadataService } from 'src/engine/core-modules/dadata/services/dadata.service';
+import { ErpCustomizationSurfaceService } from 'src/engine/core-modules/erp/services/erp-customization-surface.service';
 import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { BankStatementImportService } from 'src/engine/core-modules/erp-accounting/services/bank-statement-import.service';
@@ -131,6 +137,7 @@ export class McpProtocolService {
     private readonly dadataService: DadataService,
     private readonly trialBalanceService: TrialBalanceService,
     private readonly bankStatementImportService: BankStatementImportService,
+    private readonly erpCustomizationSurfaceService: ErpCustomizationSurfaceService,
   ) {}
 
   async handleInitialize(requestId: string | number, workspaceId: string) {
@@ -313,6 +320,14 @@ export class McpProtocolService {
           workspace.id,
         ),
         inputSchema: zodSchema(listObjectMetadataNamesInputSchema),
+        annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [LIST_CUSTOMIZATION_SURFACE_TOOL_NAME]: {
+        ...createListCustomizationSurfaceTool(
+          this.erpCustomizationSurfaceService,
+          workspace.id,
+        ),
+        inputSchema: zodSchema(listCustomizationSurfaceInputSchema),
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
       [LIST_SKILLS_TOOL_NAME]: {

@@ -8,6 +8,7 @@ import { type ToolProvider } from 'src/engine/core-modules/tool-provider/interfa
 import { type ToolProviderContext } from 'src/engine/core-modules/tool-provider/interfaces/tool-provider-context.type';
 
 import { ToolCategory } from 'twenty-shared/ai';
+import { ErpMetadataToolGuardService } from 'src/engine/core-modules/erp/services/erp-metadata-tool-guard.service';
 import { type ToolDescriptor } from 'src/engine/core-modules/tool-provider/types/tool-descriptor.type';
 import { type ToolIndexEntry } from 'src/engine/core-modules/tool-provider/types/tool-index-entry.type';
 import { executeToolFromToolSet } from 'src/engine/core-modules/tool-provider/utils/execute-tool-from-tool-set.util';
@@ -25,6 +26,7 @@ export class MetadataToolProvider implements ToolProvider {
     private readonly objectMetadataToolsFactory: ObjectMetadataToolsFactory,
     private readonly fieldMetadataToolsFactory: FieldMetadataToolsFactory,
     private readonly permissionsService: PermissionsService,
+    private readonly erpMetadataToolGuardService: ErpMetadataToolGuardService,
   ) {}
 
   async isAvailable(context: ToolProviderContext): Promise<boolean> {
@@ -52,6 +54,16 @@ export class MetadataToolProvider implements ToolProvider {
     args: Record<string, unknown>,
     context: ToolProviderContext,
   ): Promise<ToolOutput> {
+    // Phase 8 "фронтир AI-кастомизации": registers are off-limits and only
+    // creation is allowed (MVP) — see erp-metadata-tool-guard.service.ts.
+    // Throws (ForbiddenException, RU message) before anything is touched.
+    await this.erpMetadataToolGuardService.assertToolCallAllowed({
+      toolName,
+      args,
+      workspaceId: context.workspaceId,
+      roleId: context.roleId,
+    });
+
     const toolSet = this.buildToolSet(context);
 
     return executeToolFromToolSet(

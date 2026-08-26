@@ -8,6 +8,7 @@ import { type ToolProvider } from 'src/engine/core-modules/tool-provider/interfa
 import { type ToolProviderContext } from 'src/engine/core-modules/tool-provider/interfaces/tool-provider-context.type';
 
 import { ToolCategory } from 'twenty-shared/ai';
+import { ErpMetadataToolGuardService } from 'src/engine/core-modules/erp/services/erp-metadata-tool-guard.service';
 import { type ToolDescriptor } from 'src/engine/core-modules/tool-provider/types/tool-descriptor.type';
 import { type ToolIndexEntry } from 'src/engine/core-modules/tool-provider/types/tool-index-entry.type';
 import { executeToolFromToolSet } from 'src/engine/core-modules/tool-provider/utils/execute-tool-from-tool-set.util';
@@ -29,6 +30,7 @@ export class ViewToolProvider implements ToolProvider {
     private readonly viewFilterToolsFactory: ViewFilterToolsFactory,
     private readonly viewSortToolsFactory: ViewSortToolsFactory,
     private readonly permissionsService: PermissionsService,
+    private readonly erpMetadataToolGuardService: ErpMetadataToolGuardService,
   ) {}
 
   async isAvailable(_context: ToolProviderContext): Promise<boolean> {
@@ -51,6 +53,17 @@ export class ViewToolProvider implements ToolProvider {
     args: Record<string, unknown>,
     context: ToolProviderContext,
   ): Promise<ToolOutput> {
+    // Phase 8 "фронтир AI-кастомизации": only view CREATION on a register
+    // object is refused here (RU); update_view/delete_view/get_views etc.
+    // keep the existing VIEWS-flag permission model untouched — see
+    // erp-metadata-tool-guard.service.ts for why this stays narrow.
+    await this.erpMetadataToolGuardService.assertToolCallAllowed({
+      toolName,
+      args,
+      workspaceId: context.workspaceId,
+      roleId: context.roleId,
+    });
+
     const toolSet = await this.buildToolSet(context);
 
     return executeToolFromToolSet(toolSet, toolName, args, ToolCategory.VIEW);

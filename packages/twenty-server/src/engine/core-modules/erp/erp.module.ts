@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { ApplicationModule } from 'src/engine/core-modules/application/application.module';
 import { ErpPostingResolver } from 'src/engine/core-modules/erp/erp-posting.resolver';
 import { WorkspaceManyOrAllFlatEntityMapsCacheModule } from 'src/engine/metadata-modules/flat-entity/services/workspace-many-or-all-flat-entity-maps-cache.module';
 import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permissions.module';
@@ -8,6 +9,8 @@ import { WorkspaceCacheModule } from 'src/engine/workspace-cache/workspace-cache
 import { GlContributorRegistry } from 'src/engine/core-modules/erp/gl-contributor.registry';
 import { PostingRulesRegistry } from 'src/engine/core-modules/erp/posting-rules.registry';
 import { ErpActorRoleResolverService } from 'src/engine/core-modules/erp/services/erp-actor-role-resolver.service';
+import { ErpCustomizationSurfaceService } from 'src/engine/core-modules/erp/services/erp-customization-surface.service';
+import { ErpMetadataToolGuardService } from 'src/engine/core-modules/erp/services/erp-metadata-tool-guard.service';
 import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { DocumentNumberingService } from 'src/engine/core-modules/erp/services/document-numbering.service';
 import { PeriodLockService } from 'src/engine/core-modules/erp/services/period-lock.service';
@@ -24,6 +27,10 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
     UserRoleModule,
     WorkspaceCacheModule,
     WorkspaceManyOrAllFlatEntityMapsCacheModule,
+    // ApplicationModule exports ApplicationService, needed by
+    // ErpCustomizationSurfaceService to resolve workspaceCustomFlatApplication
+    // (the app-ownership signal, isCustom having been dropped from the schema).
+    ApplicationModule,
   ],
   providers: [
     PostingRulesRegistry,
@@ -33,6 +40,8 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
     PostingService,
     ErpObjectPermissionGuardService,
     ErpActorRoleResolverService,
+    ErpMetadataToolGuardService,
+    ErpCustomizationSurfaceService,
     ErpPostingResolver,
   ],
   exports: [
@@ -43,6 +52,8 @@ import { PostingService } from 'src/engine/core-modules/erp/services/posting.ser
     PostingService,
     ErpObjectPermissionGuardService,
     ErpActorRoleResolverService,
+    ErpMetadataToolGuardService,
+    ErpCustomizationSurfaceService,
   ],
 })
 export class ErpModule {}

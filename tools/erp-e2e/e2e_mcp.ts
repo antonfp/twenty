@@ -8,7 +8,14 @@
 //   -> cancel_document -> ASSERT docStatus DRAFT (Phase 7 T7: cancel не терминален)
 //   -> lookup_party_by_inn без DADATA-ключа -> грейсфул-ошибка (не 500)
 //   -> негативы: post_document без прав / чужой (несуществующий) recordId -> отказ;
-//      CRUD-запись в регистр glEntry через MCP -> отказ guard'ом
+//      CRUD-запись в регистр glEntry через MCP -> отказ
+//   -> Phase 8 T2 (фронтир AI-кастомизации, execute_tool -> MetadataToolProvider):
+//      create_object_metadata (кастомный объект «Договор») -> успех;
+//      create_field_metadata («скидка» NUMBER на app-owned salesInvoice) -> успех;
+//      create_field_metadata на регистр glEntry -> RU-отказ;
+//      delete_field_metadata на поле salesInvoice -> отказ (MVP: только создание);
+//      list_customization_surface -> salesInvoice app-owned/canAddFields,
+//      glEntry register/заблокирован
 //
 // Запуск: volta run --node 24.5.0 --yarn 4.13.0 -- npx tsx tools/erp-e2e/e2e_mcp.ts
 // (сервер на :3000, workspace ERP Dev, dev-логин). MCP endpoint: POST /mcp,
@@ -105,6 +112,7 @@ async function main() {
     'lookup_party_by_inn',
     'trial_balance',
     'import_bank_statement',
+    'list_customization_surface',
   ];
   const EXPECTED_PLATFORM_TOOLS = [
     'search_help_center',
@@ -448,13 +456,162 @@ async function main() {
     throw new Error(
       `CRUD write into glEntry register must be denied, got: ${JSON.stringify(glWriteOut)}`,
     );
-  if (!glWriteOut.error?.toLowerCase().includes('server-written')) {
+  // T2 (Phase 8): create_one_gl_entry is now excluded from the catalog/
+  // execute_tool allow-list too (mcp-excluded-tool-names.const.ts), so the
+  // denial now fires at the isToolAllowed check, before ever reaching the
+  // register write-guard — accept either message, both prove the write never
+  // lands.
+  const glWriteDenialText = (glWriteOut.error ?? '').toLowerCase();
+  if (
+    !glWriteDenialText.includes('server-written') &&
+    !glWriteDenialText.includes('not available')
+  ) {
     throw new Error(
       `expected register-guard denial message, got: ${JSON.stringify(glWriteOut)}`,
     );
   }
   ok(
-    `negative: CRUD write into glEntry register denied by guard — "${glWriteOut.error}"`,
+    `negative: CRUD write into glEntry register denied — "${glWriteOut.error}"`,
+  );
+
+  // 7. Кастомизация метаданных (Phase 8 T2): create_object_metadata/
+  // create_field_metadata already exist and are MCP-exposed via execute_tool
+  // (MetadataToolProvider) — the frontier is the guard, not new tool names.
+  // These METADATA tools do NOT return {success,...} on their happy path
+  // (they return the raw created record, e.g. {id, nameSingular, ...}); only
+  // the error path is normalized to {success:false, error} by
+  // ToolRegistryService.resolveAndExecute's catch. So success below is
+  // asserted by the absence of `.error` plus the expected field, not `.success`.
+
+  // 7a. Создать кастомный объект «Договор».
+  const contractOut = (await execTool(token, 'create_object_metadata', {
+    nameSingular: `contractE2e${suffix.toLowerCase()}`,
+    namePlural: `contractE2e${suffix.toLowerCase()}s`,
+    labelSingular: 'Договор',
+    labelPlural: 'Договоры',
+    icon: 'IconFileText',
+  })) as { id?: string; nameSingular?: string; error?: string };
+  if (contractOut.error || !contractOut.id)
+    throw new Error(
+      `create_object_metadata (Договор) must succeed for admin, got: ${JSON.stringify(contractOut)}`,
+    );
+  ok(
+    `create_object_metadata: custom object «Договор» created (${contractOut.id})`,
+  );
+
+  // 7b. Добавить кастомное поле «скидка» (NUMBER) на salesInvoice — разрешено
+  // по ruling'у: кастомные поля можно добавлять на ЛЮБОЙ не-регистровый объект,
+  // включая ERP-документы из app-owned блока erp-sales.
+  // get_object_metadata returns a bare array (not {result:[...]}) on
+  // success — unlike execute_tool's own error envelope, METADATA read tools
+  // return their data as-is (see ObjectMetadataToolsFactory.generateTools).
+  const salesInvoiceMetaOut = (await execTool(token, 'get_object_metadata', {
+    objectName: 'salesInvoice',
+    limit: 1,
+  })) as unknown as { id: string }[];
+  const salesInvoiceObjectId = salesInvoiceMetaOut[0]?.id;
+  if (!salesInvoiceObjectId)
+    throw new Error(
+      `get_object_metadata(salesInvoice) returned no id: ${JSON.stringify(salesInvoiceMetaOut)}`,
+    );
+
+  const discountFieldOut = (await execTool(token, 'create_field_metadata', {
+    objectMetadataId: salesInvoiceObjectId,
+    type: 'NUMBER',
+    name: `discountE2e${suffix.toLowerCase()}`,
+    label: 'Скидка',
+  })) as { id?: string; name?: string; error?: string };
+  if (discountFieldOut.error || !discountFieldOut.id)
+    throw new Error(
+      `create_field_metadata (скидка on salesInvoice) must succeed, got: ${JSON.stringify(discountFieldOut)}`,
+    );
+  ok(
+    `create_field_metadata: custom field «скидка» (NUMBER) added to salesInvoice (${discountFieldOut.id})`,
+  );
+
+  // 7c. Негатив: добавить поле на регистр glEntry -> RU-отказ (register frontier).
+  const glMetaOut = (await execTool(token, 'get_object_metadata', {
+    objectName: 'glEntry',
+    limit: 1,
+  })) as unknown as { id: string }[];
+  const glObjectId = glMetaOut[0]?.id;
+  if (!glObjectId)
+    throw new Error(
+      `get_object_metadata(glEntry) returned no id: ${JSON.stringify(glMetaOut)}`,
+    );
+
+  const glFieldOut = await execTool(token, 'create_field_metadata', {
+    objectMetadataId: glObjectId,
+    type: 'NUMBER',
+    name: `blockedE2e${suffix.toLowerCase()}`,
+    label: 'Заблокировано',
+  });
+  if (glFieldOut.success)
+    throw new Error(
+      `create_field_metadata on register glEntry must be denied, got: ${JSON.stringify(glFieldOut)}`,
+    );
+  if (!glFieldOut.error?.includes('Регистр')) {
+    throw new Error(
+      `expected RU register-frontier denial, got: ${JSON.stringify(glFieldOut)}`,
+    );
+  }
+  ok(
+    `negative: create_field_metadata on register glEntry denied — "${glFieldOut.error}"`,
+  );
+
+  // 7d. Негатив: удалить поле объекта salesInvoice -> отказ (MVP: только создание).
+  const deleteFieldOut = await execTool(token, 'delete_field_metadata', {
+    id: discountFieldOut.id,
+  });
+  if (deleteFieldOut.success)
+    throw new Error(
+      `delete_field_metadata must be denied (MVP: creation only), got: ${JSON.stringify(deleteFieldOut)}`,
+    );
+  if (!deleteFieldOut.error?.includes('MVP')) {
+    throw new Error(
+      `expected MVP creation-only denial, got: ${JSON.stringify(deleteFieldOut)}`,
+    );
+  }
+  ok(
+    `negative: delete_field_metadata on salesInvoice field denied — "${deleteFieldOut.error}"`,
+  );
+
+  // 7e. list_customization_surface -> salesInvoice допускает добавление
+  // полей, glEntry — нет.
+  const surfaceRpc = (await mcpToolCall(
+    token,
+    'list_customization_surface',
+    {},
+  )) as RpcWithStatus;
+  const surface = mcpToolResultJson(surfaceRpc) as {
+    objects: {
+      nameSingular: string;
+      origin: string;
+      canAddFields: boolean;
+    }[];
+  };
+  const salesInvoiceSurface = surface.objects.find(
+    (o) => o.nameSingular === 'salesInvoice',
+  );
+  const glEntrySurface = surface.objects.find(
+    (o) => o.nameSingular === 'glEntry',
+  );
+  if (
+    !salesInvoiceSurface?.canAddFields ||
+    salesInvoiceSurface.origin !== 'app-owned'
+  )
+    throw new Error(
+      `list_customization_surface: salesInvoice must be app-owned + canAddFields, got: ${JSON.stringify(salesInvoiceSurface)}`,
+    );
+  if (
+    glEntrySurface?.canAddFields !== false ||
+    glEntrySurface.origin !== 'register'
+  )
+    throw new Error(
+      `list_customization_surface: glEntry must be register + !canAddFields, got: ${JSON.stringify(glEntrySurface)}`,
+    );
+  ok(
+    `list_customization_surface: ${surface.objects.length} objects — salesInvoice app-owned/canAddFields, glEntry register/blocked`,
   );
 
   console.log(`\n=== E2E MCP ПРОЙДЕН (${steps} шагов) ===`);

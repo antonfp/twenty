@@ -1,6 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { ErpModule } from 'src/engine/core-modules/erp/erp.module';
 import { RecordCrudModule } from 'src/engine/core-modules/record-crud/record-crud.module';
 import { TOOL_PROVIDERS } from 'src/engine/core-modules/tool-provider/constants/tool-providers.token';
 import { ActionToolProvider } from 'src/engine/core-modules/tool-provider/providers/action-tool.provider';
@@ -52,6 +53,10 @@ import { ToolRegistryService } from './services/tool-registry.service';
   imports: [
     ToolModule,
     RecordCrudModule,
+    // Provides ErpMetadataToolGuardService — the Phase 8 "фронтир
+    // AI-кастомизации" guard that MetadataToolProvider/ViewToolProvider wire
+    // into their executeStaticTool (registers + admin-only creation MVP).
+    ErpModule,
     AiModelsModule,
     forwardRef(() => AiAgentExecutionModule),
     ObjectMetadataModule,
