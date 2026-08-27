@@ -17,9 +17,11 @@ export const SALES_INVOICE_NUMBER_FIELD_ID =
   '74459548-3a21-41a8-91f1-a322b37e85bb';
 export const SALES_INVOICE_DOC_STATUS_FIELD_ID =
   '8a1d95c3-ba12-44c6-aace-abe05d7d5e48';
-// postingDate exists on the object but the erp-sales posting service never
-// populates it (live-checked: 0/177 POSTED invoices have it set) — postedAt
-// (DATE_TIME, always set on posting) is used instead for date grouping/sort.
+// postingDate exists on the object; before Task 10 the core PostingService
+// never backfilled it (live-checked: 0/177 POSTED invoices had it set), so
+// invoices POSTED before that fix still carry null — postedAt (DATE_TIME,
+// always set on posting) stays the field these dashboard views group/sort
+// by, so they don't need a migration to keep working for that historic set.
 export const SALES_INVOICE_POSTED_AT_FIELD_ID =
   'ee09c6fc-2be5-4b36-be59-89267215a9c3';
 export const SALES_INVOICE_TOTAL_FIELD_ID =

@@ -192,17 +192,13 @@ export class KudirService {
     return typeof date === 'string' && date >= dateFrom && date <= dateTo;
   }
 
-  // PostingService.postInTransaction only ever WRITES docStatus/postedAt on
-  // POST (posting.service.ts) — it never backfills the document's own
-  // postingDate column when the caller left it unset at creation (the common
-  // case: e2e_accounting.ts/e2e_purchases.ts create documents with only
-  // paymentDate/invoiceDate, no explicit postingDate). GL entries still get
-  // dated correctly because PostingService computes a postingContext.
-  // postingDate fallback (document.postingDate ?? document.docDate ?? "now")
-  // for THAT purpose only. КУДиР reads the document itself, not glEntry, so
-  // it needs the same fallback — postedAt (DATE_TIME, always set at POST,
-  // written in the same request/millisecond as that "now" fallback) is the
-  // closest available proxy when postingDate itself is null.
+  // Task 10 core fix: PostingService.postInTransaction now backfills a null
+  // document.postingDate on POST (posting.service.ts), so newly posted
+  // documents carry it going forward. This fallback stays for records
+  // POSTED before that fix (no data migration — see task-10-report.md) and,
+  // in principle, any future posting path that still leaves it null: postedAt
+  // (DATE_TIME, always set at POST) is the closest available proxy when
+  // postingDate itself is null.
   private resolveDocumentDate(document: ErpDocumentRecord): string | null {
     return (
       this.toDateOnly(document.postingDate) ??

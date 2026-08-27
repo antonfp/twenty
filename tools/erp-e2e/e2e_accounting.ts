@@ -272,11 +272,12 @@ async function main() {
       salesInvoice: {
         total: { amountMicros: string };
         vatTotal: { amountMicros: string };
+        postingDate: string | null;
       };
     }>(
       '/graphql',
       `{ salesInvoice(filter: { id: { eq: "${sinv.id}" } }) {
-      total { amountMicros } vatTotal { amountMicros } } }`,
+      total { amountMicros } vatTotal { amountMicros } postingDate } }`,
       {},
       token,
     )
@@ -285,6 +286,14 @@ async function main() {
     throw new Error(`unexpected: ${JSON.stringify(sinvQ)}`);
   if (Number(sinvQ.vatTotal.amountMicros) / 1e6 !== 220)
     throw new Error(`unexpected: ${JSON.stringify(sinvQ)}`);
+  // Task 10 core fix: this document was created with only invoiceDate set
+  // (no explicit postingDate above) — PostingService must backfill it on
+  // post, to the same "today" the lock check itself used.
+  if (sinvQ.postingDate?.slice(0, 10) !== todayIso)
+    throw new Error(
+      `postingDate not backfilled on post: expected ${todayIso}, got ${JSON.stringify(sinvQ.postingDate)}`,
+    );
+  console.log(`SalesInvoice postingDate backfilled on post: ${todayIso} ok`);
   const sinvRows = await glEntries(sinv.id);
   assertGlRow(sinvRows, '62.01', '90.01.1', 1220, 'SalesInvoice');
   assertGlRow(sinvRows, '90.03', '68.02', 220, 'SalesInvoice VAT');

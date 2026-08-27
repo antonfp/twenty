@@ -175,9 +175,22 @@ export class PostingService {
     );
     await this.insertGlContributionRows(postingContext, transactionScope);
 
+    // Task 10 core fix: backfill the document's own postingDate the first
+    // time it posts (it starts null on most documents — no object sets it at
+    // creation, see erp-references.ts/kudir.service.ts). Reuses
+    // postingContext.postingDate verbatim — the SAME value the period-lock
+    // check above already validated — rather than recomputing "now" here,
+    // so a document can never end up with a stored postingDate the lock
+    // check never saw. A document that already has one (own value, or a
+    // prior post's backfill surviving a cancel/re-post cycle) is left alone.
+    const postingDateBackfill = isDefined(document.postingDate)
+      ? {}
+      : { postingDate: this.toDateOnly(postingContext.postingDate) };
+
     await documentRepository.update(recordId, {
       docStatus: DOC_STATUS.POSTED,
       postedAt: new Date().toISOString(),
+      ...postingDateBackfill,
     });
   }
 
@@ -408,6 +421,15 @@ export class PostingService {
     return transactionScope
       .getRepository<ErpDocumentLineRecord>(linesObjectName, BYPASS_PERMISSIONS)
       .findBy({ [`${objectNameSingular}Id`]: recordId });
+  }
+
+  // postingDate is a DATE column ('YYYY-MM-DD'); postingContext.postingDate
+  // may carry a full ISO timestamp (the "now" branch of resolvePostingDate
+  // below) — truncate to the calendar day, same normalization
+  // period-lock.service/kudir.service already apply when reading this
+  // column back.
+  private toDateOnly(value: string): string {
+    return value.slice(0, 10);
   }
 
   private resolvePostingDate(document: ErpDocumentRecord): string {

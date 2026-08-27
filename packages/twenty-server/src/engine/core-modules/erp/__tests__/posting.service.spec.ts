@@ -304,6 +304,88 @@ describe('PostingService', () => {
     });
   });
 
+  // Task 10 core fix: PostingService used to write only docStatus/postedAt
+  // on post, never the document's own postingDate — 0/177 POSTED invoices
+  // had it set live (T4/T9 findings). It now backfills postingDate the
+  // first time a document posts, reusing the same effective date the
+  // period-lock check already validated.
+  describe('postingDate backfill', () => {
+    it('backfills postingDate on post to the same calendar day postedAt is stamped, when the document has none', async () => {
+      const today = new Date().toISOString().slice(0, 10);
+
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
+      ]);
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
+        { id: RECORD_ID, postingDate: null },
+      );
+      registry.registerPostingRules('salesInvoice', {});
+
+      await postingService.post(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
+
+      expect(
+        fakeRepositoryByObjectName.salesInvoice.update,
+      ).toHaveBeenCalledWith(RECORD_ID, {
+        docStatus: DOC_STATUS.POSTED,
+        postedAt: expect.any(String),
+        postingDate: today,
+      });
+    });
+
+    it('leaves an already-set postingDate untouched on post', async () => {
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
+      ]);
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
+        { id: RECORD_ID, postingDate: '2026-05-10' },
+      );
+      registry.registerPostingRules('salesInvoice', {});
+
+      await postingService.post(WORKSPACE_ID, 'salesInvoice', RECORD_ID);
+
+      expect(
+        fakeRepositoryByObjectName.salesInvoice.update,
+      ).toHaveBeenCalledWith(RECORD_ID, {
+        docStatus: DOC_STATUS.POSTED,
+        postedAt: expect.any(String),
+      });
+    });
+
+    // lockDate interplay: the period-lock check runs on postingContext.
+    // postingDate BEFORE the final write. A null-postingDate document falls
+    // back to "now" for that check — with a lockDate far in the future, the
+    // check must reject on the very same effective date it would otherwise
+    // backfill, and reject BEFORE any write, so no row is ever left with a
+    // backfilled postingDate the lock check didn't see.
+    it('rejects posting a null-postingDate document inside a locked period without writing anything', async () => {
+      executeRawQuery.mockResolvedValue([
+        { id: RECORD_ID, docStatus: DOC_STATUS.DRAFT },
+      ]);
+      fakeRepositoryByObjectName.organization.findOneBy.mockResolvedValue({
+        id: ORGANIZATION_ID,
+        name: 'ООО «Ромашка»',
+        lockDate: '2099-12-31',
+      });
+      fakeRepositoryByObjectName.salesInvoice.findOneByOrFail.mockResolvedValue(
+        {
+          id: RECORD_ID,
+          postingDate: null,
+          organizationId: ORGANIZATION_ID,
+        },
+      );
+      registry.registerPostingRules('salesInvoice', {});
+
+      await expect(
+        postingService.post(WORKSPACE_ID, 'salesInvoice', RECORD_ID),
+      ).rejects.toMatchObject({
+        code: ERP_POSTING_EXCEPTION_CODE.PERIOD_LOCKED,
+      });
+      expect(
+        fakeRepositoryByObjectName.salesInvoice.update,
+      ).not.toHaveBeenCalled();
+    });
+  });
+
   describe('lock date', () => {
     beforeEach(() => {
       registry.registerPostingRules('salesInvoice', {});
