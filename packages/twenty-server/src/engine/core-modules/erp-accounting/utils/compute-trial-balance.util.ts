@@ -56,7 +56,10 @@ const ZERO_TOTALS: TrialBalanceTotals = {
 // PASSIVE is the mirror in Кт; ACTIVE_PASSIVE («развёрнуто») moves the whole
 // balance to the side matching its sign — positive net → Дт only, negative →
 // its absolute value in Кт only (never a minus sign, unlike ACTIVE/PASSIVE).
-const presentNetByKind = (
+// Exported: reused as-is by account-card (карточка счёта, Task 2) for its
+// opening/running/closing balance presentation — same by-kind rule, no
+// separate implementation.
+export const presentNetByKind = (
   netKopecks: number,
   kind: TrialBalanceAccountKind,
 ): { debitKopecks: number; creditKopecks: number } => {

@@ -68,6 +68,11 @@ import {
   renderPrintPreviewInputSchema,
 } from 'src/engine/api/mcp/tools/render-print-preview.tool';
 import {
+  ACCOUNT_CARD_TOOL_NAME,
+  accountCardInputSchema,
+  createAccountCardTool,
+} from 'src/engine/api/mcp/tools/account-card.tool';
+import {
   BALANCE_SHEET_TOOL_NAME,
   balanceSheetInputSchema,
   createBalanceSheetTool,
@@ -95,6 +100,7 @@ import { ErpCustomizationSurfaceService } from 'src/engine/core-modules/erp/serv
 import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { PrintTemplateService } from 'src/engine/core-modules/erp/services/print-template.service';
+import { AccountCardService } from 'src/engine/core-modules/erp-accounting/services/account-card.service';
 import { BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { BankStatementImportService } from 'src/engine/core-modules/erp-accounting/services/bank-statement-import.service';
 import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
@@ -177,6 +183,7 @@ export class McpProtocolService {
     private readonly bankStatementImportService: BankStatementImportService,
     private readonly balanceSheetService: BalanceSheetService,
     private readonly incomeStatementService: IncomeStatementService,
+    private readonly accountCardService: AccountCardService,
     private readonly erpCustomizationSurfaceService: ErpCustomizationSurfaceService,
     private readonly printTemplateService: PrintTemplateService,
     private readonly salesInvoicePrintService: SalesInvoicePrintService,
@@ -438,6 +445,15 @@ export class McpProtocolService {
           assertCanReadObjectRecords,
         ),
         inputSchema: zodSchema(trialBalanceInputSchema),
+        annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [ACCOUNT_CARD_TOOL_NAME]: {
+        ...createAccountCardTool(
+          this.accountCardService,
+          workspace.id,
+          assertCanReadObjectRecords,
+        ),
+        inputSchema: zodSchema(accountCardInputSchema),
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
       [BALANCE_SHEET_TOOL_NAME]: {

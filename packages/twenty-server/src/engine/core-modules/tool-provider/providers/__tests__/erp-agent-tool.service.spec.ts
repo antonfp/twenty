@@ -5,6 +5,7 @@ import { FieldActorSource } from 'twenty-shared/types';
 import { type PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { type ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { type PrintTemplateService } from 'src/engine/core-modules/erp/services/print-template.service';
+import { type AccountCardService } from 'src/engine/core-modules/erp-accounting/services/account-card.service';
 import { type BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { type IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
 import { type TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
@@ -60,6 +61,34 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
       },
     }),
   } as unknown as TrialBalanceService;
+
+  const accountCardService = {
+    getAccountCardData: jest.fn().mockResolvedValue({
+      accountCode: '51',
+      accountName: 'Расчётные счета',
+      openingBalanceDebitKopecks: 0,
+      openingBalanceCreditKopecks: 0,
+      rows: [
+        {
+          glEntryId: 'gl-1',
+          date: '2026-08-25',
+          correspondingAccountId: 'account-62',
+          debitKopecks: 122000,
+          creditKopecks: 0,
+          runningBalanceDebitKopecks: 122000,
+          runningBalanceCreditKopecks: 0,
+          voucherType: 'payment',
+          voucherId: 'payment-1',
+          correspondingAccountCode: '62.01',
+          documentLabel: 'Поступление оплаты № PAY-000001',
+        },
+      ],
+      closingBalanceDebitKopecks: 122000,
+      closingBalanceCreditKopecks: 0,
+      totalDebitKopecks: 122000,
+      totalCreditKopecks: 0,
+    }),
+  } as unknown as AccountCardService;
 
   const balanceSheetService = {
     getBalanceSheetData: jest.fn().mockResolvedValue({
@@ -141,6 +170,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
   const service = new ErpAgentToolService(
     postingService,
     trialBalanceService,
+    accountCardService,
     balanceSheetService,
     incomeStatementService,
     printTemplateService,
@@ -153,6 +183,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     provider: service,
     postingService,
     trialBalanceService,
+    accountCardService,
     balanceSheetService,
     incomeStatementService,
     printTemplateService,
@@ -164,12 +195,13 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
 
 describe('ErpAgentToolService', () => {
   describe('ownsTool', () => {
-    it('claims post_document/cancel_document/trial_balance/balance_sheet/income_statement/print tools and nothing else', () => {
+    it('claims post_document/cancel_document/trial_balance/account_card/balance_sheet/income_statement/print tools and nothing else', () => {
       const { provider } = buildProvider();
 
       expect(provider.ownsTool('post_document')).toBe(true);
       expect(provider.ownsTool('cancel_document')).toBe(true);
       expect(provider.ownsTool('trial_balance')).toBe(true);
+      expect(provider.ownsTool('account_card')).toBe(true);
       expect(provider.ownsTool('balance_sheet')).toBe(true);
       expect(provider.ownsTool('income_statement')).toBe(true);
       expect(provider.ownsTool('get_print_template')).toBe(true);
@@ -180,7 +212,7 @@ describe('ErpAgentToolService', () => {
   });
 
   describe('generateDescriptors', () => {
-    it('exposes post_document, cancel_document, trial_balance, balance_sheet, income_statement and the print tools', async () => {
+    it('exposes post_document, cancel_document, trial_balance, account_card, balance_sheet, income_statement and the print tools', async () => {
       const { provider } = buildProvider();
 
       const descriptors = await provider.generateDescriptors(context, {
@@ -192,6 +224,7 @@ describe('ErpAgentToolService', () => {
           'post_document',
           'cancel_document',
           'trial_balance',
+          'account_card',
           'balance_sheet',
           'income_statement',
           'get_print_template',
@@ -301,6 +334,61 @@ describe('ErpAgentToolService', () => {
           'trial_balance',
           {
             organizationId: ORGANIZATION_ID,
+            dateFrom: '2026-08-01',
+            dateTo: '2026-08-31',
+          },
+          context,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('account_card', () => {
+    it('wraps the карточка счёта rows into a ToolOutput result', async () => {
+      const { provider, accountCardService } = buildProvider();
+
+      const output = await provider.executeStaticTool(
+        'account_card',
+        {
+          organizationId: ORGANIZATION_ID,
+          accountCode: '51',
+          dateFrom: '2026-08-01',
+          dateTo: '2026-08-31',
+        },
+        context,
+      );
+
+      expect(output.success).toBe(true);
+      expect(output.result).toEqual(
+        expect.objectContaining({
+          accountCode: '51',
+          rows: expect.arrayContaining([
+            expect.objectContaining({
+              correspondingAccountCode: '62.01',
+              debit: 122000,
+            }),
+          ]),
+          closingBalanceDebit: 122000,
+        }),
+      );
+      expect(accountCardService.getAccountCardData).toHaveBeenCalledWith(
+        WORKSPACE_ID,
+        ORGANIZATION_ID,
+        '51',
+        '2026-08-01',
+        '2026-08-31',
+      );
+    });
+
+    it('rejects when the role lacks canReadObjectRecords on glEntry', async () => {
+      const { provider } = buildProvider({ permissionDenied: true });
+
+      await expect(
+        provider.executeStaticTool(
+          'account_card',
+          {
+            organizationId: ORGANIZATION_ID,
+            accountCode: '51',
             dateFrom: '2026-08-01',
             dateTo: '2026-08-31',
           },

@@ -5,10 +5,12 @@ import { GlContributorRegistry } from 'src/engine/core-modules/erp/gl-contributo
 import { PostingRulesRegistry } from 'src/engine/core-modules/erp/posting-rules.registry';
 import { ErpDocumentGuardService } from 'src/engine/core-modules/erp-sales/services/erp-document-guard.service';
 import { ErpDocumentLineGuardService } from 'src/engine/core-modules/erp-sales/services/erp-document-line-guard.service';
+import { AccountCardController } from 'src/engine/core-modules/erp-accounting/controllers/account-card.controller';
 import { BankStatementImportController } from 'src/engine/core-modules/erp-accounting/controllers/bank-statement-import.controller';
 import { FinancialStatementsController } from 'src/engine/core-modules/erp-accounting/controllers/financial-statements.controller';
 import { TrialBalanceController } from 'src/engine/core-modules/erp-accounting/controllers/trial-balance.controller';
 import { ERP_ACCOUNTING_GUARD_HOOKS } from 'src/engine/core-modules/erp-accounting/query-hooks/erp-accounting-guard.pre-query.hooks';
+import { AccountCardService } from 'src/engine/core-modules/erp-accounting/services/account-card.service';
 import { BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { BankStatementImportService } from 'src/engine/core-modules/erp-accounting/services/bank-statement-import.service';
 import { GlContributorsService } from 'src/engine/core-modules/erp-accounting/services/gl-contributors.service';
@@ -26,15 +28,16 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
 // переиспользуются из erp-sales (объект-агностичные), explicit registration
 // per erp/WIRING.md §3. stockTransfer контрибьютора не имеет — ruling: БЕЗ
 // проводок. TrialBalanceService/BankStatementImportService/
-// BalanceSheetService/IncomeStatementService are exported for the MCP
-// trial_balance/import_bank_statement/balance_sheet/income_statement tools
-// (see api/mcp/mcp.module.ts).
+// BalanceSheetService/IncomeStatementService/AccountCardService are exported
+// for the MCP trial_balance/import_bank_statement/balance_sheet/
+// income_statement/account_card tools (see api/mcp/mcp.module.ts).
 @Module({
   imports: [ErpModule, TokenModule, WorkspaceCacheStorageModule],
   controllers: [
     TrialBalanceController,
     BankStatementImportController,
     FinancialStatementsController,
+    AccountCardController,
   ],
   providers: [
     JwtAuthGuard,
@@ -47,6 +50,7 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     BankStatementImportService,
     BalanceSheetService,
     IncomeStatementService,
+    AccountCardService,
     ...ERP_ACCOUNTING_GUARD_HOOKS,
   ],
   exports: [
@@ -54,6 +58,7 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     BankStatementImportService,
     BalanceSheetService,
     IncomeStatementService,
+    AccountCardService,
   ],
 })
 export class ErpAccountingModule implements OnModuleInit {

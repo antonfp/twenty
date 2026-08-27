@@ -849,6 +849,119 @@ async function main() {
     'REST печать balance-sheet/income-statement: 200, заголовки и организация на месте, плейсхолдеров не осталось ok',
   );
 
+  // 14. Карточка счёта 51 (Task 2 Фазы 9) за todayIso — единственное
+  //     движение по 51 во всём сценарии выше — оплата шага 5
+  //     (Дт51/Кт62.01=1220). Входящее сальдо = 0 (движений до todayIso не
+  //     было), исходящее должно СОЙТИСЬ с closingBalanceKopecks('51') из
+  //     ОСВ шага 7 (122000 коп).
+  const accountCardRpc = await mcpToolCall(token, 'account_card', {
+    organizationId: org.id,
+    accountCode: '51',
+    dateFrom: todayIso,
+    dateTo: todayIso,
+  });
+
+  if (!accountCardRpc.result || accountCardRpc.result.isError)
+    throw new Error(`unexpected: ${JSON.stringify(accountCardRpc)}`);
+
+  const accountCard = mcpToolResultJson(accountCardRpc) as {
+    accountCode: string;
+    accountName: string;
+    openingBalanceDebit: number;
+    openingBalanceCredit: number;
+    rows: {
+      date: string;
+      voucherType: string | null;
+      documentLabel: string;
+      correspondingAccountCode: string;
+      debit: number;
+      credit: number;
+      balanceDebit: number;
+      balanceCredit: number;
+    }[];
+    closingBalanceDebit: number;
+    closingBalanceCredit: number;
+    totalDebit: number;
+    totalCredit: number;
+  };
+
+  if (accountCard.accountCode !== '51')
+    throw new Error(`unexpected: ${JSON.stringify(accountCard)}`);
+  if (
+    accountCard.openingBalanceDebit !== 0 ||
+    accountCard.openingBalanceCredit !== 0
+  )
+    throw new Error(`unexpected opening: ${JSON.stringify(accountCard)}`);
+  if (accountCard.rows.length !== 1)
+    throw new Error(`expected 1 posting on 51: ${JSON.stringify(accountCard)}`);
+
+  const [cardRow] = accountCard.rows;
+
+  if (cardRow.correspondingAccountCode !== '62.01')
+    throw new Error(`unexpected corr. account: ${JSON.stringify(cardRow)}`);
+  if (cardRow.debit !== 122000 || cardRow.credit !== 0)
+    throw new Error(`unexpected debit/credit: ${JSON.stringify(cardRow)}`);
+  if (cardRow.balanceDebit !== 122000 || cardRow.balanceCredit !== 0)
+    throw new Error(`unexpected running balance: ${JSON.stringify(cardRow)}`);
+  if (!cardRow.documentLabel.startsWith('Поступление оплаты №'))
+    throw new Error(`unexpected documentLabel: ${JSON.stringify(cardRow)}`);
+  if (accountCard.closingBalanceDebit !== closingBalanceKopecks('51'))
+    throw new Error(
+      `account_card closing (${accountCard.closingBalanceDebit}) != ОСВ closing (${closingBalanceKopecks('51')})`,
+    );
+  if (accountCard.totalDebit !== 122000 || accountCard.totalCredit !== 0)
+    throw new Error(`unexpected turnover totals: ${JSON.stringify(accountCard)}`);
+  console.log(
+    `account_card (MCP) 51 ok: входящее=0, 1 проводка (${cardRow.documentLabel}, корр.62.01, Дт1220), ` +
+      `исходящее=${accountCard.closingBalanceDebit / 100} руб — сходится с ОСВ`,
+  );
+
+  // 15. REST-путь карточки счёта: печатный HTML (200, заголовок, счёт,
+  //     организация, без незаполненных плейсхолдеров) + негатив —
+  //     несуществующий accountCode -> 404 RU.
+  const accountCardHtmlResponse = await fetch(
+    `${BASE}/rest/erp/reports/account-card?organizationId=${org.id}&accountCode=51&dateFrom=${todayIso}&dateTo=${todayIso}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+
+  if (accountCardHtmlResponse.status !== 200)
+    throw new Error(
+      `account-card REST: expected 200, got ${accountCardHtmlResponse.status}`,
+    );
+  const accountCardHtml = await accountCardHtmlResponse.text();
+
+  if (!accountCardHtml.includes('Карточка счёта'))
+    throw new Error('account-card REST: missing title');
+  if (!accountCardHtml.includes(org.name))
+    throw new Error('account-card REST: missing organization name');
+  if (!accountCardHtml.includes('Сальдо на начало периода'))
+    throw new Error('account-card REST: missing opening balance row');
+  if (!accountCardHtml.includes('Сальдо на конец периода'))
+    throw new Error('account-card REST: missing closing balance row');
+  if (accountCardHtml.includes('{{'))
+    throw new Error('account-card REST: unresolved placeholder');
+
+  const missingAccountResponse = await fetch(
+    `${BASE}/rest/erp/reports/account-card?organizationId=${org.id}&accountCode=99.99&dateFrom=${todayIso}&dateTo=${todayIso}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+
+  if (missingAccountResponse.status !== 404)
+    throw new Error(
+      `account-card REST (unknown accountCode): expected 404, got ${missingAccountResponse.status}`,
+    );
+  const missingAccountBody = await missingAccountResponse.json();
+  const missingAccountMessage = JSON.stringify(missingAccountBody);
+
+  if (!missingAccountMessage.includes('Счёт не найден в плане счетов'))
+    throw new Error(
+      `account-card REST (unknown accountCode): unexpected body ${missingAccountMessage}`,
+    );
+  console.log(
+    'REST печать account-card: 200, заголовок/счёт/организация на месте, плейсхолдеров не осталось; ' +
+      'несуществующий accountCode -> 404 RU «Счёт не найден в плане счетов» ok',
+  );
+
   console.log('\n=== E2E ЦИКЛ БУХГАЛТЕРИИ ПРОЙДЕН ===');
 }
 
