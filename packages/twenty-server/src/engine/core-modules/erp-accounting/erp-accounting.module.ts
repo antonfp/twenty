@@ -8,6 +8,7 @@ import { ErpDocumentLineGuardService } from 'src/engine/core-modules/erp-sales/s
 import { AccountCardController } from 'src/engine/core-modules/erp-accounting/controllers/account-card.controller';
 import { BankStatementImportController } from 'src/engine/core-modules/erp-accounting/controllers/bank-statement-import.controller';
 import { FinancialStatementsController } from 'src/engine/core-modules/erp-accounting/controllers/financial-statements.controller';
+import { KudirController } from 'src/engine/core-modules/erp-accounting/controllers/kudir.controller';
 import { TrialBalanceController } from 'src/engine/core-modules/erp-accounting/controllers/trial-balance.controller';
 import { ERP_ACCOUNTING_GUARD_HOOKS } from 'src/engine/core-modules/erp-accounting/query-hooks/erp-accounting-guard.pre-query.hooks';
 import { AccountCardService } from 'src/engine/core-modules/erp-accounting/services/account-card.service';
@@ -15,6 +16,7 @@ import { BalanceSheetService } from 'src/engine/core-modules/erp-accounting/serv
 import { BankStatementImportService } from 'src/engine/core-modules/erp-accounting/services/bank-statement-import.service';
 import { GlContributorsService } from 'src/engine/core-modules/erp-accounting/services/gl-contributors.service';
 import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
+import { KudirService } from 'src/engine/core-modules/erp-accounting/services/kudir.service';
 import { ManualEntryPostingRulesService } from 'src/engine/core-modules/erp-accounting/services/manual-entry-posting-rules.service';
 import { ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
@@ -30,9 +32,10 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
 // per erp/WIRING.md §3. stockTransfer контрибьютора не имеет — ruling: БЕЗ
 // проводок. TrialBalanceService/BankStatementImportService/
 // BalanceSheetService/IncomeStatementService/AccountCardService/
-// ReconciliationService are exported for the MCP trial_balance/
+// ReconciliationService/KudirService are exported for the MCP trial_balance/
 // import_bank_statement/balance_sheet/income_statement/account_card/
-// reconcile_payments/confirm_reconciliation tools (see api/mcp/mcp.module.ts).
+// reconcile_payments/confirm_reconciliation/kudir tools (see
+// api/mcp/mcp.module.ts).
 @Module({
   imports: [ErpModule, TokenModule, WorkspaceCacheStorageModule],
   controllers: [
@@ -40,6 +43,7 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     BankStatementImportController,
     FinancialStatementsController,
     AccountCardController,
+    KudirController,
   ],
   providers: [
     JwtAuthGuard,
@@ -54,6 +58,7 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     IncomeStatementService,
     AccountCardService,
     ReconciliationService,
+    KudirService,
     ...ERP_ACCOUNTING_GUARD_HOOKS,
   ],
   exports: [
@@ -63,6 +68,7 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     IncomeStatementService,
     AccountCardService,
     ReconciliationService,
+    KudirService,
   ],
 })
 export class ErpAccountingModule implements OnModuleInit {

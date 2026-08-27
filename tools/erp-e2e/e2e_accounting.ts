@@ -70,6 +70,10 @@ async function main() {
   const createPayment = findName(names, 'createPayment');
   const createMe = findName(names, 'createManualEntry');
   const createMeLine = findName(names, 'createManualEntryLine');
+  // Task 4 (КУДиР) — товарный кейс needs the closing-purchases side too.
+  const createSupplierInv = findName(names, 'createSupplierInvoice');
+  const createSupplierInvLine = findName(names, 'createSupplierInvoiceLine');
+  const createSupplierPay = findName(names, 'createSupplierPayment');
   console.log(
     'mutations:',
     createOrg,
@@ -910,7 +914,9 @@ async function main() {
       `account_card closing (${accountCard.closingBalanceDebit}) != ОСВ closing (${closingBalanceKopecks('51')})`,
     );
   if (accountCard.totalDebit !== 122000 || accountCard.totalCredit !== 0)
-    throw new Error(`unexpected turnover totals: ${JSON.stringify(accountCard)}`);
+    throw new Error(
+      `unexpected turnover totals: ${JSON.stringify(accountCard)}`,
+    );
   console.log(
     `account_card (MCP) 51 ok: входящее=0, 1 проводка (${cardRow.documentLabel}, корр.62.01, Дт1220), ` +
       `исходящее=${accountCard.closingBalanceDebit / 100} руб — сходится с ОСВ`,
@@ -979,10 +985,16 @@ async function main() {
     !trialBalanceAfterStornoRpc.result ||
     trialBalanceAfterStornoRpc.result.isError
   )
-    throw new Error(`unexpected: ${JSON.stringify(trialBalanceAfterStornoRpc)}`);
+    throw new Error(
+      `unexpected: ${JSON.stringify(trialBalanceAfterStornoRpc)}`,
+    );
 
   const tbAfterStorno = mcpToolResultJson(trialBalanceAfterStornoRpc) as {
-    rows: { accountCode: string; closingDebit: number; closingCredit: number }[];
+    rows: {
+      accountCode: string;
+      closingDebit: number;
+      closingCredit: number;
+    }[];
   };
   const byCodeAfterStorno = Object.fromEntries(
     tbAfterStorno.rows.map((row) => [row.accountCode, row]),
@@ -1067,6 +1079,351 @@ async function main() {
     `account_card (MCP) 26 ok: сторно шага 10 виден как отдельная строка (${reversalRow.documentLabel}, ` +
       `Дт${reversalRow.debit / 100}), сальдо нарастающим итогом вернулось к входящему ` +
       `(${accountCard26.openingBalanceDebit / 100} руб), исходящее сходится с ОСВ`,
+  );
+
+  // 17. КУДиР (Task 4), УСН «доходы»: своя организация + оплата -> доход в
+  //     разделе I на дату ОПЛАТЫ (не дату счёта). `org` (созданная в шаге 1,
+  //     без taxSystem) переиспользуется ниже для негативного пути.
+  const kudirYear = today.getFullYear();
+  const usnIncomeOrg = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createOrg}(data: {
+      name: "ООО КУДиР-Доходы (e2e ${suffix})", inn: "${randomInn()}",
+      taxSystem: "USN_INCOME"
+    }) { id } }`,
+      {},
+      token,
+    )
+  )[createOrg];
+  const kudirBuyer = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createCompany}(data: {
+      name: "ООО Покупатель КУДиР (e2e ${suffix})", isCustomer: true
+    }) { id } }`,
+      {},
+      token,
+    )
+  )[createCompany];
+
+  const kudirSinv = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createSinv}(data: {
+      name: "Черновик e2e", invoiceDate: "${todayIso}",
+      organizationId: "${usnIncomeOrg.id}", customerId: "${kudirBuyer.id}"
+    }) { id } }`,
+      {},
+      token,
+    )
+  )[createSinv];
+  await gql(
+    '/graphql',
+    `mutation { ${createSinvLine}(data: {
+      name: "Услуга (e2e КУДиР)", quantity: 1,
+      price: ${money(50000)}, vatRate: "VAT_0", salesInvoiceId: "${kudirSinv.id}"
+    }) { id } }`,
+    {},
+    token,
+  );
+  await gql(
+    '/graphql',
+    `mutation { postDocument(objectNameSingular: "salesInvoice", recordId: "${kudirSinv.id}") }`,
+    {},
+    token,
+  );
+
+  const kudirPay = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createPayment}(data: {
+      name: "Оплата (e2e КУДиР)", paymentDate: "${todayIso}",
+      amount: ${money(50000)}, organizationId: "${usnIncomeOrg.id}",
+      payerId: "${kudirBuyer.id}", salesInvoiceId: "${kudirSinv.id}"
+    }) { id } }`,
+      {},
+      token,
+    )
+  )[createPayment];
+  await gql(
+    '/graphql',
+    `mutation { postDocument(objectNameSingular: "payment", recordId: "${kudirPay.id}") }`,
+    {},
+    token,
+  );
+
+  const kudirIncomeRpc = await mcpToolCall(token, 'kudir', {
+    organizationId: usnIncomeOrg.id,
+    year: kudirYear,
+  });
+
+  if (!kudirIncomeRpc.result || kudirIncomeRpc.result.isError)
+    throw new Error(`unexpected: ${JSON.stringify(kudirIncomeRpc)}`);
+
+  const kudirIncome = mcpToolResultJson(kudirIncomeRpc) as {
+    taxSystemLabel: string;
+    entries: {
+      seq: number | null;
+      income: number;
+      expense: number;
+      content: string;
+    }[];
+    totalIncome: number;
+    totalExpense: number;
+  };
+
+  if (kudirIncome.taxSystemLabel !== 'Доходы')
+    throw new Error(`unexpected: ${JSON.stringify(kudirIncome)}`);
+
+  const kudirIncomeRow = kudirIncome.entries.find((e) => e.seq === 1);
+
+  if (
+    !kudirIncomeRow ||
+    kudirIncomeRow.income !== 5_000_000 ||
+    kudirIncomeRow.expense !== 0 ||
+    !kudirIncomeRow.content.includes('ООО Покупатель КУДиР')
+  )
+    throw new Error(`unexpected: ${JSON.stringify(kudirIncome)}`);
+  if (kudirIncome.totalIncome !== 5_000_000 || kudirIncome.totalExpense !== 0)
+    throw new Error(`unexpected totals: ${JSON.stringify(kudirIncome)}`);
+  console.log(
+    `КУДиР (MCP) УСН «доходы» ok: доход 500,00 руб датирован оплатой (${todayIso}), контрагент в содержании операции`,
+  );
+
+  // REST-печать: 200, заголовок формы, объект налогообложения, без
+  // незаполненных плейсхолдеров.
+  const kudirHtmlResponse = await fetch(
+    `${BASE}/rest/erp/reports/kudir?organizationId=${usnIncomeOrg.id}&year=${kudirYear}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+
+  if (kudirHtmlResponse.status !== 200)
+    throw new Error(
+      `kudir REST: expected 200, got ${kudirHtmlResponse.status}`,
+    );
+  const kudirHtml = await kudirHtmlResponse.text();
+
+  if (!kudirHtml.includes('Книга учёта доходов и расходов'))
+    throw new Error('kudir REST: missing title');
+  if (!kudirHtml.includes('Объект налогообложения:</span>Доходы'))
+    throw new Error('kudir REST: missing tax system label');
+  if (kudirHtml.includes('{{'))
+    throw new Error('kudir REST: unresolved placeholder');
+  console.log(
+    'REST печать kudir: 200, заголовок/объект налогообложения на месте, плейсхолдеров не осталось ok',
+  );
+
+  // Негатив: организация без УСН (`org`, шаг 1) -> RU-отказ.
+  const kudirNonUsnRpc = await mcpToolCall(token, 'kudir', {
+    organizationId: org.id,
+    year: kudirYear,
+  });
+
+  if (!kudirNonUsnRpc.result?.isError)
+    throw new Error(
+      `kudir on non-УСН org must be denied, got: ${JSON.stringify(kudirNonUsnRpc)}`,
+    );
+  const kudirNonUsnText =
+    (kudirNonUsnRpc.result.content as { text: string }[] | undefined)?.[0]
+      ?.text ?? '';
+
+  if (!kudirNonUsnText.includes('УСН'))
+    throw new Error(`unexpected refusal text: ${kudirNonUsnText}`);
+  console.log(
+    `КУДиР (MCP) негатив: организация без УСН -> отказ ("${kudirNonUsnText.slice(0, 70)}...") ok`,
+  );
+
+  // 18. КУДиР — товарный кейс (УСН «доходы минус расходы»), тройное условие
+  //     ст. 346.17 НК РФ: оприходован + оплачен поставщику + реализован ->
+  //     расход признаётся в дату ПОСЛЕДНЕГО из трёх событий.
+  const usnExpenseOrg = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createOrg}(data: {
+      name: "ООО КУДиР-Расходы (e2e ${suffix})", inn: "${randomInn()}",
+      taxSystem: "USN_INCOME_EXPENSE"
+    }) { id } }`,
+      {},
+      token,
+    )
+  )[createOrg];
+  const kudirSupplier = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createCompany}(data: {
+      name: "ООО Поставщик КУДиР (e2e ${suffix})", isSupplier: true, isCustomer: true
+    }) { id } }`,
+      {},
+      token,
+    )
+  )[createCompany];
+  const kudirWarehouse = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createWarehouse}(data: { name: "Склад КУДиР (e2e ${suffix})" }) { id } }`,
+      {},
+      token,
+    )
+  )[createWarehouse];
+  const kudirItemName = `Товар КУДиР (e2e ${suffix})`;
+  const kudirItem = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createItem}(data: { name: "${kudirItemName}", itemType: "GOODS", unit: "PIECE" }) { id } }`,
+      {},
+      token,
+    )
+  )[createItem];
+
+  // Счёт поставщика: 5 x 200 = 1000.
+  const kudirSupplierInv = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createSupplierInv}(data: {
+      name: "Черновик e2e", invoiceDate: "${todayIso}",
+      organizationId: "${usnExpenseOrg.id}", supplierId: "${kudirSupplier.id}"
+    }) { id } }`,
+      {},
+      token,
+    )
+  )[createSupplierInv];
+  await gql(
+    '/graphql',
+    `mutation { ${createSupplierInvLine}(data: {
+      name: "${kudirItemName}", itemId: "${kudirItem.id}", quantity: 5,
+      price: ${money(200)}, vatRate: "VAT_0", supplierInvoiceId: "${kudirSupplierInv.id}"
+    }) { id } }`,
+    {},
+    token,
+  );
+  await gql(
+    '/graphql',
+    `mutation { postDocument(objectNameSingular: "supplierInvoice", recordId: "${kudirSupplierInv.id}") }`,
+    {},
+    token,
+  );
+
+  // Условие 1 — оприходован, привязано к ЭТОМУ счёту.
+  const kudirGr = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createGr}(data: {
+      organizationId: "${usnExpenseOrg.id}", warehouseId: "${kudirWarehouse.id}",
+      supplierInvoiceId: "${kudirSupplierInv.id}"
+    }) { id } }`,
+      {},
+      token,
+    )
+  )[createGr];
+  await gql(
+    '/graphql',
+    `mutation { ${createGrLine}(data: {
+      name: "${kudirItemName}", itemId: "${kudirItem.id}", quantity: 5,
+      price: ${money(200)}, goodsReceiptId: "${kudirGr.id}"
+    }) { id } }`,
+    {},
+    token,
+  );
+  await gql(
+    '/graphql',
+    `mutation { postDocument(objectNameSingular: "goodsReceipt", recordId: "${kudirGr.id}") }`,
+    {},
+    token,
+  );
+
+  // Условие 2 — оплачен поставщику, оплата в полном размере -> PAID.
+  const kudirSupplierPay = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createSupplierPay}(data: {
+      name: "Оплата поставщику (e2e КУДиР)", paymentDate: "${todayIso}",
+      amount: ${money(1000)}, organizationId: "${usnExpenseOrg.id}",
+      supplierId: "${kudirSupplier.id}", supplierInvoiceId: "${kudirSupplierInv.id}"
+    }) { id } }`,
+      {},
+      token,
+    )
+  )[createSupplierPay];
+  await gql(
+    '/graphql',
+    `mutation { postDocument(objectNameSingular: "supplierPayment", recordId: "${kudirSupplierPay.id}") }`,
+    {},
+    token,
+  );
+
+  // Условие 3 — реализован покупателю (та же компания как customer, как и в
+  // e2e_purchases.ts §6 — оба флага isSupplier/isCustomer уже выставлены).
+  const kudirSs = (
+    await gql<Record<string, Id>>(
+      '/graphql',
+      `mutation { ${createSs}(data: {
+      organizationId: "${usnExpenseOrg.id}", warehouseId: "${kudirWarehouse.id}",
+      customerId: "${kudirSupplier.id}"
+    }) { id } }`,
+      {},
+      token,
+    )
+  )[createSs];
+  await gql(
+    '/graphql',
+    `mutation { ${createSsLine}(data: {
+      name: "${kudirItemName}", itemId: "${kudirItem.id}", quantity: 5,
+      price: ${money(300)}, amount: ${money(1500)}, vatRate: "VAT_0",
+      salesShipmentId: "${kudirSs.id}"
+    }) { id } }`,
+    {},
+    token,
+  );
+  await gql(
+    '/graphql',
+    `mutation { postDocument(objectNameSingular: "salesShipment", recordId: "${kudirSs.id}") }`,
+    {},
+    token,
+  );
+
+  const kudirExpenseRpc = await mcpToolCall(token, 'kudir', {
+    organizationId: usnExpenseOrg.id,
+    year: kudirYear,
+  });
+
+  if (!kudirExpenseRpc.result || kudirExpenseRpc.result.isError)
+    throw new Error(`unexpected: ${JSON.stringify(kudirExpenseRpc)}`);
+
+  const kudirExpense = mcpToolResultJson(kudirExpenseRpc) as {
+    taxSystemLabel: string;
+    entries: {
+      seq: number | null;
+      date: string | null;
+      income: number;
+      expense: number;
+      content: string;
+    }[];
+    totalIncome: number;
+    totalExpense: number;
+  };
+
+  if (
+    kudirExpense.taxSystemLabel !== 'Доходы, уменьшенные на величину расходов'
+  )
+    throw new Error(`unexpected: ${JSON.stringify(kudirExpense)}`);
+
+  const kudirExpenseRow = kudirExpense.entries.find((e) => e.seq === 1);
+
+  if (
+    !kudirExpenseRow ||
+    kudirExpenseRow.expense !== 100_000 ||
+    kudirExpenseRow.income !== 0 ||
+    kudirExpenseRow.date !== todayIso ||
+    !kudirExpenseRow.content.includes(kudirItemName)
+  )
+    throw new Error(`unexpected: ${JSON.stringify(kudirExpense)}`);
+  if (kudirExpense.totalExpense !== 100_000 || kudirExpense.totalIncome !== 0)
+    throw new Error(`unexpected totals: ${JSON.stringify(kudirExpense)}`);
+  console.log(
+    `КУДиР (MCP) товарный кейс ok: расход 1000,00 руб признан на ${kudirExpenseRow.date} ` +
+      `(тройное условие: оприходован+оплачен+реализован — все в один день в e2e, ` +
+      `но проверено что дата = MAX(...) в юнит-тестах compute-kudir.util.spec.ts)`,
   );
 
   console.log('\n=== E2E ЦИКЛ БУХГАЛТЕРИИ ПРОЙДЕН ===');

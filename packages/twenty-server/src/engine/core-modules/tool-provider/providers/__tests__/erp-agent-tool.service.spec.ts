@@ -8,6 +8,7 @@ import { type PrintTemplateService } from 'src/engine/core-modules/erp/services/
 import { type AccountCardService } from 'src/engine/core-modules/erp-accounting/services/account-card.service';
 import { type BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { type IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
+import { type KudirService } from 'src/engine/core-modules/erp-accounting/services/kudir.service';
 import { type ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { type TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { type SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
@@ -198,6 +199,27 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     }),
   } as unknown as ReconciliationService;
 
+  const kudirService = {
+    getKudirData: jest.fn().mockResolvedValue({
+      organizationName: 'ООО «Ромашка»',
+      organizationInn: '7712345678',
+      taxSystemLabel: 'Доходы',
+      year: 2026,
+      entries: [
+        {
+          seq: 1,
+          date: '2026-01-15',
+          documentLabel: 'Поступление оплаты № PAY-000001 от 15.01.2026',
+          content: 'Оплата по счёту № SI-000001 от 10.01.2026, ООО Ромашка',
+          incomeKopecks: 122000,
+          expenseKopecks: 0,
+        },
+      ],
+      totalIncomeKopecks: 122000,
+      totalExpenseKopecks: 0,
+    }),
+  } as unknown as KudirService;
+
   const service = new ErpAgentToolService(
     postingService,
     trialBalanceService,
@@ -208,6 +230,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     salesInvoicePrintService,
     salesShipmentPrintService,
     reconciliationService,
+    kudirService,
     erpObjectPermissionGuardService,
   );
 
@@ -222,6 +245,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     salesInvoicePrintService,
     salesShipmentPrintService,
     reconciliationService,
+    kudirService,
     erpObjectPermissionGuardService,
   };
 };
@@ -242,12 +266,13 @@ describe('ErpAgentToolService', () => {
       expect(provider.ownsTool('render_print_preview')).toBe(true);
       expect(provider.ownsTool('reconcile_payments')).toBe(true);
       expect(provider.ownsTool('confirm_reconciliation')).toBe(true);
+      expect(provider.ownsTool('kudir')).toBe(true);
       expect(provider.ownsTool('http_request')).toBe(false);
     });
   });
 
   describe('generateDescriptors', () => {
-    it('exposes post_document, cancel_document, trial_balance, account_card, balance_sheet, income_statement, the print tools and reconciliation tools', async () => {
+    it('exposes post_document, cancel_document, trial_balance, account_card, balance_sheet, income_statement, the print tools, reconciliation tools and kudir', async () => {
       const { provider } = buildProvider();
 
       const descriptors = await provider.generateDescriptors(context, {
@@ -267,6 +292,7 @@ describe('ErpAgentToolService', () => {
           'render_print_preview',
           'reconcile_payments',
           'confirm_reconciliation',
+          'kudir',
         ]),
       );
 
@@ -651,6 +677,50 @@ describe('ErpAgentToolService', () => {
       expect(
         reconciliationService.confirmReconciliation,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('kudir', () => {
+    it('wraps the КУДиР data into a ToolOutput result', async () => {
+      const { provider, kudirService } = buildProvider();
+
+      const output = await provider.executeStaticTool(
+        'kudir',
+        { organizationId: ORGANIZATION_ID, year: 2026 },
+        context,
+      );
+
+      expect(output.success).toBe(true);
+      expect(output.result).toEqual(
+        expect.objectContaining({
+          organizationName: 'ООО «Ромашка»',
+          totalIncome: 122000,
+          totalExpense: 0,
+          entries: expect.arrayContaining([
+            expect.objectContaining({ seq: 1, income: 122000 }),
+          ]),
+        }),
+      );
+      expect(kudirService.getKudirData).toHaveBeenCalledWith(
+        WORKSPACE_ID,
+        ORGANIZATION_ID,
+        2026,
+      );
+    });
+
+    it('rejects when the role lacks canReadObjectRecords', async () => {
+      const { provider, kudirService } = buildProvider({
+        permissionDenied: true,
+      });
+
+      await expect(
+        provider.executeStaticTool(
+          'kudir',
+          { organizationId: ORGANIZATION_ID, year: 2026 },
+          context,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(kudirService.getKudirData).not.toHaveBeenCalled();
     });
   });
 });

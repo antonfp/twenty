@@ -110,3 +110,19 @@ export const formatThousandRoublesRu = (kopecks: number): string => {
 
   return `${sign}${grouped}`;
 };
+
+// «7 620» — целые рубли КУДиР (research §2: приказ ФНС ЕА-7-3/816@, «книга
+// ведётся в рублях, без копеек»). Обычное арифметическое округление
+// (Math.round — половина копейки уходит вверх), НЕ банковское/до тысяч —
+// то отдельное правило ФСБУ 4/2023 для баланса/ОФР выше, здесь другая форма
+// с другим документально закреплённым способом округления.
+export const formatWholeRublesRu = (kopecks: number): string => {
+  const roubles = Math.round(Math.abs(kopecks) / 100);
+  const sign = kopecks < 0 && roubles !== 0 ? '-' : '';
+  const grouped = String(roubles).replace(
+    /\B(?=(\d{3})+(?!\d))/g,
+    NON_BREAKING_SPACE,
+  );
+
+  return `${sign}${grouped}`;
+};

@@ -28,6 +28,10 @@ import {
   INCOME_STATEMENT_TOOL_NAME,
 } from 'src/engine/api/mcp/tools/income-statement.tool';
 import {
+  createKudirTool,
+  KUDIR_TOOL_NAME,
+} from 'src/engine/api/mcp/tools/kudir.tool';
+import {
   POST_DOCUMENT_TOOL_NAME,
   createPostDocumentTool,
 } from 'src/engine/api/mcp/tools/post-document.tool';
@@ -53,6 +57,7 @@ import { PrintTemplateService } from 'src/engine/core-modules/erp/services/print
 import { AccountCardService } from 'src/engine/core-modules/erp-accounting/services/account-card.service';
 import { BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
+import { KudirService } from 'src/engine/core-modules/erp-accounting/services/kudir.service';
 import { ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
@@ -105,6 +110,7 @@ export const ERP_AGENT_TOOL_NAMES: readonly string[] = [
   RENDER_PRINT_PREVIEW_TOOL_NAME,
   RECONCILE_PAYMENTS_TOOL_NAME,
   CONFIRM_RECONCILIATION_TOOL_NAME,
+  KUDIR_TOOL_NAME,
 ];
 
 @Injectable()
@@ -119,6 +125,7 @@ export class ErpAgentToolService {
     private readonly salesInvoicePrintService: SalesInvoicePrintService,
     private readonly salesShipmentPrintService: SalesShipmentPrintService,
     private readonly reconciliationService: ReconciliationService,
+    private readonly kudirService: KudirService,
     private readonly erpObjectPermissionGuardService: ErpObjectPermissionGuardService,
   ) {}
 
@@ -201,6 +208,11 @@ export class ErpAgentToolService {
     );
     const reconcilePaymentsTool = createReconcilePaymentsTool(
       this.reconciliationService,
+      context.workspaceId,
+      assertCanReadObjectRecords,
+    );
+    const kudirTool = createKudirTool(
+      this.kudirService,
       context.workspaceId,
       assertCanReadObjectRecords,
     );
@@ -355,6 +367,23 @@ export class ErpAgentToolService {
         context.workspaceId,
         assertCanUpdateObjectRecords,
       ),
+      // Same wrapping reason as trial_balance above: raw data result, not
+      // {success, message}.
+      [KUDIR_TOOL_NAME]: {
+        description: kudirTool.description,
+        inputSchema: kudirTool.inputSchema,
+        execute: async (
+          toolArgs: Parameters<typeof kudirTool.execute>[0],
+        ): Promise<ToolOutput> => {
+          const result = await kudirTool.execute(toolArgs);
+
+          return {
+            success: true,
+            message: `КУДиР за ${result.year}: доходы ${result.totalIncome} коп., расходы ${result.totalExpense} коп.`,
+            result,
+          };
+        },
+      },
     };
   }
 }

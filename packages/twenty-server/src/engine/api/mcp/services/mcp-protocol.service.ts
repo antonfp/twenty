@@ -93,6 +93,11 @@ import {
   incomeStatementInputSchema,
 } from 'src/engine/api/mcp/tools/income-statement.tool';
 import {
+  createKudirTool,
+  KUDIR_TOOL_NAME,
+  kudirInputSchema,
+} from 'src/engine/api/mcp/tools/kudir.tool';
+import {
   createTrialBalanceTool,
   TRIAL_BALANCE_TOOL_NAME,
   trialBalanceInputSchema,
@@ -114,6 +119,7 @@ import { AccountCardService } from 'src/engine/core-modules/erp-accounting/servi
 import { BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { BankStatementImportService } from 'src/engine/core-modules/erp-accounting/services/bank-statement-import.service';
 import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
+import { KudirService } from 'src/engine/core-modules/erp-accounting/services/kudir.service';
 import { ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
@@ -196,6 +202,7 @@ export class McpProtocolService {
     private readonly incomeStatementService: IncomeStatementService,
     private readonly accountCardService: AccountCardService,
     private readonly reconciliationService: ReconciliationService,
+    private readonly kudirService: KudirService,
     private readonly erpCustomizationSurfaceService: ErpCustomizationSurfaceService,
     private readonly printTemplateService: PrintTemplateService,
     private readonly salesInvoicePrintService: SalesInvoicePrintService,
@@ -502,6 +509,15 @@ export class McpProtocolService {
           assertCanReadObjectRecords,
         ),
         inputSchema: zodSchema(incomeStatementInputSchema),
+        annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [KUDIR_TOOL_NAME]: {
+        ...createKudirTool(
+          this.kudirService,
+          workspace.id,
+          assertCanReadObjectRecords,
+        ),
+        inputSchema: zodSchema(kudirInputSchema),
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
       [IMPORT_BANK_STATEMENT_TOOL_NAME]: {

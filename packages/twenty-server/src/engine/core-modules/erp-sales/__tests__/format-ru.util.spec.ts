@@ -4,6 +4,7 @@ import {
   formatMoneyRu,
   formatQuantityRu,
   formatThousandRoublesRu,
+  formatWholeRublesRu,
   roundKopecksToThousandRoubles,
 } from 'src/engine/core-modules/erp-sales/utils/format-ru.util';
 
@@ -64,5 +65,24 @@ describe('formatThousandRoublesRu', () => {
     expect(formatThousandRoublesRu(762_000)).toBe('8');
     expect(formatThousandRoublesRu(-150_000)).toBe('-2');
     expect(formatThousandRoublesRu(0)).toBe('0');
+  });
+});
+
+describe('formatWholeRublesRu', () => {
+  it('rounds kopecks to whole roubles (плановое арифметическое, не банковское)', () => {
+    expect(formatWholeRublesRu(122_000)).toBe('1 220'.replace(' ', NBSP));
+    expect(formatWholeRublesRu(50)).toBe('1'); // 0,50 → 1 (half rounds up)
+    expect(formatWholeRublesRu(49)).toBe('0'); // 0,49 → 0
+    expect(formatWholeRublesRu(150_000)).toBe('1 500'.replace(' ', NBSP)); // 1500,00 (no banker's rounding)
+  });
+
+  it('groups thousands with a non-breaking space', () => {
+    expect(formatWholeRublesRu(123_456_700)).toBe(`1${NBSP}234${NBSP}567`);
+  });
+
+  it('mirrors the sign for negative amounts and normalizes -0', () => {
+    expect(formatWholeRublesRu(-150_000)).toBe('-1 500'.replace(' ', NBSP));
+    expect(formatWholeRublesRu(-49)).toBe('0');
+    expect(formatWholeRublesRu(0)).toBe('0');
   });
 });
