@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { msg } from '@lingui/core/macro';
 import { isNonEmptyString } from '@sniptt/guards';
+import { In } from 'typeorm';
 import { isDefined } from 'twenty-shared/utils';
 
 import {
@@ -20,9 +21,21 @@ import {
   kopecksToCurrency,
   RUB_CURRENCY_CODE,
 } from 'src/engine/core-modules/erp-sales/utils/erp-sales-money.util';
+import { type AccountTurnover } from 'src/engine/core-modules/erp-accounting/utils/compute-income-statement.util';
+import {
+  computeMonthCloseLegs,
+  firstDayOfNextMonth,
+  MONTH_CLOSE_SOURCE_ACCOUNT_CODES,
+} from 'src/engine/core-modules/erp-accounting/utils/compute-month-close.util';
+import { findFlatEntityByIdInFlatEntityMapsOrThrow } from 'src/engine/metadata-modules/flat-entity/utils/find-flat-entity-by-id-in-flat-entity-maps-or-throw.util';
+import { getWorkspaceContext } from 'src/engine/twenty-orm/storage/orm-workspace-context.storage';
+import { computeObjectTargetTable } from 'src/engine/utils/compute-object-target-table.util';
+import { getWorkspaceSchemaName } from 'src/engine/workspace-datasource/utils/get-workspace-schema-name.util';
+import { escapeIdentifier } from 'src/engine/workspace-manager/workspace-migration/utils/remove-sql-injection.util';
 
 const ACCOUNT_OBJECT_NAME = 'account';
 const STOCK_LEDGER_ENTRY_OBJECT_NAME = 'stockLedgerEntry';
+const GL_ENTRY_OBJECT_NAME = 'glEntry';
 const SALES_INVOICE_OBJECT_NAME = 'salesInvoice';
 const SUPPLIER_INVOICE_OBJECT_NAME = 'supplierInvoice';
 const BYPASS_PERMISSIONS = { shouldBypassPermissionChecks: true } as const;
@@ -321,6 +334,153 @@ export class GlContributorsService {
         isCancellation: false,
       };
     });
+  }
+
+  // Закрытие месяца (Task 5, research §3): суммы — не на документе/строках, а
+  // считаются здесь из оборотов glEntry за месяц (и, при реформации, за год)
+  // — единственный контрибьютор, который сам агрегирует регистр, а не
+  // передаёт по документу. «Нет оборотов за месяц» — RU-отказ живёт здесь
+  // (не в validate провайдера): он зависит от того же вычисленного оборота,
+  // которое нужно посчитать один раз, а не дважды в разных сервисах.
+  async monthCloseGlEntries(
+    context: PostingContext,
+    document: ErpDocumentRecord,
+    _lines: ErpDocumentLineRecord[],
+  ): Promise<ErpGlEntryRow[]> {
+    const organizationId = document.organizationId as string;
+    const period = document.period as string;
+    const isYearReformation = document.isYearReformation === true;
+    const periodEndExclusive = firstDayOfNextMonth(period);
+
+    const monthlyByCode = await this.queryAccountTurnoverByCode(
+      context,
+      organizationId,
+      MONTH_CLOSE_SOURCE_ACCOUNT_CODES,
+      period,
+      periodEndExclusive,
+    );
+    const yearlyByCode = isYearReformation
+      ? await this.queryAccountTurnoverByCode(
+          context,
+          organizationId,
+          MONTH_CLOSE_SOURCE_ACCOUNT_CODES,
+          `${period.slice(0, 4)}-01-01`,
+          periodEndExclusive,
+        )
+      : undefined;
+
+    const { legs, hasMonthlyTurnover } = computeMonthCloseLegs(
+      monthlyByCode,
+      yearlyByCode,
+    );
+
+    if (!hasMonthlyTurnover) {
+      throw new ErpPostingException(
+        `Month close "${document.id}" has no gl turnover for period ${period}`,
+        ERP_POSTING_EXCEPTION_CODE.POSTING_FAILED,
+        { userFriendlyMessage: msg`Нет оборотов за месяц.` },
+      );
+    }
+
+    return this.buildRows(context, document, RUB_CURRENCY_CODE, legs);
+  }
+
+  // Оборот (Σ дебет отдельно от Σ кредит, без сворачивания) по списку кодов
+  // счетов за [dateFromInclusive, dateToExclusive) — тот же UNION ALL приём,
+  // что и trial-balance.service.ts's queryLegAggregates, но по явному списку
+  // счетов и одному диапазону дат (не opening+turnover), внутри уже открытой
+  // транзакции проведения (context.transactionScope), а не отдельной
+  // read-only транзакцией отчёта.
+  private async queryAccountTurnoverByCode(
+    context: PostingContext,
+    organizationId: string,
+    codes: readonly string[],
+    dateFromInclusive: string,
+    dateToExclusive: string,
+  ): Promise<Map<string, AccountTurnover>> {
+    const accounts = await context.transactionScope
+      .getRepository<Record<string, unknown>>(
+        ACCOUNT_OBJECT_NAME,
+        BYPASS_PERMISSIONS,
+      )
+      .findBy({ code: In([...codes]) });
+
+    const codeByAccountId = new Map<string, string>();
+
+    for (const account of accounts) {
+      if (typeof account.id === 'string' && typeof account.code === 'string') {
+        codeByAccountId.set(account.id, account.code);
+      }
+    }
+
+    const turnoverByCode = new Map<string, AccountTurnover>();
+
+    if (codeByAccountId.size === 0) {
+      return turnoverByCode;
+    }
+
+    const glEntryTableReference = this.workspaceTableReference(
+      context.workspaceId,
+    );
+    const accountIds = [...codeByAccountId.keys()];
+
+    const rows = await context.transactionScope.executeRawQuery(
+      `WITH legs AS (
+         SELECT "debitAccountId" AS account_id, "amountAmountMicros" AS micros, TRUE AS is_debit
+         FROM ${glEntryTableReference}
+         WHERE "organizationId" = $1 AND "debitAccountId" = ANY($2::uuid[]) AND "date" >= $3 AND "date" < $4 AND "deletedAt" IS NULL
+         UNION ALL
+         SELECT "creditAccountId" AS account_id, "amountAmountMicros" AS micros, FALSE AS is_debit
+         FROM ${glEntryTableReference}
+         WHERE "organizationId" = $1 AND "creditAccountId" = ANY($2::uuid[]) AND "date" >= $3 AND "date" < $4 AND "deletedAt" IS NULL
+       )
+       SELECT account_id,
+         COALESCE(SUM(CASE WHEN is_debit THEN micros ELSE 0 END), 0) AS debit_micros,
+         COALESCE(SUM(CASE WHEN NOT is_debit THEN micros ELSE 0 END), 0) AS credit_micros
+       FROM legs GROUP BY account_id`,
+      [organizationId, accountIds, dateFromInclusive, dateToExclusive],
+    );
+
+    for (const row of rows) {
+      const code = codeByAccountId.get(String(row.account_id));
+
+      if (!isDefined(code)) {
+        continue;
+      }
+
+      turnoverByCode.set(code, {
+        debitKopecks: currencyToKopecks({
+          amountMicros: row.debit_micros,
+        } as CurrencyFieldValue),
+        creditKopecks: currencyToKopecks({
+          amountMicros: row.credit_micros,
+        } as CurrencyFieldValue),
+      });
+    }
+
+    return turnoverByCode;
+  }
+
+  private workspaceTableReference(workspaceId: string): string {
+    const { flatObjectMetadataMaps, objectIdByNameSingular } =
+      getWorkspaceContext();
+    const objectMetadataId = objectIdByNameSingular[GL_ENTRY_OBJECT_NAME];
+
+    if (!isDefined(objectMetadataId)) {
+      throw new ErpPostingException(
+        `Object "${GL_ENTRY_OBJECT_NAME}" does not exist in workspace "${workspaceId}"`,
+        ERP_POSTING_EXCEPTION_CODE.UNKNOWN_DOCUMENT_OBJECT,
+      );
+    }
+
+    const flatObjectMetadata = findFlatEntityByIdInFlatEntityMapsOrThrow({
+      flatEntityId: objectMetadataId,
+      flatEntityMaps: flatObjectMetadataMaps,
+    });
+
+    return `${escapeIdentifier(
+      getWorkspaceSchemaName(workspaceId),
+    )}.${escapeIdentifier(computeObjectTargetTable(flatObjectMetadata))}`;
   }
 
   private async buildRows(

@@ -9,6 +9,7 @@ import { type AccountCardService } from 'src/engine/core-modules/erp-accounting/
 import { type BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { type IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
 import { type KudirService } from 'src/engine/core-modules/erp-accounting/services/kudir.service';
+import { type MonthCloseService } from 'src/engine/core-modules/erp-accounting/services/month-close.service';
 import { type ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { type TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { type SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
@@ -220,6 +221,17 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     }),
   } as unknown as KudirService;
 
+  const monthCloseService = {
+    closeMonth: jest.fn().mockResolvedValue({
+      success: true,
+      id: 'month-close-1',
+      number: 'MC-3',
+      name: 'Закрытие месяца № MC-3 от 31.08.2026',
+      docStatus: 'POSTED',
+      message: 'Месяц 2026-08 закрыт документом MC-3.',
+    }),
+  } as unknown as MonthCloseService;
+
   const service = new ErpAgentToolService(
     postingService,
     trialBalanceService,
@@ -231,6 +243,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     salesShipmentPrintService,
     reconciliationService,
     kudirService,
+    monthCloseService,
     erpObjectPermissionGuardService,
   );
 
@@ -246,6 +259,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     salesShipmentPrintService,
     reconciliationService,
     kudirService,
+    monthCloseService,
     erpObjectPermissionGuardService,
   };
 };
@@ -267,6 +281,7 @@ describe('ErpAgentToolService', () => {
       expect(provider.ownsTool('reconcile_payments')).toBe(true);
       expect(provider.ownsTool('confirm_reconciliation')).toBe(true);
       expect(provider.ownsTool('kudir')).toBe(true);
+      expect(provider.ownsTool('close_month')).toBe(true);
       expect(provider.ownsTool('http_request')).toBe(false);
     });
   });
@@ -293,6 +308,7 @@ describe('ErpAgentToolService', () => {
           'reconcile_payments',
           'confirm_reconciliation',
           'kudir',
+          'close_month',
         ]),
       );
 
@@ -721,6 +737,42 @@ describe('ErpAgentToolService', () => {
         ),
       ).rejects.toThrow(ForbiddenException);
       expect(kudirService.getKudirData).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('close_month', () => {
+    it('closes the month once the permission check passes', async () => {
+      const { provider, monthCloseService } = buildProvider();
+
+      const output = await provider.executeStaticTool(
+        'close_month',
+        { organizationId: ORGANIZATION_ID, month: '2026-08' },
+        context,
+      );
+
+      expect(output.success).toBe(true);
+      expect(output.message).toContain('MC-3');
+      expect(monthCloseService.closeMonth).toHaveBeenCalledWith(
+        WORKSPACE_ID,
+        ORGANIZATION_ID,
+        '2026-08',
+        false,
+      );
+    });
+
+    it('rejects when the role lacks canUpdateObjectRecords', async () => {
+      const { provider, monthCloseService } = buildProvider({
+        permissionDenied: true,
+      });
+
+      await expect(
+        provider.executeStaticTool(
+          'close_month',
+          { organizationId: ORGANIZATION_ID, month: '2026-08' },
+          context,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(monthCloseService.closeMonth).not.toHaveBeenCalled();
     });
   });
 });

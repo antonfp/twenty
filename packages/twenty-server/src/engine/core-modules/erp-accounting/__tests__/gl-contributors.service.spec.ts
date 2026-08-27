@@ -5,10 +5,46 @@ import {
   type PostingContext,
 } from 'src/engine/core-modules/erp/types/posting.types';
 import { GlContributorsService } from 'src/engine/core-modules/erp-accounting/services/gl-contributors.service';
+import {
+  type ORMWorkspaceContext,
+  withWorkspaceContext,
+} from 'src/engine/twenty-orm/storage/orm-workspace-context.storage';
+import { buildSystemAuthContext } from 'src/engine/twenty-orm/utils/build-system-auth-context.util';
 
 const WORKSPACE_ID = '20202020-1c25-4d02-bf25-6aeccf7ea419';
 const DOCUMENT_ID = 'document-1';
 const ORGANIZATION_ID = 'organization-1';
+
+// 1 kopeck = 10_000 micros — same scale note as trial-balance.service.spec.ts.
+const kopecksToMicrosString = (kopecks: number): string =>
+  String(kopecks * 10_000);
+
+// monthCloseGlEntries resolves the glEntry table via workspaceTableReference
+// (getWorkspaceContext()) — the other contributors never do, hence this
+// fake context stays local to that describe block rather than the shared
+// createContext() above. Same shape as trial-balance.service.spec.ts's
+// buildFakeWorkspaceContext.
+const buildFakeWorkspaceContext = (): ORMWorkspaceContext => {
+  const universalIdentifier = 'universal-gl-entry';
+
+  return {
+    authContext: buildSystemAuthContext(WORKSPACE_ID),
+    flatObjectMetadataMaps: {
+      byUniversalIdentifier: {
+        [universalIdentifier]: {
+          id: 'object-gl-entry',
+          nameSingular: 'glEntry',
+          namePlural: 'glEntries',
+          universalIdentifier,
+          applicationUniversalIdentifier: 'erp-application',
+        },
+      },
+      universalIdentifierById: { 'object-gl-entry': universalIdentifier },
+      universalIdentifiersByApplicationId: {},
+    },
+    objectIdByNameSingular: { glEntry: 'object-gl-entry' },
+  } as unknown as ORMWorkspaceContext;
+};
 
 const rubles = (amount: number) => ({
   amountMicros: Math.round(amount * 1_000_000),
@@ -392,6 +428,182 @@ describe('GlContributorsService', () => {
           itemId: 'item-1',
         }),
       ]);
+    });
+  });
+
+  describe('monthCloseGlEntries', () => {
+    const MONTH_CLOSE_ACCOUNT_CODES = [
+      '90.01.1',
+      '90.02.1',
+      '90.03',
+      '91.01',
+      '91.02',
+      '90.09',
+      '91.09',
+      '99',
+      '84',
+    ];
+
+    const createMonthCloseAccountRepository = () => ({
+      findOneBy: jest.fn(({ code }: { code: string }) =>
+        Promise.resolve(
+          MONTH_CLOSE_ACCOUNT_CODES.includes(code)
+            ? { id: accountId(code) }
+            : null,
+        ),
+      ),
+      findBy: jest.fn().mockResolvedValue(
+        MONTH_CLOSE_ACCOUNT_CODES.map((code) => ({
+          id: accountId(code),
+          code,
+        })),
+      ),
+    });
+
+    const monthCloseDocument = (
+      overrides: Record<string, unknown> = {},
+    ): ErpDocumentRecord =>
+      document({
+        period: '2026-08-01',
+        isYearReformation: false,
+        ...overrides,
+      });
+
+    const runMonthCloseGlEntries = (
+      service: GlContributorsService,
+      context: PostingContext,
+      doc: ErpDocumentRecord,
+    ) =>
+      withWorkspaceContext(buildFakeWorkspaceContext(), () =>
+        service.monthCloseGlEntries(context, doc, []),
+      );
+
+    it('builds Дт 90.09 Кт 99 for a profitable month and skips the zero 91.09 leg', async () => {
+      const executeRawQuery = jest.fn().mockResolvedValue([
+        {
+          account_id: accountId('90.01.1'),
+          debit_micros: '0',
+          credit_micros: kopecksToMicrosString(100_000),
+        },
+        {
+          account_id: accountId('90.02.1'),
+          debit_micros: kopecksToMicrosString(60_000),
+          credit_micros: '0',
+        },
+        {
+          account_id: accountId('90.03'),
+          debit_micros: kopecksToMicrosString(10_000),
+          credit_micros: '0',
+        },
+      ]);
+      const context = createContext('monthClose', {
+        account: createMonthCloseAccountRepository(),
+      });
+
+      context.transactionScope.executeRawQuery = executeRawQuery;
+
+      const rows = await runMonthCloseGlEntries(
+        new GlContributorsService(),
+        context,
+        monthCloseDocument(),
+      );
+
+      expect(rows).toEqual([
+        expect.objectContaining({
+          debitAccountId: accountId('90.09'),
+          creditAccountId: accountId('99'),
+          amount: rubles(300),
+          voucherType: 'monthClose',
+          voucherId: DOCUMENT_ID,
+        }),
+      ]);
+      // Not a reformation — only the monthly [period, nextMonth) window is
+      // queried once, never the yearly one.
+      expect(executeRawQuery).toHaveBeenCalledTimes(1);
+      expect(executeRawQuery.mock.calls[0][1]).toEqual([
+        ORGANIZATION_ID,
+        expect.anything(),
+        '2026-08-01',
+        '2026-09-01',
+      ]);
+    });
+
+    it('rejects a month with no gl turnover at all (нулевой месяц)', async () => {
+      const context = createContext('monthClose', {
+        account: createMonthCloseAccountRepository(),
+      });
+
+      context.transactionScope.executeRawQuery = jest
+        .fn()
+        .mockResolvedValue([]);
+
+      await expect(
+        runMonthCloseGlEntries(
+          new GlContributorsService(),
+          context,
+          monthCloseDocument(),
+        ),
+      ).rejects.toThrow(/no gl turnover/);
+    });
+
+    it('реформация: queries the yearly window too and closes 99→84', async () => {
+      const executeRawQuery = jest
+        .fn()
+        .mockImplementation((_sql: string, params: unknown[]) => {
+          const dateFromInclusive = params[2];
+
+          if (dateFromInclusive === '2026-01-01') {
+            // Yearly window: 90.01.1 credit 500 000, nothing else — a clean
+            // 500 000 profit for the reformation math.
+            return Promise.resolve([
+              {
+                account_id: accountId('90.01.1'),
+                debit_micros: '0',
+                credit_micros: kopecksToMicrosString(500_000),
+              },
+            ]);
+          }
+
+          // Monthly (December-only) window: no turnover on its own — still
+          // a valid close because the reformation zeroing legs carry it.
+          return Promise.resolve([
+            {
+              account_id: accountId('90.01.1'),
+              debit_micros: '0',
+              credit_micros: kopecksToMicrosString(20_000),
+            },
+          ]);
+        });
+      const context = createContext('monthClose', {
+        account: createMonthCloseAccountRepository(),
+      });
+
+      context.transactionScope.executeRawQuery = executeRawQuery;
+
+      const rows = await runMonthCloseGlEntries(
+        new GlContributorsService(),
+        context,
+        monthCloseDocument({
+          period: '2026-12-01',
+          isYearReformation: true,
+        }),
+      );
+
+      expect(executeRawQuery).toHaveBeenCalledTimes(2);
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            debitAccountId: accountId('90.01.1'),
+            creditAccountId: accountId('90.09'),
+            amount: rubles(5000),
+          }),
+          expect.objectContaining({
+            debitAccountId: accountId('99'),
+            creditAccountId: accountId('84'),
+            amount: rubles(5000),
+          }),
+        ]),
+      );
     });
   });
 });

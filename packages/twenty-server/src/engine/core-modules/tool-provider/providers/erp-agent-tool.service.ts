@@ -16,6 +16,10 @@ import {
   createCancelDocumentTool,
 } from 'src/engine/api/mcp/tools/cancel-document.tool';
 import {
+  CLOSE_MONTH_TOOL_NAME,
+  createCloseMonthTool,
+} from 'src/engine/api/mcp/tools/close-month.tool';
+import {
   CONFIRM_RECONCILIATION_TOOL_NAME,
   createConfirmReconciliationTool,
 } from 'src/engine/api/mcp/tools/confirm-reconciliation.tool';
@@ -58,6 +62,7 @@ import { AccountCardService } from 'src/engine/core-modules/erp-accounting/servi
 import { BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
 import { KudirService } from 'src/engine/core-modules/erp-accounting/services/kudir.service';
+import { MonthCloseService } from 'src/engine/core-modules/erp-accounting/services/month-close.service';
 import { ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
@@ -101,6 +106,7 @@ import { type ToolOutput } from 'src/engine/core-modules/tool/types/tool-output.
 export const ERP_AGENT_TOOL_NAMES: readonly string[] = [
   POST_DOCUMENT_TOOL_NAME,
   CANCEL_DOCUMENT_TOOL_NAME,
+  CLOSE_MONTH_TOOL_NAME,
   TRIAL_BALANCE_TOOL_NAME,
   ACCOUNT_CARD_TOOL_NAME,
   BALANCE_SHEET_TOOL_NAME,
@@ -126,6 +132,7 @@ export class ErpAgentToolService {
     private readonly salesShipmentPrintService: SalesShipmentPrintService,
     private readonly reconciliationService: ReconciliationService,
     private readonly kudirService: KudirService,
+    private readonly monthCloseService: MonthCloseService,
     private readonly erpObjectPermissionGuardService: ErpObjectPermissionGuardService,
   ) {}
 
@@ -225,6 +232,13 @@ export class ErpAgentToolService {
       ),
       [CANCEL_DOCUMENT_TOOL_NAME]: createCancelDocumentTool(
         this.postingService,
+        context.workspaceId,
+        assertCanUpdateObjectRecords,
+      ),
+      // close_month already returns {success, message, ...} — matches
+      // ToolOutput as-is, no wrapping needed (same as cancel_document above).
+      [CLOSE_MONTH_TOOL_NAME]: createCloseMonthTool(
+        this.monthCloseService,
         context.workspaceId,
         assertCanUpdateObjectRecords,
       ),

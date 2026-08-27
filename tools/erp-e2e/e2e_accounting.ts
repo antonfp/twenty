@@ -107,6 +107,8 @@ async function main() {
     '90.01.1',
     '90.02.1',
     '90.03',
+    '90.09',
+    '99',
     '68.02',
     '51',
     '26',
@@ -1424,6 +1426,187 @@ async function main() {
     `КУДиР (MCP) товарный кейс ok: расход 1000,00 руб признан на ${kudirExpenseRow.date} ` +
       `(тройное условие: оприходован+оплачен+реализован — все в один день в e2e, ` +
       `но проверено что дата = MAX(...) в юнит-тестах compute-kudir.util.spec.ts)`,
+  );
+
+  // 14. Закрытие месяца (Task 5 Фазы 9): org (шаги 0-9) за todayIso имеет
+  //     ровно оборот 90.01.1=Кт1220/90.02.1=Дт400/90.03=Дт220 (та же
+  //     фикстура, что уже подтверждена ОФР в шаге 12: 2110-2120=600 руб) —
+  //     месячное закрытие должно дать ровно Дт90.09/Кт99=600, без строки
+  //     91.09 (сумма 0 — 91-группа в этом сценарии не тронута).
+  const month = todayIso.slice(0, 7);
+  const period = `${month}-01`;
+  const [closeYear, closeMonthNum] = month.split('-').map(Number);
+  // Date.UTC(year, month, 0) с 1-based month рвётся ровно на конец
+  // ПРЕДЫДУЩЕГО (0-based) месяца — тот же приём, что
+  // report-comparative-period.util.ts использует на сервере.
+  const lastDayOfMonthIso = new Date(Date.UTC(closeYear, closeMonthNum, 0))
+    .toISOString()
+    .slice(0, 10);
+
+  const closeRpc = await mcpToolCall(token, 'close_month', {
+    organizationId: org.id,
+    month,
+  });
+
+  if (!closeRpc.result || closeRpc.result.isError)
+    throw new Error(`unexpected: ${JSON.stringify(closeRpc)}`);
+
+  const closeResult = mcpToolResultJson(closeRpc) as {
+    success: boolean;
+    id: string;
+    number: string | null;
+    docStatus: string;
+  };
+
+  if (
+    closeResult.docStatus !== 'POSTED' ||
+    !closeResult.number?.startsWith('MC-')
+  )
+    throw new Error(`unexpected: ${JSON.stringify(closeResult)}`);
+
+  const monthCloseId = closeResult.id;
+  const closeRows = await glEntries(monthCloseId);
+
+  assertGlRow(closeRows, '90.09', '99', 600, 'MonthClose');
+  const live91Rows = closeRows.filter(
+    (r) =>
+      !r.isCancelled &&
+      !r.isCancellation &&
+      r.debitAccount.code === '91.09' &&
+      r.creditAccount.code === '99',
+  );
+
+  if (live91Rows.length !== 0)
+    throw new Error(
+      `MonthClose: expected no 91.09/99 row (нулевой оборот 91-группы), got ${JSON.stringify(closeRows)}`,
+    );
+  console.log(
+    `MonthClose ${closeResult.number} POSTED: Дт90.09/Кт99=600 ok, без 91.09-строки (нулевая 91-группа)`,
+  );
+
+  // ОФР исключает 90.09 (research §3/T1-ruling) — выручка/себестоимость за
+  // todayIso не должны измениться после закрытия.
+  const ofrAfterCloseRpc = await mcpToolCall(token, 'income_statement', {
+    organizationId: org.id,
+    dateFrom: todayIso,
+    dateTo: todayIso,
+  });
+
+  if (!ofrAfterCloseRpc.result || ofrAfterCloseRpc.result.isError)
+    throw new Error(`unexpected: ${JSON.stringify(ofrAfterCloseRpc)}`);
+
+  const ofrAfterClose = mcpToolResultJson(ofrAfterCloseRpc) as {
+    lines: { code: string; current: number }[];
+  };
+  const ofrByCodeAfterClose = Object.fromEntries(
+    ofrAfterClose.lines.map((line) => [line.code, line.current]),
+  );
+
+  if (
+    ofrByCodeAfterClose['2110'] !== ofrByCode['2110'] ||
+    ofrByCodeAfterClose['2120'] !== ofrByCode['2120'] ||
+    ofrByCodeAfterClose['2300'] !== ofrByCode['2300']
+  )
+    throw new Error(
+      `ОФР изменился после закрытия месяца (не должен — 90.09 исключён): before=${JSON.stringify(ofrByCode)}, after=${JSON.stringify(ofrByCodeAfterClose)}`,
+    );
+  console.log(
+    'ОФР после закрытия месяца не изменился (90.09 в ОФР не участвует) ok',
+  );
+
+  // ОСВ за весь закрываемый месяц: 90.09 виден с оборотом 600 руб; 90.01.1 —
+  // не свёрнут (реформация не выполнялась), сохраняет свой оборот 1220.
+  const tbAfterCloseRpc = await mcpToolCall(token, 'trial_balance', {
+    organizationId: org.id,
+    dateFrom: period,
+    dateTo: lastDayOfMonthIso,
+  });
+
+  if (!tbAfterCloseRpc.result || tbAfterCloseRpc.result.isError)
+    throw new Error(`unexpected: ${JSON.stringify(tbAfterCloseRpc)}`);
+
+  const tbAfterClose = mcpToolResultJson(tbAfterCloseRpc) as {
+    rows: {
+      accountCode: string;
+      turnoverDebit: number;
+      turnoverCredit: number;
+    }[];
+  };
+  const tbRowByCode = Object.fromEntries(
+    tbAfterClose.rows.map((row) => [row.accountCode, row]),
+  );
+
+  if (tbRowByCode['90.09']?.turnoverDebit !== 60000)
+    throw new Error(`unexpected: ${JSON.stringify(tbRowByCode['90.09'])}`);
+  if (tbRowByCode['90.01.1']?.turnoverCredit !== 122000)
+    throw new Error(`unexpected: ${JSON.stringify(tbRowByCode['90.01.1'])}`);
+  console.log(
+    'ОСВ после закрытия ok: 90.09 виден (оборот Дт=600 руб), 90.01.1 не свёрнут (оборот Кт=1220 руб) — реформация тут не выполнялась',
+  );
+
+  // Повторное закрытие того же месяца -> RU-отказ (findOne withDeleted).
+  const repeatCloseRpc = await mcpToolCall(token, 'close_month', {
+    organizationId: org.id,
+    month,
+  });
+  const repeatContent = repeatCloseRpc.result?.content as
+    | { text: string }[]
+    | undefined;
+
+  if (!repeatCloseRpc.result?.isError || !repeatContent?.[0]?.text)
+    throw new Error(
+      `repeat close_month must be denied, got: ${JSON.stringify(repeatCloseRpc)}`,
+    );
+  // MCP tool errors surface ErpPostingException's raw (English) message, not
+  // the GraphQL-only RU userFriendlyMessage (same as every other posting-
+  // rules refusal via post_document/cancel_document) — see
+  // month-close-posting-rules.service.ts.
+  if (!repeatContent[0].text.includes('already exists'))
+    throw new Error(`unexpected refusal text: ${repeatContent[0].text}`);
+  console.log(
+    `negative: повторное close_month отклонено — "${repeatContent[0].text.slice(0, 80)}..."`,
+  );
+
+  // Отмена закрытия -> сторно (glEntry реверс, docStatus обратно в DRAFT —
+  // тот же контракт, что и storno ManualEntry в шаге 10 выше).
+  await gql(
+    '/graphql',
+    `mutation { cancelDocument(objectNameSingular: "monthClose", recordId: "${monthCloseId}") }`,
+    {},
+    token,
+  );
+  const monthCloseAfterCancel = (
+    await gql<{
+      monthClose: { docStatus: string; postedAt: string | null };
+    }>(
+      '/graphql',
+      `{ monthClose(filter: { id: { eq: "${monthCloseId}" } }) { docStatus postedAt } }`,
+      {},
+      token,
+    )
+  ).monthClose;
+
+  if (monthCloseAfterCancel.docStatus !== 'DRAFT')
+    throw new Error(`unexpected: ${JSON.stringify(monthCloseAfterCancel)}`);
+  if (monthCloseAfterCancel.postedAt !== null)
+    throw new Error(`unexpected: ${JSON.stringify(monthCloseAfterCancel)}`);
+
+  const closeRowsAfterCancel = await glEntries(monthCloseId);
+  const closeOriginals = closeRowsAfterCancel.filter((r) => !r.isCancellation);
+  const closeReversals = closeRowsAfterCancel.filter((r) => r.isCancellation);
+
+  if (closeOriginals.length !== 1 || closeReversals.length !== 1)
+    throw new Error(`unexpected: ${JSON.stringify(closeRowsAfterCancel)}`);
+
+  const closeTotalMicros = closeRowsAfterCancel.reduce(
+    (s, r) => s + Number(r.amount.amountMicros),
+    0,
+  );
+
+  if (closeTotalMicros !== 0)
+    throw new Error(`unexpected: ${JSON.stringify(closeRowsAfterCancel)}`);
+  console.log(
+    'storno MonthClose ok: docStatus=DRAFT (возвращён в черновик), Σ glEntry.amount по voucherId = 0',
   );
 
   console.log('\n=== E2E ЦИКЛ БУХГАЛТЕРИИ ПРОЙДЕН ===');

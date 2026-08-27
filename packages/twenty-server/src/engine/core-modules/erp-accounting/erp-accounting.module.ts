@@ -18,6 +18,8 @@ import { GlContributorsService } from 'src/engine/core-modules/erp-accounting/se
 import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
 import { KudirService } from 'src/engine/core-modules/erp-accounting/services/kudir.service';
 import { ManualEntryPostingRulesService } from 'src/engine/core-modules/erp-accounting/services/manual-entry-posting-rules.service';
+import { MonthCloseService } from 'src/engine/core-modules/erp-accounting/services/month-close.service';
+import { MonthClosePostingRulesService } from 'src/engine/core-modules/erp-accounting/services/month-close-posting-rules.service';
 import { ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { TokenModule } from 'src/engine/core-modules/auth/token/token.module';
@@ -26,16 +28,18 @@ import { WorkspaceAuthGuard } from 'src/engine/guards/workspace-auth.guard';
 import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/workspace-cache-storage.module';
 
 // Блок «Бухгалтерия» (glue): GL-контрибьюторы типовых проводок всех
-// документов блоков + провайдер ручной операции + guard-хуки на manualEntry,
-// его строки и регистр glEntry + печатный ОСВ-отчёт (Task 3). Guard-сервисы
+// документов блоков + провайдеры ручной операции и закрытия месяца (Task 5:
+// monthClose — 90.09/91.09→99 ежемесячно, реформация 99→84 в декабре) +
+// guard-хуки на manualEntry, его строки и регистр glEntry + печатный
+// ОСВ-отчёт (Task 3). Guard-сервисы
 // переиспользуются из erp-sales (объект-агностичные), explicit registration
 // per erp/WIRING.md §3. stockTransfer контрибьютора не имеет — ruling: БЕЗ
 // проводок. TrialBalanceService/BankStatementImportService/
 // BalanceSheetService/IncomeStatementService/AccountCardService/
-// ReconciliationService/KudirService are exported for the MCP trial_balance/
-// import_bank_statement/balance_sheet/income_statement/account_card/
-// reconcile_payments/confirm_reconciliation/kudir tools (see
-// api/mcp/mcp.module.ts).
+// ReconciliationService/KudirService/MonthCloseService are exported for the
+// MCP trial_balance/import_bank_statement/balance_sheet/income_statement/
+// account_card/reconcile_payments/confirm_reconciliation/kudir/close_month
+// tools (see api/mcp/mcp.module.ts).
 @Module({
   imports: [ErpModule, TokenModule, WorkspaceCacheStorageModule],
   controllers: [
@@ -52,6 +56,8 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     ErpDocumentLineGuardService,
     GlContributorsService,
     ManualEntryPostingRulesService,
+    MonthClosePostingRulesService,
+    MonthCloseService,
     TrialBalanceService,
     BankStatementImportService,
     BalanceSheetService,
@@ -69,6 +75,7 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     AccountCardService,
     ReconciliationService,
     KudirService,
+    MonthCloseService,
   ],
 })
 export class ErpAccountingModule implements OnModuleInit {
@@ -77,12 +84,17 @@ export class ErpAccountingModule implements OnModuleInit {
     private readonly glContributorRegistry: GlContributorRegistry,
     private readonly glContributorsService: GlContributorsService,
     private readonly manualEntryPostingRulesService: ManualEntryPostingRulesService,
+    private readonly monthClosePostingRulesService: MonthClosePostingRulesService,
   ) {}
 
   onModuleInit(): void {
     this.postingRulesRegistry.registerPostingRules(
       'manualEntry',
       this.manualEntryPostingRulesService,
+    );
+    this.postingRulesRegistry.registerPostingRules(
+      'monthClose',
+      this.monthClosePostingRulesService,
     );
 
     this.glContributorRegistry.registerGlContributor(
@@ -157,6 +169,15 @@ export class ErpAccountingModule implements OnModuleInit {
       'manualEntry',
       (context, document, lines) =>
         this.glContributorsService.manualEntryGlEntries(
+          context,
+          document,
+          lines,
+        ),
+    );
+    this.glContributorRegistry.registerGlContributor(
+      'monthClose',
+      (context, document, lines) =>
+        this.glContributorsService.monthCloseGlEntries(
           context,
           document,
           lines,

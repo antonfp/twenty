@@ -2,7 +2,9 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import { definePostInstallLogicFunction } from 'twenty-sdk/define';
 import { AccountKind } from '../objects/account.object';
 
-// Рабочий план счетов РСБУ (Phase 6 Task 1 brief) — 30 счетов/субсчетов.
+// Рабочий план счетов РСБУ (Phase 6 Task 1 brief, +90.09/91.09 Phase 9 Task 5
+// «Закрытие месяца» — subaccounts holding the monthly/yearly closing result)
+// — 32 счёта/субсчёта.
 const ACCOUNTS: Array<{ code: string; kind: AccountKind; name: string }> = [
   { code: '01', kind: AccountKind.ACTIVE, name: 'Основные средства' },
   { code: '02', kind: AccountKind.PASSIVE, name: 'Амортизация ОС' },
@@ -30,8 +32,10 @@ const ACCOUNTS: Array<{ code: string; kind: AccountKind; name: string }> = [
   { code: '90.01.1', kind: AccountKind.PASSIVE, name: 'Выручка' },
   { code: '90.02.1', kind: AccountKind.ACTIVE, name: 'Себестоимость продаж' },
   { code: '90.03', kind: AccountKind.ACTIVE, name: 'НДС с продаж' },
+  { code: '90.09', kind: AccountKind.ACTIVE_PASSIVE, name: 'Прибыль/убыток от продаж' },
   { code: '91.01', kind: AccountKind.PASSIVE, name: 'Прочие доходы' },
   { code: '91.02', kind: AccountKind.ACTIVE, name: 'Прочие расходы' },
+  { code: '91.09', kind: AccountKind.ACTIVE_PASSIVE, name: 'Сальдо прочих доходов и расходов' },
   { code: '94', kind: AccountKind.ACTIVE, name: 'Недостачи и потери' },
   { code: '99', kind: AccountKind.ACTIVE_PASSIVE, name: 'Прибыли и убытки' },
 ];

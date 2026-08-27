@@ -138,6 +138,7 @@ async function main() {
   const EXPECTED_ERP_TOOLS = [
     'post_document',
     'cancel_document',
+    'close_month',
     'lookup_party_by_inn',
     'trial_balance',
     'import_bank_statement',
