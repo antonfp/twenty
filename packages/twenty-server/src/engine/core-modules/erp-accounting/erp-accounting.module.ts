@@ -6,10 +6,13 @@ import { PostingRulesRegistry } from 'src/engine/core-modules/erp/posting-rules.
 import { ErpDocumentGuardService } from 'src/engine/core-modules/erp-sales/services/erp-document-guard.service';
 import { ErpDocumentLineGuardService } from 'src/engine/core-modules/erp-sales/services/erp-document-line-guard.service';
 import { BankStatementImportController } from 'src/engine/core-modules/erp-accounting/controllers/bank-statement-import.controller';
+import { FinancialStatementsController } from 'src/engine/core-modules/erp-accounting/controllers/financial-statements.controller';
 import { TrialBalanceController } from 'src/engine/core-modules/erp-accounting/controllers/trial-balance.controller';
 import { ERP_ACCOUNTING_GUARD_HOOKS } from 'src/engine/core-modules/erp-accounting/query-hooks/erp-accounting-guard.pre-query.hooks';
+import { BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { BankStatementImportService } from 'src/engine/core-modules/erp-accounting/services/bank-statement-import.service';
 import { GlContributorsService } from 'src/engine/core-modules/erp-accounting/services/gl-contributors.service';
+import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
 import { ManualEntryPostingRulesService } from 'src/engine/core-modules/erp-accounting/services/manual-entry-posting-rules.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { TokenModule } from 'src/engine/core-modules/auth/token/token.module';
@@ -22,11 +25,17 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
 // его строки и регистр glEntry + печатный ОСВ-отчёт (Task 3). Guard-сервисы
 // переиспользуются из erp-sales (объект-агностичные), explicit registration
 // per erp/WIRING.md §3. stockTransfer контрибьютора не имеет — ruling: БЕЗ
-// проводок. TrialBalanceService/BankStatementImportService are exported for
-// the MCP trial_balance/import_bank_statement tools (see api/mcp/mcp.module.ts).
+// проводок. TrialBalanceService/BankStatementImportService/
+// BalanceSheetService/IncomeStatementService are exported for the MCP
+// trial_balance/import_bank_statement/balance_sheet/income_statement tools
+// (see api/mcp/mcp.module.ts).
 @Module({
   imports: [ErpModule, TokenModule, WorkspaceCacheStorageModule],
-  controllers: [TrialBalanceController, BankStatementImportController],
+  controllers: [
+    TrialBalanceController,
+    BankStatementImportController,
+    FinancialStatementsController,
+  ],
   providers: [
     JwtAuthGuard,
     WorkspaceAuthGuard,
@@ -36,9 +45,16 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     ManualEntryPostingRulesService,
     TrialBalanceService,
     BankStatementImportService,
+    BalanceSheetService,
+    IncomeStatementService,
     ...ERP_ACCOUNTING_GUARD_HOOKS,
   ],
-  exports: [TrialBalanceService, BankStatementImportService],
+  exports: [
+    TrialBalanceService,
+    BankStatementImportService,
+    BalanceSheetService,
+    IncomeStatementService,
+  ],
 })
 export class ErpAccountingModule implements OnModuleInit {
   constructor(

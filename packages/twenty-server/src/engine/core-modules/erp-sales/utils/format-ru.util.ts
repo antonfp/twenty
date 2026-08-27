@@ -65,3 +65,48 @@ export const formatQuantityRu = (quantity: number): string => {
 
   return fractionPart ? `${groupedInteger},${fractionPart}` : groupedInteger;
 };
+
+// 1 000 руб. in kopecks — the unit balance-sheet.service.ts/
+// income-statement.service.ts round to for printing (ФСБУ 4/2023 Приложение
+// № 9: «в тыс. руб., без десятичных знаков» — see balance-spec.md §…
+// «Округление»).
+const THOUSAND_ROUBLE_KOPECKS = 100_000;
+
+// Half-to-even (banker's rounding) — ruling «банковское округление строк»
+// (docs/plans/phase9-accounting-depth.md). Done in the integer kopecks
+// domain (not `kopecks / 100_000` in floating point) so an exact .5 case
+// never slips past IEEE-754 drift before the tie-break runs.
+export const roundKopecksToThousandRoubles = (kopecks: number): number => {
+  const sign = kopecks < 0 ? -1 : 1;
+  const absoluteKopecks = Math.abs(kopecks);
+  const quotient = Math.floor(absoluteKopecks / THOUSAND_ROUBLE_KOPECKS);
+  const remainder = absoluteKopecks % THOUSAND_ROUBLE_KOPECKS;
+  const doubledRemainder = remainder * 2;
+  const roundedThousands =
+    doubledRemainder < THOUSAND_ROUBLE_KOPECKS
+      ? quotient
+      : doubledRemainder > THOUSAND_ROUBLE_KOPECKS
+        ? quotient + 1
+        : quotient % 2 === 0 // Exact half: round to the even neighbour.
+          ? quotient
+          : quotient + 1;
+
+  // `sign * 0` is -0 for a negative input rounding to zero — normalize so
+  // callers (and Object.is-based test assertions) never see a signed zero.
+  return sign * roundedThousands || 0;
+};
+
+// «7 620» — thousands of roubles, integer, grouped, no fraction. Zero is the
+// caller's job to special-case as «—» (see render-balance-sheet-html.util.ts)
+// — this formatter always prints a number, matching formatMoneyRu's totals-row
+// convention rather than the trial-balance zero-cell-blank one.
+export const formatThousandRoublesRu = (kopecks: number): string => {
+  const roundedThousands = roundKopecksToThousandRoubles(kopecks);
+  const sign = roundedThousands < 0 ? '-' : '';
+  const grouped = String(Math.abs(roundedThousands)).replace(
+    /\B(?=(\d{3})+(?!\d))/g,
+    NON_BREAKING_SPACE,
+  );
+
+  return `${sign}${grouped}`;
+};

@@ -68,6 +68,16 @@ import {
   renderPrintPreviewInputSchema,
 } from 'src/engine/api/mcp/tools/render-print-preview.tool';
 import {
+  BALANCE_SHEET_TOOL_NAME,
+  balanceSheetInputSchema,
+  createBalanceSheetTool,
+} from 'src/engine/api/mcp/tools/balance-sheet.tool';
+import {
+  createIncomeStatementTool,
+  INCOME_STATEMENT_TOOL_NAME,
+  incomeStatementInputSchema,
+} from 'src/engine/api/mcp/tools/income-statement.tool';
+import {
   createTrialBalanceTool,
   TRIAL_BALANCE_TOOL_NAME,
   trialBalanceInputSchema,
@@ -85,7 +95,9 @@ import { ErpCustomizationSurfaceService } from 'src/engine/core-modules/erp/serv
 import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { PrintTemplateService } from 'src/engine/core-modules/erp/services/print-template.service';
+import { BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { BankStatementImportService } from 'src/engine/core-modules/erp-accounting/services/bank-statement-import.service';
+import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
 import { SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
@@ -163,6 +175,8 @@ export class McpProtocolService {
     private readonly dadataService: DadataService,
     private readonly trialBalanceService: TrialBalanceService,
     private readonly bankStatementImportService: BankStatementImportService,
+    private readonly balanceSheetService: BalanceSheetService,
+    private readonly incomeStatementService: IncomeStatementService,
     private readonly erpCustomizationSurfaceService: ErpCustomizationSurfaceService,
     private readonly printTemplateService: PrintTemplateService,
     private readonly salesInvoicePrintService: SalesInvoicePrintService,
@@ -424,6 +438,24 @@ export class McpProtocolService {
           assertCanReadObjectRecords,
         ),
         inputSchema: zodSchema(trialBalanceInputSchema),
+        annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [BALANCE_SHEET_TOOL_NAME]: {
+        ...createBalanceSheetTool(
+          this.balanceSheetService,
+          workspace.id,
+          assertCanReadObjectRecords,
+        ),
+        inputSchema: zodSchema(balanceSheetInputSchema),
+        annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [INCOME_STATEMENT_TOOL_NAME]: {
+        ...createIncomeStatementTool(
+          this.incomeStatementService,
+          workspace.id,
+          assertCanReadObjectRecords,
+        ),
+        inputSchema: zodSchema(incomeStatementInputSchema),
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
       [IMPORT_BANK_STATEMENT_TOOL_NAME]: {

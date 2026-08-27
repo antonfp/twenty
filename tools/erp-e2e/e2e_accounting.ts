@@ -738,6 +738,117 @@ async function main() {
     'storno ManualEntry ok: docStatus=DRAFT (возвращён в черновик), Σ glEntry.amount по voucherId = 0',
   );
 
+  // 11. Баланс (упрощённая форма, Task 1 Фазы 9) на todayIso: после всех
+  //     шагов выше сальдо счетов (коп.) — 41.01=60000, 60.01=−100000,
+  //     62.01=0, 90.01.1=−122000, 90.02.1=40000, 90.03=22000, 68.02=−22000,
+  //     51=122000, 26=100 (lock-test ME шага 8, никогда не сторнируется —
+  //     не путать с шагом 6, полностью реверсированным), 71=−100.
+  //     1210 = 41.01(600)+26(1)=601 руб; 1250 = 51 = 1220 руб;
+  //     1370 = −(90.01.1(−1220)+90.02.1(400)+90.03(220)) = 600 руб;
+  //     1520 = развёрнуто-Кт(60.01=1000, 71=1) + (−68.02(−220))=220 = 1221 руб.
+  //     1600 = 1700 = 1821,00 руб = 182100 коп.
+  const balanceRpc = await mcpToolCall(token, 'balance_sheet', {
+    organizationId: org.id,
+    date: todayIso,
+  });
+
+  if (!balanceRpc.result || balanceRpc.result.isError)
+    throw new Error(`unexpected: ${JSON.stringify(balanceRpc)}`);
+
+  const balanceSheet = mcpToolResultJson(balanceRpc) as {
+    totalAssets: { current: number };
+    totalLiabilities: { current: number };
+    lines: { code: string; current: number }[];
+  };
+
+  if (
+    balanceSheet.totalAssets.current !== balanceSheet.totalLiabilities.current
+  )
+    throw new Error(
+      `актив != пассив: ${JSON.stringify(balanceSheet.totalAssets)} vs ${JSON.stringify(balanceSheet.totalLiabilities)}`,
+    );
+  if (balanceSheet.totalAssets.current !== 182100)
+    throw new Error(`unexpected: ${JSON.stringify(balanceSheet.totalAssets)}`);
+
+  const balanceByCode = Object.fromEntries(
+    balanceSheet.lines.map((line) => [line.code, line.current]),
+  );
+
+  if (balanceByCode['1250'] !== 122000)
+    throw new Error(JSON.stringify(balanceByCode));
+  if (balanceByCode['1210'] !== 60100)
+    throw new Error(JSON.stringify(balanceByCode));
+  console.log(
+    `Баланс (MCP balance_sheet) ok: актив=пассив=${balanceSheet.totalAssets.current / 100} руб, ` +
+      `1250(ДС)=${balanceByCode['1250'] / 100}, 1210(Запасы)=${balanceByCode['1210'] / 100}`,
+  );
+
+  // 12. ОФР (Task 1 Фазы 9) за todayIso: обороты выручки/себестоимости —
+  //     2110 = Кт90.01.1(1220) − Дт90.03(220) = 1000,00; 2120 = Дт90.02.1 = 400,00.
+  const ofrRpc = await mcpToolCall(token, 'income_statement', {
+    organizationId: org.id,
+    dateFrom: todayIso,
+    dateTo: todayIso,
+  });
+
+  if (!ofrRpc.result || ofrRpc.result.isError)
+    throw new Error(`unexpected: ${JSON.stringify(ofrRpc)}`);
+
+  const incomeStatement = mcpToolResultJson(ofrRpc) as {
+    lines: { code: string; current: number }[];
+  };
+  const ofrByCode = Object.fromEntries(
+    incomeStatement.lines.map((line) => [line.code, line.current]),
+  );
+
+  if (ofrByCode['2110'] !== 100000) throw new Error(JSON.stringify(ofrByCode));
+  if (ofrByCode['2120'] !== 40000) throw new Error(JSON.stringify(ofrByCode));
+  if (ofrByCode['2300'] !== 60000 || ofrByCode['2400'] !== 60000)
+    throw new Error(JSON.stringify(ofrByCode));
+  console.log(
+    `ОФР (MCP income_statement) ok: выручка(2110)=${ofrByCode['2110'] / 100} руб, ` +
+      `расходы(2120)=${ofrByCode['2120'] / 100} руб, прибыль(2300)=${ofrByCode['2300'] / 100} руб`,
+  );
+
+  // 13. REST-путь (печатный HTML) для обоих отчётов — тот же сервис, что и
+  //     MCP-тулы выше; smoke-проверка, что страница реально рендерится.
+  const balanceHtmlResponse = await fetch(
+    `${BASE}/rest/erp/reports/balance-sheet?organizationId=${org.id}&date=${todayIso}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+
+  if (balanceHtmlResponse.status !== 200)
+    throw new Error(
+      `balance-sheet REST: expected 200, got ${balanceHtmlResponse.status}`,
+    );
+  const balanceHtml = await balanceHtmlResponse.text();
+
+  if (!balanceHtml.includes('Бухгалтерский баланс'))
+    throw new Error('balance-sheet REST: missing title');
+  if (!balanceHtml.includes(org.name))
+    throw new Error('balance-sheet REST: missing organization name');
+  if (balanceHtml.includes('{{'))
+    throw new Error('balance-sheet REST: unresolved placeholder');
+
+  const ofrHtmlResponse = await fetch(
+    `${BASE}/rest/erp/reports/income-statement?organizationId=${org.id}&dateFrom=${todayIso}&dateTo=${todayIso}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+
+  if (ofrHtmlResponse.status !== 200)
+    throw new Error(
+      `income-statement REST: expected 200, got ${ofrHtmlResponse.status}`,
+    );
+  const ofrHtml = await ofrHtmlResponse.text();
+
+  if (!ofrHtml.includes('Отчёт о финансовых результатах'))
+    throw new Error('income-statement REST: missing title');
+  if (ofrHtml.includes('{{'))
+    throw new Error('income-statement REST: unresolved placeholder');
+  console.log(
+    'REST печать balance-sheet/income-statement: 200, заголовки и организация на месте, плейсхолдеров не осталось ok',
+  );
+
   console.log('\n=== E2E ЦИКЛ БУХГАЛТЕРИИ ПРОЙДЕН ===');
 }
 

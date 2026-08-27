@@ -1,9 +1,19 @@
 # ERP block «Бухгалтерия» — server (erp-accounting)
 
 Серверная часть блока бухгалтерии: GL-контрибьюторы, lock date, провайдер
-`manualEntry`, ОСВ-отчёт, импорт банковских выписок. Метаданные объектов
-ставит SDK-приложение (`packages/twenty-apps/internal/erp-accounting`); этот
-модуль — только код-сторона.
+`manualEntry`, ОСВ-отчёт, бухгалтерский баланс и ОФР (упрощённые формы, ФСБУ
+4/2023 — `docs/erp-design/balance-spec.md`/`ofr-spec.md`), импорт банковских
+выписок. Метаданные объектов ставит SDK-приложение
+(`packages/twenty-apps/internal/erp-accounting`); этот модуль — только
+код-сторона.
+
+## Печатные отчёты
+
+`GET /rest/erp/reports/trial-balance`, `/balance-sheet`, `/income-statement`
+(+ MCP-тулы `trial_balance`/`balance_sheet`/`income_statement`) — все три
+читают только регистр `glEntry`, требуют `canReadObjectRecords` на нём.
+Баланс/ОФР — печать округляется до тыс. руб. банковским округлением, MCP
+отдаёт копейки без округления (`balance-spec.md §5`/`ofr-spec.md §6`).
 
 ## Импорт банковских выписок (1CClientBankExchange)
 

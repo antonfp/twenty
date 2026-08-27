@@ -4,6 +4,10 @@ import { type ToolSet } from 'ai';
 import { ToolCategory } from 'twenty-shared/ai';
 
 import {
+  BALANCE_SHEET_TOOL_NAME,
+  createBalanceSheetTool,
+} from 'src/engine/api/mcp/tools/balance-sheet.tool';
+import {
   CANCEL_DOCUMENT_TOOL_NAME,
   createCancelDocumentTool,
 } from 'src/engine/api/mcp/tools/cancel-document.tool';
@@ -11,6 +15,10 @@ import {
   GET_PRINT_TEMPLATE_TOOL_NAME,
   createGetPrintTemplateTool,
 } from 'src/engine/api/mcp/tools/get-print-template.tool';
+import {
+  createIncomeStatementTool,
+  INCOME_STATEMENT_TOOL_NAME,
+} from 'src/engine/api/mcp/tools/income-statement.tool';
 import {
   POST_DOCUMENT_TOOL_NAME,
   createPostDocumentTool,
@@ -30,6 +38,8 @@ import {
 import { ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { PrintTemplateService } from 'src/engine/core-modules/erp/services/print-template.service';
+import { BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
+import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
 import { SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
@@ -73,6 +83,8 @@ export const ERP_AGENT_TOOL_NAMES: readonly string[] = [
   POST_DOCUMENT_TOOL_NAME,
   CANCEL_DOCUMENT_TOOL_NAME,
   TRIAL_BALANCE_TOOL_NAME,
+  BALANCE_SHEET_TOOL_NAME,
+  INCOME_STATEMENT_TOOL_NAME,
   GET_PRINT_TEMPLATE_TOOL_NAME,
   UPDATE_PRINT_TEMPLATE_TOOL_NAME,
   RENDER_PRINT_PREVIEW_TOOL_NAME,
@@ -83,6 +95,8 @@ export class ErpAgentToolService {
   constructor(
     private readonly postingService: PostingService,
     private readonly trialBalanceService: TrialBalanceService,
+    private readonly balanceSheetService: BalanceSheetService,
+    private readonly incomeStatementService: IncomeStatementService,
     private readonly printTemplateService: PrintTemplateService,
     private readonly salesInvoicePrintService: SalesInvoicePrintService,
     private readonly salesShipmentPrintService: SalesShipmentPrintService,
@@ -139,6 +153,16 @@ export class ErpAgentToolService {
       context.workspaceId,
       assertCanReadObjectRecords,
     );
+    const balanceSheetTool = createBalanceSheetTool(
+      this.balanceSheetService,
+      context.workspaceId,
+      assertCanReadObjectRecords,
+    );
+    const incomeStatementTool = createIncomeStatementTool(
+      this.incomeStatementService,
+      context.workspaceId,
+      assertCanReadObjectRecords,
+    );
     const getPrintTemplateTool = createGetPrintTemplateTool(
       this.printTemplateService,
       context.workspaceId,
@@ -178,6 +202,38 @@ export class ErpAgentToolService {
           return {
             success: true,
             message: `ОСВ: ${result.rows.length} счетов с оборотами за период.`,
+            result,
+          };
+        },
+      },
+      // Same wrapping reason as trial_balance above: raw data result, not
+      // {success, message} — балансовый тул тоже.
+      [BALANCE_SHEET_TOOL_NAME]: {
+        description: balanceSheetTool.description,
+        inputSchema: balanceSheetTool.inputSchema,
+        execute: async (
+          toolArgs: Parameters<typeof balanceSheetTool.execute>[0],
+        ): Promise<ToolOutput> => {
+          const result = await balanceSheetTool.execute(toolArgs);
+
+          return {
+            success: true,
+            message: `Баланс на ${result.reportDate}: актив/пассив = ${result.totalAssets.current} коп.`,
+            result,
+          };
+        },
+      },
+      [INCOME_STATEMENT_TOOL_NAME]: {
+        description: incomeStatementTool.description,
+        inputSchema: incomeStatementTool.inputSchema,
+        execute: async (
+          toolArgs: Parameters<typeof incomeStatementTool.execute>[0],
+        ): Promise<ToolOutput> => {
+          const result = await incomeStatementTool.execute(toolArgs);
+
+          return {
+            success: true,
+            message: `ОФР за ${result.dateFrom}—${result.dateTo}: ${result.lines.length} строк.`,
             result,
           };
         },
