@@ -74,7 +74,7 @@ const describeUnionMember = (
 
 export const createListWorkflowCapabilitiesTool = () => ({
   description:
-    'Список триггеров и шагов (действий), реально поддерживаемых штатным workflow-движком Twenty — читай перед вызовом create_complete_workflow ' +
+    'Список триггеров и шагов (действий), реально поддерживаемых штатным workflow-движком — читай перед вызовом create_complete_workflow ' +
     '(execute_tool), чтобы не придумывать несуществующие типы. Каждая запись содержит JSON Schema с полными требованиями к settings. ' +
     'Trigger types: DATABASE_EVENT (record created/updated/deleted/upserted, с опциональным фильтром), MANUAL, CRON, WEBHOOK. ' +
     'Action types include CREATE_RECORD/UPDATE_RECORD/DELETE_RECORD/UPSERT_RECORD/FIND_RECORDS, SEND_EMAIL/DRAFT_EMAIL, HTTP_REQUEST, ' +

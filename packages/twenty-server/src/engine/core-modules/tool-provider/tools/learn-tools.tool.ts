@@ -77,7 +77,11 @@ export const createLearnToolsTool = (
 
     const suggestions: Record<string, string[]> =
       notFound.length > 0
-        ? await toolRegistry.suggestSimilarToolNames(notFound, context)
+        ? await toolRegistry.suggestSimilarToolNames(
+            notFound,
+            context,
+            isToolAllowed,
+          )
         : {};
 
     const messageParts: string[] = [];

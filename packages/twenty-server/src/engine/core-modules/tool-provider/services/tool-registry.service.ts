@@ -255,11 +255,16 @@ export class ToolRegistryService {
   async suggestSimilarToolNames(
     toolNames: string[],
     context: ToolContext,
+    // Same reasoning as resolveAndExecute below: don't suggest a tool name
+    // the caller has already excluded (e.g. MCP-excluded register writes).
+    isToolAllowed?: (candidateToolName: string) => boolean,
   ): Promise<Record<string, string[]>> {
     const fullContext = this.buildContextFromToolContext(context);
 
     const catalog = await this.getCatalog(fullContext);
-    const candidateToolNames = catalog.map((entry) => entry.name);
+    const candidateToolNames = catalog
+      .map((entry) => entry.name)
+      .filter((name) => isToolAllowed?.(name) ?? true);
 
     const suggestionsByToolName: Record<string, string[]> = {};
 
@@ -281,7 +286,17 @@ export class ToolRegistryService {
     toolName: string,
     args: Record<string, unknown> | undefined,
     context: ToolContext,
-    options?: { compactOutput?: boolean; spillLargeOutput?: boolean },
+    options?: {
+      compactOutput?: boolean;
+      spillLargeOutput?: boolean;
+      // Excludes MCP-excluded tool names (e.g. register write tools) from
+      // "Did you mean" candidates — the caller (execute-tool.tool.ts) already
+      // rejects a direct call to one of these before ever reaching here, but
+      // the catalog itself is unfiltered, so an unrelated typo could still
+      // surface one as a suggestion the agent burns a call chasing (final
+      // whole-phase review Finding 3).
+      isToolAllowed?: (candidateToolName: string) => boolean;
+    },
   ): Promise<ToolOutput> {
     try {
       const fullContext = this.buildContextFromToolContext(context);
@@ -290,10 +305,10 @@ export class ToolRegistryService {
       const entry = index.find((indexEntry) => indexEntry.name === toolName);
 
       if (!entry) {
-        const similarToolNames = findSimilarToolNames(
-          toolName,
-          index.map((indexEntry) => indexEntry.name),
-        );
+        const candidateNames = index
+          .map((indexEntry) => indexEntry.name)
+          .filter((name) => options?.isToolAllowed?.(name) ?? true);
+        const similarToolNames = findSimilarToolNames(toolName, candidateNames);
         const suggestionHint =
           similarToolNames.length > 0
             ? ` Did you mean: ${similarToolNames.join(', ')}?`

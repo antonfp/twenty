@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { ErpAccountingModule } from 'src/engine/core-modules/erp-accounting/erp-accounting.module';
 import { ErpModule } from 'src/engine/core-modules/erp/erp.module';
+import { ErpSalesModule } from 'src/engine/core-modules/erp-sales/erp-sales.module';
+import { ErpStockModule } from 'src/engine/core-modules/erp-stock/erp-stock.module';
 import { RecordCrudModule } from 'src/engine/core-modules/record-crud/record-crud.module';
 import { TOOL_PROVIDERS } from 'src/engine/core-modules/tool-provider/constants/tool-providers.token';
 import { ActionToolProvider } from 'src/engine/core-modules/tool-provider/providers/action-tool.provider';
@@ -63,6 +65,10 @@ import { ToolRegistryService } from './services/tool-registry.service';
     ErpModule,
     // TrialBalanceService for ErpAgentToolService's trial_balance bridge.
     ErpAccountingModule,
+    // SalesInvoicePrintService/SalesShipmentPrintService for
+    // ErpAgentToolService's render_print_preview bridge.
+    ErpSalesModule,
+    ErpStockModule,
     AiModelsModule,
     forwardRef(() => AiAgentExecutionModule),
     ObjectMetadataModule,

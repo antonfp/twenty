@@ -68,6 +68,7 @@ export const createExecuteToolTool = (
     return toolRegistry.resolveAndExecute(toolName, args, context, {
       compactOutput: options?.compactOutput,
       spillLargeOutput: options?.spillLargeOutput,
+      isToolAllowed: options?.isToolAllowed,
     });
   },
 });

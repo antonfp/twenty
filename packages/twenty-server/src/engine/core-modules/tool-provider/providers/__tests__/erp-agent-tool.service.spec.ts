@@ -4,7 +4,10 @@ import { FieldActorSource } from 'twenty-shared/types';
 
 import { type PostingService } from 'src/engine/core-modules/erp/services/posting.service';
 import { type ErpObjectPermissionGuardService } from 'src/engine/core-modules/erp/services/erp-object-permission-guard.service';
+import { type PrintTemplateService } from 'src/engine/core-modules/erp/services/print-template.service';
 import { type TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
+import { type SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
+import { type SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
 import { ErpAgentToolService } from 'src/engine/core-modules/tool-provider/providers/erp-agent-tool.service';
 import { type ToolProviderContext } from 'src/engine/core-modules/tool-provider/interfaces/tool-provider-context.type';
 
@@ -74,9 +77,32 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
       ),
   } as unknown as ErpObjectPermissionGuardService;
 
+  const printTemplateService = {
+    findActiveTemplate: jest.fn().mockResolvedValue(null),
+    resolveTemplateHtml: jest.fn().mockReturnValue({
+      html: '<html>built-in</html>',
+      source: 'built-in',
+      fallbackReason: null,
+    }),
+    createOrUpdateActiveTemplate: jest
+      .fn()
+      .mockResolvedValue({ id: 'print-template-1' }),
+  } as unknown as PrintTemplateService;
+
+  const salesInvoicePrintService = {
+    renderSalesInvoiceHtml: jest.fn().mockResolvedValue('<html>invoice</html>'),
+  } as unknown as SalesInvoicePrintService;
+
+  const salesShipmentPrintService = {
+    renderSalesShipmentUpdHtml: jest.fn().mockResolvedValue('<html>upd</html>'),
+  } as unknown as SalesShipmentPrintService;
+
   const service = new ErpAgentToolService(
     postingService,
     trialBalanceService,
+    printTemplateService,
+    salesInvoicePrintService,
+    salesShipmentPrintService,
     erpObjectPermissionGuardService,
   );
 
@@ -84,24 +110,30 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     provider: service,
     postingService,
     trialBalanceService,
+    printTemplateService,
+    salesInvoicePrintService,
+    salesShipmentPrintService,
     erpObjectPermissionGuardService,
   };
 };
 
 describe('ErpAgentToolService', () => {
   describe('ownsTool', () => {
-    it('claims post_document/cancel_document/trial_balance and nothing else', () => {
+    it('claims post_document/cancel_document/trial_balance/print tools and nothing else', () => {
       const { provider } = buildProvider();
 
       expect(provider.ownsTool('post_document')).toBe(true);
       expect(provider.ownsTool('cancel_document')).toBe(true);
       expect(provider.ownsTool('trial_balance')).toBe(true);
+      expect(provider.ownsTool('get_print_template')).toBe(true);
+      expect(provider.ownsTool('update_print_template')).toBe(true);
+      expect(provider.ownsTool('render_print_preview')).toBe(true);
       expect(provider.ownsTool('http_request')).toBe(false);
     });
   });
 
   describe('generateDescriptors', () => {
-    it('exposes post_document, cancel_document and trial_balance', async () => {
+    it('exposes post_document, cancel_document, trial_balance and the print tools', async () => {
       const { provider } = buildProvider();
 
       const descriptors = await provider.generateDescriptors(context, {
@@ -113,6 +145,9 @@ describe('ErpAgentToolService', () => {
           'post_document',
           'cancel_document',
           'trial_balance',
+          'get_print_template',
+          'update_print_template',
+          'render_print_preview',
         ]),
       );
 
@@ -223,6 +258,63 @@ describe('ErpAgentToolService', () => {
           context,
         ),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // Final whole-phase review Finding 2: the prompt promises print preview
+  // to the internal agent — that requires these three actually being
+  // reachable through this bridge, not just over raw MCP.
+  describe('get_print_template', () => {
+    it('wraps the raw template result into a ToolOutput result', async () => {
+      const { provider, printTemplateService } = buildProvider();
+
+      const output = await provider.executeStaticTool(
+        'get_print_template',
+        { documentType: 'SCHET' },
+        context,
+      );
+
+      expect(output.success).toBe(true);
+      expect(output.result).toEqual(
+        expect.objectContaining({ documentType: 'SCHET', source: 'built-in' }),
+      );
+      expect(printTemplateService.findActiveTemplate).toHaveBeenCalledWith(
+        WORKSPACE_ID,
+        'SCHET',
+      );
+    });
+
+    it('rejects when the role lacks canReadObjectRecords on printTemplate', async () => {
+      const { provider } = buildProvider({ permissionDenied: true });
+
+      await expect(
+        provider.executeStaticTool(
+          'get_print_template',
+          { documentType: 'SCHET' },
+          context,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('update_print_template', () => {
+    it('creates/activates the override once the permission check passes', async () => {
+      const { provider, printTemplateService } = buildProvider();
+
+      const output = await provider.executeStaticTool(
+        'update_print_template',
+        { documentType: 'SCHET', html: '<div>{{organizationName}}</div>' },
+        context,
+      );
+
+      expect(output.success).toBe(true);
+      expect(
+        printTemplateService.createOrUpdateActiveTemplate,
+      ).toHaveBeenCalledWith(
+        WORKSPACE_ID,
+        'SCHET',
+        '<div>{{organizationName}}</div>',
+      );
     });
   });
 });
