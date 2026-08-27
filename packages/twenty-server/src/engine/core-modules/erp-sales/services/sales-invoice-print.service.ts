@@ -323,8 +323,21 @@ export class SalesInvoicePrintService {
     // шаблонов те же значения остаются доступны как плоские {{sbpQr}}/
     // {{sbpQrPayload}} (пустая строка вместо пропуска — тот же конвенция,
     // что у остальных «пустые реквизиты выводятся пустыми строками»).
+    //
+    // Review finding (Major): сплайсить сюда УЖЕ ЗАПОЛНЕННЫЙ блок (как было
+    // раньше) означает, что его {{sbpQr}}/{{sbpQrPayload}} проходят через
+    // fillPlaceholders дважды — свой локальный проход и общий header-проход
+    // ниже — и organization/invoice-текст, случайно похожий на ИЗВЕСТНОЕ имя
+    // плейсхолдера (например, «{{invoice_number}}» буквально в названии
+    // организации), на втором проходе подменяется чужими данными. Тот самый
+    // класс бага, который LINE_BLOCK_SENTINEL в fillPrintTemplate уже
+    // закрывает для строк. Фикс — тот же принцип: сюда сплайсится
+    // НЕЗАПОЛНЕННЫЙ шаблон блока (плейсхолдеры {{sbpQr}}/{{sbpQrPayload}}
+    // остаются как есть), а значения кладутся в общую headerValues-карту —
+    // единственный проход fillPlaceholders ниже подставляет их один раз, как
+    // и любое другое поле формы.
     const {
-      blockHtml: sbpQrBlockHtml,
+      blockTemplate: sbpQrBlockTemplate,
       dataUri: sbpQrDataUri,
       payload: sbpQrPayload,
     } = await this.renderSbpQrBlock({
@@ -337,7 +350,7 @@ export class SalesInvoicePrintService {
     const templateWithQr = spliceNamedBlock(
       templateHtml,
       'sbpQr',
-      sbpQrBlockHtml,
+      sbpQrBlockTemplate,
     );
 
     headerValues.sbpQr = sbpQrDataUri;
@@ -385,14 +398,17 @@ export class SalesInvoicePrintService {
     });
   }
 
-  // Builds the (already-rendered, {{sbpQr}}/{{sbpQrPayload}} filled) block
-  // HTML to splice into the built-in template in place of its own
+  // Returns the RAW (still-{{sbpQr}}/{{sbpQrPayload}}-shaped) block template
+  // to splice into the built-in template in place of its own
   // <!-- BEGIN sbpQr -->…<!-- END sbpQr --> marker — '' when the organization
   // lacks the required requisites (buildPaymentQrPayload returns null) or
   // when the active template has no such marker at all (a custom override
   // that only wants the flat placeholders, filled by the caller instead).
-  // dataUri/payload are returned separately too: render()'s headerValues
-  // needs them regardless of whether a block marker exists.
+  // Deliberately NOT pre-filled here (see the Major review finding this
+  // fixed): the caller splices this template text in BEFORE render()'s one
+  // shared fillPlaceholders pass, so {{sbpQr}}/{{sbpQrPayload}} inside it get
+  // substituted exactly once, from the same headerValues map as every other
+  // field — no second pass to re-scan already-substituted text.
   private async renderSbpQrBlock({
     templateHtml,
     organization,
@@ -405,7 +421,7 @@ export class SalesInvoicePrintService {
     invoiceNumberText: string;
     invoiceDate: string;
     totalKopecks: number;
-  }): Promise<{ blockHtml: string; dataUri: string; payload: string }> {
+  }): Promise<{ blockTemplate: string; dataUri: string; payload: string }> {
     const purpose = buildPaymentQrPurpose(
       invoiceNumberText,
       formatDateRuShort(invoiceDate),
@@ -425,29 +441,21 @@ export class SalesInvoicePrintService {
     );
 
     if (!isDefined(payload)) {
-      return { blockHtml: '', dataUri: '', payload: '' };
+      return { blockTemplate: '', dataUri: '', payload: '' };
     }
 
     const dataUri = await this.safeRenderQrDataUri(payload);
 
     if (!isNonEmptyString(dataUri)) {
-      return { blockHtml: '', dataUri: '', payload };
+      return { blockTemplate: '', dataUri: '', payload };
     }
 
     const blockTemplate = extractNamedBlockTemplate(templateHtml, 'sbpQr');
 
-    if (!isNonEmptyString(blockTemplate)) {
-      return { blockHtml: '', dataUri, payload };
-    }
-
-    return {
-      blockHtml: fillPlaceholders(blockTemplate, {
-        sbpQr: dataUri,
-        sbpQrPayload: payload,
-      }),
-      dataUri,
-      payload,
-    };
+    // No marker in the active template (custom override without one) —
+    // nothing to splice, but dataUri/payload still feed the flat headerValues
+    // entries below for a template that references {{sbpQr}} directly.
+    return { blockTemplate: blockTemplate ?? '', dataUri, payload };
   }
 
   // QR — необязательное дополнение к печатной форме; сбой рендера (например,

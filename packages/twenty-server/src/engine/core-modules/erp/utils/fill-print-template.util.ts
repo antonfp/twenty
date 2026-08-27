@@ -95,10 +95,22 @@ export const extractLineBlockTemplate = (template: string): string => {
 // organization without them prints with no leftover empty image box rather
 // than blanked-but-still-laid-out markup. `blockName` must be a single
 // \w+ token, matching the same delimiter comment style as the line block.
+//
+// The `(?!<!-- BEGIN ${blockName} -->)` inside the capture group is load-
+// bearing, not decorative: a plain non-greedy `[\s\S]*?` would happily start
+// matching at a DECOY occurrence of the begin-marker text (e.g. an
+// explanatory comment mentioning it, which is exactly the self-inflicted bug
+// Task 7 hit once in schet-template.constant.ts — see git history) and
+// swallow everything up to the real end marker. The lookahead forbids the
+// match from crossing a second begin-marker, so a decoy before the real
+// block fails to match at that position and the regex engine retries from
+// the next `<!-- BEGIN ${blockName} -->` it finds instead — i.e. the LAST
+// begin marker before the matching end marker always wins.
 const namedBlockPattern = (blockName: string): RegExp => {
-  return new RegExp(
-    `<!-- BEGIN ${blockName} -->([\\s\\S]*?)<!-- END ${blockName} -->`,
-  );
+  const begin = `<!-- BEGIN ${blockName} -->`;
+  const end = `<!-- END ${blockName} -->`;
+
+  return new RegExp(`${begin}((?:(?!${begin})[\\s\\S])*?)${end}`);
 };
 
 // null when `template` has no such block at all — a workspace override

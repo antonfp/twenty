@@ -101,11 +101,16 @@ export const buildPaymentQrPayload = (
     ['CorrespAcc', sanitizeFieldValue(correspAcc, 'CorrespAcc')],
   ];
 
-  const inn = organization.inn?.trim();
-
-  if (isNonEmptyString(inn)) {
-    fields.push(['PayeeINN', sanitizeFieldValue(inn, 'PayeeINN')]);
-  }
+  // Порядок KPP/PayeeINN/Purpose/Sum ниже — НЕ порядок из примера research §5
+  // (там PayeeINN, KPP, Sum, Purpose). ST0001x номинально key=value формат,
+  // где порядок не должен иметь значения, но открытая Go-реализация
+  // github.com/ofstudio/qr-gost-56042 несёт прямой комментарий: «ВАЖНО! Для
+  // мобильного приложения Сбербанка необходимо, чтобы поля в QR-коде шли
+  // строго в таком порядке» — КПП перед PayeeINN, Sum последним. Следуем ей
+  // (доминирующее банковское приложение РФ) вместо порядка из research.
+  // ponytail: не проверено лично на реальном приложении Сбербанка —
+  // сделать перед продом (тот же риск research §5 уже поднимал для
+  // Sum-в-копейках).
 
   // КПП опционален — у ИП его нет (research §5 / organization.object.ts).
   const kpp = organization.kpp?.trim();
@@ -114,8 +119,14 @@ export const buildPaymentQrPayload = (
     fields.push(['KPP', sanitizeFieldValue(kpp, 'KPP')]);
   }
 
-  fields.push(['Sum', String(Math.max(0, Math.round(sumKopecks)))]);
+  const inn = organization.inn?.trim();
+
+  if (isNonEmptyString(inn)) {
+    fields.push(['PayeeINN', sanitizeFieldValue(inn, 'PayeeINN')]);
+  }
+
   fields.push(['Purpose', sanitizeFieldValue(purpose, 'Purpose')]);
+  fields.push(['Sum', String(Math.max(0, Math.round(sumKopecks)))]);
 
   return [
     PAYLOAD_HEADER,

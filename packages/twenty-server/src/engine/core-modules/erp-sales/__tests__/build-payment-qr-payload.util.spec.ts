@@ -27,7 +27,12 @@ describe('buildPaymentQrPurpose', () => {
 });
 
 describe('buildPaymentQrPayload', () => {
-  it('matches a hand-built reference ST00012 payload (ГОСТ Р 56042-2014)', () => {
+  // Порядок хвостовых полей (KPP перед PayeeINN, Sum последним) — не порядок
+  // из примера research §5 (PayeeINN, KPP, Sum, Purpose), а Сбер-совместимый
+  // порядок из github.com/ofstudio/qr-gost-56042 (см. комментарий в
+  // build-payment-qr-payload.util.ts) — реальное приложение Сбербанка
+  // задокументированно требует именно такой порядок полей.
+  it('matches a hand-built reference ST00012 payload (ГОСТ Р 56042-2014, Сбер-совместимый порядок полей)', () => {
     const purpose = buildPaymentQrPurpose('15', '01.09.2026');
 
     // 150 000,00 руб = 15 000 000 коп — Sum должен быть в копейках, не в рублях.
@@ -36,8 +41,8 @@ describe('buildPaymentQrPayload', () => {
     expect(payload).toBe(
       'ST00012|Name=ООО «Ромашка»|PersonalAcc=40702810900000012345' +
         '|BankName=ПАО СБЕРБАНК|BIC=044525225|CorrespAcc=30101810400000000225' +
-        '|PayeeINN=7700000000|KPP=770001001|Sum=15000000' +
-        '|Purpose=Оплата по счёту № 15 от 01.09.2026',
+        '|KPP=770001001|PayeeINN=7700000000' +
+        '|Purpose=Оплата по счёту № 15 от 01.09.2026|Sum=15000000',
     );
   });
 

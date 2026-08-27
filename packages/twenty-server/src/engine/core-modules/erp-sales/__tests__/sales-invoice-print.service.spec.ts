@@ -225,6 +225,36 @@ describe('SalesInvoicePrintService', () => {
       expect(html).not.toContain('{{sbpQr');
     });
 
+    // Review finding (Major): the sbpQr block used to be pre-rendered via
+    // its own fillPlaceholders call, then spliced into the template BEFORE
+    // the header-level fillPlaceholders pass — a second, separate pass over
+    // already-substituted text. A literal "{{knownPlaceholder}}"-shaped
+    // substring inside organization-controlled data (here: the org name)
+    // would survive the first pass intact (values are never re-scanned) but
+    // then get matched and replaced by the SECOND pass, corrupting the QR
+    // alt text with unrelated header data. Exactly the double-substitution
+    // class of bug fillPrintTemplate's LINE_BLOCK_SENTINEL already guards
+    // against for the line block — this pins the same guarantee for sbpQr.
+    it('does not mangle a literal "{{knownPlaceholder}}"-shaped substring in the organization name via a second substitution pass', async () => {
+      repositories.organization.findOneBy.mockResolvedValue({
+        ...ORGANIZATION,
+        name: 'ООО «{{invoice_number}}»',
+        bankName: 'ПАО Сбербанк',
+        bik: '044525225',
+        settlementAccount: '40702810438000012345',
+        corrAccount: '30101810400000000225',
+      });
+
+      const html = await service.renderSalesInvoiceHtml(
+        WORKSPACE_ID,
+        INVOICE_ID,
+      );
+
+      // Must survive literally inside the QR payload/alt text — not get
+      // replaced with the real invoice number ("42") by a stray second pass.
+      expect(html).toContain('Name=ООО «{{invoice_number}}»');
+    });
+
     it('HTML-escapes the ST00012 payload inside the alt="" attribute even when the invoice number carries a quote character', async () => {
       repositories.organization.findOneBy.mockResolvedValue({
         ...ORGANIZATION,

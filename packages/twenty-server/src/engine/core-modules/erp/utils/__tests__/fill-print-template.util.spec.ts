@@ -174,4 +174,29 @@ describe('extractNamedBlockTemplate / spliceNamedBlock', () => {
 
     expect(spliceNamedBlock(plain, 'sbpQr', '<img>')).toBe(plain);
   });
+
+  // Review finding (Task 7, Minor): the exact bug hit mid-task — an
+  // explanatory comment mentioning the marker text by name, BEFORE the real
+  // block — must not make the regex swallow everything up to the real end
+  // marker. The LAST begin marker before the matching end marker must win.
+  it('skips a decoy occurrence of the begin marker (e.g. inside an explanatory comment) and matches the real block', () => {
+    const templateWithDecoy = [
+      '<!-- comment mentioning <!-- BEGIN sbpQr --> by name -->',
+      '<div>before</div>',
+      '<!-- BEGIN sbpQr -->',
+      '<img src="{{sbpQr}}">',
+      '<!-- END sbpQr -->',
+      '<div>after</div>',
+    ].join('\n');
+
+    expect(extractNamedBlockTemplate(templateWithDecoy, 'sbpQr')).toBe(
+      '\n<img src="{{sbpQr}}">\n',
+    );
+
+    const result = spliceNamedBlock(templateWithDecoy, 'sbpQr', '');
+
+    expect(result).toContain('<div>before</div>');
+    expect(result).toContain('<div>after</div>');
+    expect(result).not.toContain('<img');
+  });
 });
