@@ -103,6 +103,14 @@ export class CreateInvoiceRevisionService {
     // Не withDeleted: мягко удалённый черновик-исправление — сознательно
     // отклонённый бухгалтером вариант, повторное создание должно быть
     // разрешено (тот же принцип, что и orphan-retry в month-close.service.ts).
+    // ponytail: check-then-insert не атомарен (нет SELECT FOR UPDATE / unique
+    // индекса на amendedFromId WHERE docStatus='DRAFT') — два одновременных
+    // вызова создадут два DRAFT-исправления. Принятый MVP-риск (тот же
+    // пробел унаследовал create-invoice-from-opportunity.service.ts, review
+    // Minor #2 фазы 9 Task 8): видимый дубль-черновик бухгалтер сольёт/
+    // удалит руками, повторного проведения это не создаёт. Апгрейд при
+    // необходимости — partial unique индекс на (amendedFromId) WHERE
+    // docStatus = 'DRAFT'.
     const existingDraftRevision = await invoiceRepository.findOne({
       where: { amendedFromId: sourceInvoiceId, docStatus: DOC_STATUS.DRAFT },
     });

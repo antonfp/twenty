@@ -91,6 +91,16 @@ export class CreateInvoiceFromOpportunityService {
       throw new BadRequestException('У сделки не указана компания.');
     }
 
+    // review Minor #1: opportunity.amount is nullable (fresh deals often
+    // have no amount yet) — currencyToKopecks silently maps null/undefined
+    // to 0, which would otherwise produce a DRAFT line worth 0 ₽ with no
+    // indication anything is wrong. Refuse explicitly instead.
+    const dealAmount = opportunity.amount as CurrencyFieldValue;
+
+    if (!isDefined(dealAmount) || !isDefined(dealAmount.amountMicros)) {
+      throw new BadRequestException('У сделки не указана сумма.');
+    }
+
     const invoiceRepository = scope.getRepository<ErpDocumentRecord>(
       SALES_INVOICE_OBJECT_NAME,
       BYPASS_PERMISSIONS,
@@ -101,6 +111,14 @@ export class CreateInvoiceFromOpportunityService {
     // soft-deleted draft was explicitly discarded by the accountant, so a
     // retry should create a fresh one, same reasoning as
     // create-invoice-revision.service.ts's existing-DRAFT-revision guard.
+    // ponytail: check-then-insert, not atomic (no SELECT FOR UPDATE / unique
+    // index on opportunityId WHERE docStatus='DRAFT') — two concurrent calls
+    // for the same opportunity can both pass this check and create two
+    // DRAFT invoices. Accepted MVP risk (review Minor #2): a visible
+    // duplicate DRAFT the accountant merges/deletes by hand, not a double
+    // posting — same gap exists in create-invoice-revision.service.ts.
+    // Upgrade path if this bites: a partial unique index on
+    // (opportunityId) WHERE docStatus = 'DRAFT'.
     const existingDraft = await invoiceRepository.findOne({
       where: { opportunityId, docStatus: DOC_STATUS.DRAFT },
     });
@@ -146,12 +164,8 @@ export class CreateInvoiceFromOpportunityService {
       updatedBy: SYSTEM_ACTOR,
     });
 
-    const currencyCode =
-      asText((opportunity.amount as CurrencyFieldValue)?.currencyCode) ||
-      RUB_CURRENCY_CODE;
-    const priceKopecks = currencyToKopecks(
-      opportunity.amount as CurrencyFieldValue,
-    );
+    const currencyCode = asText(dealAmount.currencyCode) || RUB_CURRENCY_CODE;
+    const priceKopecks = currencyToKopecks(dealAmount);
     const priceCurrency = kopecksToCurrency(priceKopecks, currencyCode);
 
     const lineRepository = scope.getRepository<ErpDocumentRecord>(

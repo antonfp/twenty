@@ -15,6 +15,7 @@ import { CustomPermissionGuard } from 'src/engine/guards/custom-permission.guard
 import { WorkspaceAuthGuard } from 'src/engine/guards/workspace-auth.guard';
 
 const SALES_INVOICE_OBJECT_NAME = 'salesInvoice';
+const OPPORTUNITY_OBJECT_NAME = 'opportunity';
 
 // «Создать счёт» (Task 8, glue Сделка→Счёт): mirrors
 // SalesInvoiceRevisionResolver — same auth guard, same role resolution via
@@ -49,6 +50,16 @@ export class SalesInvoiceFromOpportunityResolver {
       workspaceId: workspace.id,
       roleId,
       objectNameSingular: SALES_INVOICE_OBJECT_NAME,
+    });
+    // The service reads and COPIES the deal's name/amount/company into the
+    // new invoice via a bypass-permissions repository — without this check
+    // an actor who can write salesInvoice but can't read opportunity would
+    // exfiltrate CRM data through the invoice it creates (review Major #1).
+    // Same dual-check shape as reconcile_payments/confirm_reconciliation.
+    await this.erpObjectPermissionGuardService.assertCanReadObjectRecords({
+      workspaceId: workspace.id,
+      roleId,
+      objectNameSingular: OPPORTUNITY_OBJECT_NAME,
     });
 
     const result =

@@ -156,6 +156,21 @@ describe('CreateInvoiceFromOpportunityService', () => {
     ).rejects.toThrow(/У сделки не указана компания/);
   });
 
+  // review Minor #1: opportunity.amount is nullable — a fresh deal with no
+  // amount yet must refuse loudly, not silently produce a 0 ₽ line.
+  it('refuses when the deal has no amount — «У сделки не указана сумма»', async () => {
+    const { service, invoiceRepository, lineRepository } = createService({
+      opportunityRows: [opportunity({ amount: null })],
+      organizationRows: [defaultOrganization],
+    });
+
+    await expect(
+      service.createInvoiceFromOpportunity(WORKSPACE_ID, OPPORTUNITY_ID),
+    ).rejects.toThrow(/У сделки не указана сумма/);
+    expect(invoiceRepository.save).not.toHaveBeenCalled();
+    expect(lineRepository.save).not.toHaveBeenCalled();
+  });
+
   it('refuses when there is no organization at all', async () => {
     const { service } = createService({
       opportunityRows: [opportunity()],

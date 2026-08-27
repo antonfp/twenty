@@ -428,6 +428,7 @@ export class ErpAgentToolService {
           this.createInvoiceFromOpportunityService,
           context.workspaceId,
           assertCanUpdateObjectRecords,
+          assertCanReadObjectRecords,
         ),
     };
   }

@@ -1569,7 +1569,29 @@ async function main() {
   // поэтому без явной пометки сервис ушёл бы в fallback «первая по
   // createdAt» на чужую древнюю организацию, а не на созданную здесь — тест
   // должен бить именно по ветке isDefault, которую иначе ничем не покрыть
-  // живьём.
+  // живьём. Сервис ищет isDefault=true БЕЗ order by — если в БД уже есть
+  // другая isDefault=true организация (например, от предыдущего прогона
+  // этого самого скрипта — findOne без сортировки не гарантирует «последнюю
+  // созданную»), проверка ниже станет случайно нестабильной. Сначала снимаем
+  // isDefault со всех существующих, чтобы после этого шага isDefault=true
+  // была РОВНО одна — созданная здесь (самоочистка, безопасно гонять
+  // повторно).
+  const staleDefaultOrgsOut = await execTool(token, 'find_many_organizations', {
+    isDefault: { eq: true },
+    select: ['id'],
+  });
+  const staleDefaultOrgs = (staleDefaultOrgsOut.result as { records: Id[] })
+    .records;
+  for (const staleOrg of staleDefaultOrgs) {
+    await execTool(token, 'update_one_organization', {
+      id: staleOrg.id,
+      isDefault: false,
+    });
+  }
+  ok(
+    `cleanup: cleared isDefault on ${staleDefaultOrgs.length} stale organization(s) from earlier runs`,
+  );
+
   const dealOrgOut = await execTool(token, 'create_one_organization', {
     name: `ООО Glue-Тест (e2e ${suffix})`,
     isDefault: true,

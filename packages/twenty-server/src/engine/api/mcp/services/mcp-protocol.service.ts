@@ -602,6 +602,7 @@ export class McpProtocolService {
           this.createInvoiceFromOpportunityService,
           workspace.id,
           assertCanUpdateObjectRecords,
+          assertCanReadObjectRecords,
         ),
         inputSchema: zodSchema(createInvoiceFromOpportunityInputSchema),
         annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
