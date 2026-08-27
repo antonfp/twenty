@@ -1289,6 +1289,250 @@ async function main() {
     'ASSERT fallback: render_print_preview and REST print both back to built-in, no marker',
   );
 
+  // 12. Task 3 (Фаза 9): банковская сверка — import_bank_statement (T4-Фазы-6
+  // путь, тот же 1CClientBankExchange формат, но через MCP-тул с уже
+  // декодированным text, не REST/CP1251 — см. e2e_accounting.ts для
+  // REST/CP1251-варианта) -> reconcile_payments (кандидат найден с
+  // объяснением) -> confirm_reconciliation (+ идемпотентность + негатив
+  // смены привязки) -> post_document -> счёт частично оплачен.
+  const reconCompanyOut = await execTool(token, 'create_one_company', {
+    name: `ООО Сверка (e2e ${suffix})`,
+    isCustomer: true,
+    inn: '7811223344',
+  });
+  if (!reconCompanyOut.success)
+    throw new Error(
+      `create_one_company (сверка) failed: ${JSON.stringify(reconCompanyOut)}`,
+    );
+  const reconCompany = reconCompanyOut.result as Id;
+  ok(`create_one_company (сверка): ${reconCompany.id}`);
+
+  const reconInvoiceOut = await execTool(token, 'create_one_sales_invoice', {
+    name: 'Счёт для сверки (e2e)',
+    invoiceDate: TODAY_ISO_DATE,
+    organizationId: org.id,
+    customerId: reconCompany.id,
+  });
+  if (!reconInvoiceOut.success)
+    throw new Error(
+      `create_one_sales_invoice (сверка) failed: ${JSON.stringify(reconInvoiceOut)}`,
+    );
+  const reconInvoice = reconInvoiceOut.result as Id;
+
+  const reconLineOut = await execTool(token, 'create_one_sales_invoice_line', {
+    name: 'Строка для сверки (e2e)',
+    quantity: 3,
+    price: { amountMicros: '500000000', currencyCode: 'RUB' }, // 500.00 руб -> total 1500.00 руб
+    vatRate: 'VAT_20',
+    itemId: item.id,
+    salesInvoiceId: reconInvoice.id,
+  });
+  if (!reconLineOut.success)
+    throw new Error(
+      `create_one_sales_invoice_line (сверка) failed: ${JSON.stringify(reconLineOut)}`,
+    );
+
+  const reconPostRpc = (await mcpToolCall(token, 'post_document', {
+    objectNameSingular: 'salesInvoice',
+    recordId: reconInvoice.id,
+  })) as RpcWithStatus;
+  const reconPostRes = mcpToolResultJson(reconPostRpc) as {
+    success: boolean;
+    message: string;
+  };
+  if (!reconPostRes.success)
+    throw new Error(
+      `post_document (сверка invoice) failed: ${JSON.stringify(reconPostRes)}`,
+    );
+
+  const reconInvoiceAfterPostOut = await execTool(
+    token,
+    'find_one_sales_invoice',
+    { id: reconInvoice.id, select: ['number', 'total', 'paymentStatus'] },
+  );
+  const reconInvoiceAfterPost = (
+    reconInvoiceAfterPostOut.result as {
+      records: { number: string; total: { amountMicros: string } }[];
+    }
+  ).records[0];
+  const reconInvoiceNumber = reconInvoiceAfterPost.number;
+  ok(
+    `create_one_sales_invoice + line + post_document (сверка): № ${reconInvoiceNumber}, total ${Number(reconInvoiceAfterPost.total.amountMicros) / 1e6} RUB, POSTED`,
+  );
+
+  // 12a. import_bank_statement (MCP, decoded text — no CP1251 round-trip
+  // needed on this path) — one incoming payment, partial amount (900 of
+  // 1500), назначение платежа mentions the invoice number.
+  const ORG_INN = '7728168971'; // same INN create_one_organization used in step 3
+  const reconToday = new Date();
+  const pad2Recon = (n: number) => String(n).padStart(2, '0');
+  const reconDateRu = `${pad2Recon(reconToday.getDate())}.${pad2Recon(reconToday.getMonth() + 1)}.${reconToday.getFullYear()}`;
+  const reconStatementText = [
+    '1CClientBankExchange',
+    'ВерсияФормата=1.03',
+    'Кодировка=UTF-8',
+    'СекцияДокумент=Платежное поручение',
+    'Номер=901',
+    `Дата=${reconDateRu}`,
+    'Сумма=900.00',
+    'ПлательщикИНН=7811223344',
+    `Плательщик1=ООО Сверка (e2e ${suffix})`,
+    `ПолучательИНН=${ORG_INN}`,
+    `Получатель1=ООО MCP-Тест (e2e ${suffix})`,
+    `НазначениеПлатежа=Частичная оплата по счёту № ${reconInvoiceNumber} от ${reconDateRu}`,
+    'КонецДокумента',
+    'КонецФайла',
+  ].join('\n');
+
+  const importRpc = (await mcpToolCall(token, 'import_bank_statement', {
+    organizationId: org.id,
+    text: reconStatementText,
+  })) as RpcWithStatus;
+  const importRes = mcpToolResultJson(importRpc) as {
+    created: { type: string; id: string; amountKopecks: number }[];
+    skipped: unknown[];
+    errors: unknown[];
+  };
+  if (importRes.errors.length !== 0)
+    throw new Error(
+      `import_bank_statement (сверка) errors: ${JSON.stringify(importRes)}`,
+    );
+  if (importRes.created.length !== 1 || importRes.created[0].type !== 'payment')
+    throw new Error(
+      `import_bank_statement (сверка): expected 1 created payment, got: ${JSON.stringify(importRes)}`,
+    );
+  const reconPaymentId = importRes.created[0].id;
+  ok(
+    `import_bank_statement (MCP, сверка): created DRAFT payment ${reconPaymentId}, ${importRes.created[0].amountKopecks / 100} RUB`,
+  );
+
+  // 12b. reconcile_payments — candidate found with a non-empty RU explanation.
+  const reconcileRpc = (await mcpToolCall(token, 'reconcile_payments', {
+    organizationId: org.id,
+  })) as RpcWithStatus;
+  const reconcileRes = mcpToolResultJson(reconcileRpc) as {
+    paymentType: string;
+    paymentId: string;
+    candidates: {
+      invoiceId: string;
+      invoiceNumber: string | null;
+      score: number;
+      explanation: string;
+    }[];
+  }[];
+  const reconProposal = reconcileRes.find(
+    (p) => p.paymentId === reconPaymentId,
+  );
+  if (!reconProposal)
+    throw new Error(
+      `reconcile_payments: proposal for payment ${reconPaymentId} not found, got: ${JSON.stringify(reconcileRes)}`,
+    );
+  const reconCandidate = reconProposal.candidates.find(
+    (c) => c.invoiceId === reconInvoice.id,
+  );
+  if (
+    !reconCandidate ||
+    reconCandidate.score <= 0 ||
+    !reconCandidate.explanation
+  )
+    throw new Error(
+      `reconcile_payments: expected a scored candidate for invoice ${reconInvoice.id}, got: ${JSON.stringify(reconProposal)}`,
+    );
+  ok(
+    `reconcile_payments: candidate found — счёт № ${reconCandidate.invoiceNumber}, score=${reconCandidate.score}, "${reconCandidate.explanation}"`,
+  );
+
+  // 12c. confirm_reconciliation — success, then idempotent re-confirm, then
+  // a negative (relink to a different invoice must be refused).
+  const confirmRpc = (await mcpToolCall(token, 'confirm_reconciliation', {
+    paymentId: reconPaymentId,
+    invoiceId: reconInvoice.id,
+  })) as RpcWithStatus;
+  const confirmRes = mcpToolResultJson(confirmRpc) as {
+    success: boolean;
+    alreadyLinked: boolean;
+    message: string;
+  };
+  if (!confirmRes.success || confirmRes.alreadyLinked)
+    throw new Error(
+      `confirm_reconciliation failed: ${JSON.stringify(confirmRes)}`,
+    );
+  ok(`confirm_reconciliation: ${confirmRes.message}`);
+
+  const confirmAgainRpc = (await mcpToolCall(token, 'confirm_reconciliation', {
+    paymentId: reconPaymentId,
+    invoiceId: reconInvoice.id,
+  })) as RpcWithStatus;
+  const confirmAgainRes = mcpToolResultJson(confirmAgainRpc) as {
+    success: boolean;
+    alreadyLinked: boolean;
+  };
+  if (!confirmAgainRes.success || !confirmAgainRes.alreadyLinked)
+    throw new Error(
+      `confirm_reconciliation (idempotent re-confirm) failed: ${JSON.stringify(confirmAgainRes)}`,
+    );
+  ok(
+    'confirm_reconciliation: повторное подтверждение той же пары — идемпотентно ok',
+  );
+
+  const relinkRpc = (await mcpToolCall(token, 'confirm_reconciliation', {
+    paymentId: reconPaymentId,
+    invoiceId: invoice.id, // a different (unrelated, earlier) invoice
+  })) as RpcWithStatus;
+  const relinkContent = relinkRpc.result?.content as
+    | { text: string }[]
+    | undefined;
+  if (
+    !relinkRpc.result?.isError ||
+    !relinkContent?.[0]?.text.includes('уже привязан')
+  )
+    throw new Error(
+      `negative: confirm_reconciliation relink must be refused with "уже привязан", got: ${JSON.stringify(relinkRpc)}`,
+    );
+  ok(
+    `negative: confirm_reconciliation relink denied — "${relinkContent[0].text.slice(0, 60)}..."`,
+  );
+
+  // 12d. post_document the payment -> счёт частично оплачен (900 of 1500).
+  const reconPaymentPostRpc = (await mcpToolCall(token, 'post_document', {
+    objectNameSingular: 'payment',
+    recordId: reconPaymentId,
+  })) as RpcWithStatus;
+  const reconPaymentPostRes = mcpToolResultJson(reconPaymentPostRpc) as {
+    success: boolean;
+  };
+  if (!reconPaymentPostRes.success)
+    throw new Error(
+      `post_document (сверка payment) failed: ${JSON.stringify(reconPaymentPostRes)}`,
+    );
+
+  const reconInvoiceAfterPaymentOut = await execTool(
+    token,
+    'find_one_sales_invoice',
+    {
+      id: reconInvoice.id,
+      select: ['paymentStatus', 'paidAmount'],
+    },
+  );
+  const reconInvoiceAfterPayment = (
+    reconInvoiceAfterPaymentOut.result as {
+      records: {
+        paymentStatus: string;
+        paidAmount: { amountMicros: string };
+      }[];
+    }
+  ).records[0];
+  if (
+    reconInvoiceAfterPayment.paymentStatus !== 'PARTIALLY_PAID' ||
+    Number(reconInvoiceAfterPayment.paidAmount.amountMicros) !== 900_000_000
+  )
+    throw new Error(
+      `ASSERT: expected PARTIALLY_PAID/900 RUB after posting, got: ${JSON.stringify(reconInvoiceAfterPayment)}`,
+    );
+  ok(
+    `post_document + ASSERT: счёт сверки PARTIALLY_PAID, paidAmount=${Number(reconInvoiceAfterPayment.paidAmount.amountMicros) / 1e6} RUB`,
+  );
+
   console.log(`\n=== E2E MCP ПРОЙДЕН (${steps} шагов) ===`);
 }
 

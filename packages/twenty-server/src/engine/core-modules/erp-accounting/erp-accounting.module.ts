@@ -16,6 +16,7 @@ import { BankStatementImportService } from 'src/engine/core-modules/erp-accounti
 import { GlContributorsService } from 'src/engine/core-modules/erp-accounting/services/gl-contributors.service';
 import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
 import { ManualEntryPostingRulesService } from 'src/engine/core-modules/erp-accounting/services/manual-entry-posting-rules.service';
+import { ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { TokenModule } from 'src/engine/core-modules/auth/token/token.module';
 import { JwtAuthGuard } from 'src/engine/guards/jwt-auth.guard';
@@ -28,9 +29,10 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
 // переиспользуются из erp-sales (объект-агностичные), explicit registration
 // per erp/WIRING.md §3. stockTransfer контрибьютора не имеет — ruling: БЕЗ
 // проводок. TrialBalanceService/BankStatementImportService/
-// BalanceSheetService/IncomeStatementService/AccountCardService are exported
-// for the MCP trial_balance/import_bank_statement/balance_sheet/
-// income_statement/account_card tools (see api/mcp/mcp.module.ts).
+// BalanceSheetService/IncomeStatementService/AccountCardService/
+// ReconciliationService are exported for the MCP trial_balance/
+// import_bank_statement/balance_sheet/income_statement/account_card/
+// reconcile_payments/confirm_reconciliation tools (see api/mcp/mcp.module.ts).
 @Module({
   imports: [ErpModule, TokenModule, WorkspaceCacheStorageModule],
   controllers: [
@@ -51,6 +53,7 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     BalanceSheetService,
     IncomeStatementService,
     AccountCardService,
+    ReconciliationService,
     ...ERP_ACCOUNTING_GUARD_HOOKS,
   ],
   exports: [
@@ -59,6 +62,7 @@ import { WorkspaceCacheStorageModule } from 'src/engine/workspace-cache-storage/
     BalanceSheetService,
     IncomeStatementService,
     AccountCardService,
+    ReconciliationService,
   ],
 })
 export class ErpAccountingModule implements OnModuleInit {

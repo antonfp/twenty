@@ -16,6 +16,10 @@ import {
   createCancelDocumentTool,
 } from 'src/engine/api/mcp/tools/cancel-document.tool';
 import {
+  CONFIRM_RECONCILIATION_TOOL_NAME,
+  createConfirmReconciliationTool,
+} from 'src/engine/api/mcp/tools/confirm-reconciliation.tool';
+import {
   GET_PRINT_TEMPLATE_TOOL_NAME,
   createGetPrintTemplateTool,
 } from 'src/engine/api/mcp/tools/get-print-template.tool';
@@ -27,6 +31,10 @@ import {
   POST_DOCUMENT_TOOL_NAME,
   createPostDocumentTool,
 } from 'src/engine/api/mcp/tools/post-document.tool';
+import {
+  createReconcilePaymentsTool,
+  RECONCILE_PAYMENTS_TOOL_NAME,
+} from 'src/engine/api/mcp/tools/reconcile-payments.tool';
 import {
   RENDER_PRINT_PREVIEW_TOOL_NAME,
   createRenderPrintPreviewTool,
@@ -45,6 +53,7 @@ import { PrintTemplateService } from 'src/engine/core-modules/erp/services/print
 import { AccountCardService } from 'src/engine/core-modules/erp-accounting/services/account-card.service';
 import { BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
+import { ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
 import { SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
@@ -94,6 +103,8 @@ export const ERP_AGENT_TOOL_NAMES: readonly string[] = [
   GET_PRINT_TEMPLATE_TOOL_NAME,
   UPDATE_PRINT_TEMPLATE_TOOL_NAME,
   RENDER_PRINT_PREVIEW_TOOL_NAME,
+  RECONCILE_PAYMENTS_TOOL_NAME,
+  CONFIRM_RECONCILIATION_TOOL_NAME,
 ];
 
 @Injectable()
@@ -107,6 +118,7 @@ export class ErpAgentToolService {
     private readonly printTemplateService: PrintTemplateService,
     private readonly salesInvoicePrintService: SalesInvoicePrintService,
     private readonly salesShipmentPrintService: SalesShipmentPrintService,
+    private readonly reconciliationService: ReconciliationService,
     private readonly erpObjectPermissionGuardService: ErpObjectPermissionGuardService,
   ) {}
 
@@ -184,6 +196,11 @@ export class ErpAgentToolService {
       this.printTemplateService,
       this.salesInvoicePrintService,
       this.salesShipmentPrintService,
+      context.workspaceId,
+      assertCanReadObjectRecords,
+    );
+    const reconcilePaymentsTool = createReconcilePaymentsTool(
+      this.reconciliationService,
       context.workspaceId,
       assertCanReadObjectRecords,
     );
@@ -309,6 +326,35 @@ export class ErpAgentToolService {
           };
         },
       },
+      // Same wrapping reason as trial_balance above: raw data result (an
+      // array of proposals), not {success, message}.
+      [RECONCILE_PAYMENTS_TOOL_NAME]: {
+        description: reconcilePaymentsTool.description,
+        inputSchema: reconcilePaymentsTool.inputSchema,
+        execute: async (
+          toolArgs: Parameters<typeof reconcilePaymentsTool.execute>[0],
+        ): Promise<ToolOutput> => {
+          const result = await reconcilePaymentsTool.execute(toolArgs);
+          const candidateCount = result.reduce(
+            (sum, proposal) => sum + proposal.candidates.length,
+            0,
+          );
+
+          return {
+            success: true,
+            message: `Сверка: ${result.length} непривязанных платежей, ${candidateCount} предложений-кандидатов.`,
+            result,
+          };
+        },
+      },
+      // confirm_reconciliation already returns {success, alreadyLinked,
+      // message} — matches ToolOutput as-is, no wrapping needed (same as
+      // update_print_template above).
+      [CONFIRM_RECONCILIATION_TOOL_NAME]: createConfirmReconciliationTool(
+        this.reconciliationService,
+        context.workspaceId,
+        assertCanUpdateObjectRecords,
+      ),
     };
   }
 }

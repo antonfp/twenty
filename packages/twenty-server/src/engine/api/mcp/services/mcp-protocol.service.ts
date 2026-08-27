@@ -53,6 +53,16 @@ import {
   postDocumentInputSchema,
 } from 'src/engine/api/mcp/tools/post-document.tool';
 import {
+  CONFIRM_RECONCILIATION_TOOL_NAME,
+  confirmReconciliationInputSchema,
+  createConfirmReconciliationTool,
+} from 'src/engine/api/mcp/tools/confirm-reconciliation.tool';
+import {
+  createReconcilePaymentsTool,
+  RECONCILE_PAYMENTS_TOOL_NAME,
+  reconcilePaymentsInputSchema,
+} from 'src/engine/api/mcp/tools/reconcile-payments.tool';
+import {
   createGetPrintTemplateTool,
   GET_PRINT_TEMPLATE_TOOL_NAME,
   getPrintTemplateInputSchema,
@@ -104,6 +114,7 @@ import { AccountCardService } from 'src/engine/core-modules/erp-accounting/servi
 import { BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { BankStatementImportService } from 'src/engine/core-modules/erp-accounting/services/bank-statement-import.service';
 import { IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
+import { ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
 import { SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
@@ -184,6 +195,7 @@ export class McpProtocolService {
     private readonly balanceSheetService: BalanceSheetService,
     private readonly incomeStatementService: IncomeStatementService,
     private readonly accountCardService: AccountCardService,
+    private readonly reconciliationService: ReconciliationService,
     private readonly erpCustomizationSurfaceService: ErpCustomizationSurfaceService,
     private readonly printTemplateService: PrintTemplateService,
     private readonly salesInvoicePrintService: SalesInvoicePrintService,
@@ -455,6 +467,24 @@ export class McpProtocolService {
         ),
         inputSchema: zodSchema(accountCardInputSchema),
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [RECONCILE_PAYMENTS_TOOL_NAME]: {
+        ...createReconcilePaymentsTool(
+          this.reconciliationService,
+          workspace.id,
+          assertCanReadObjectRecords,
+        ),
+        inputSchema: zodSchema(reconcilePaymentsInputSchema),
+        annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [CONFIRM_RECONCILIATION_TOOL_NAME]: {
+        ...createConfirmReconciliationTool(
+          this.reconciliationService,
+          workspace.id,
+          assertCanUpdateObjectRecords,
+        ),
+        inputSchema: zodSchema(confirmReconciliationInputSchema),
+        annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
       [BALANCE_SHEET_TOOL_NAME]: {
         ...createBalanceSheetTool(

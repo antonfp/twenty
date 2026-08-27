@@ -59,3 +59,37 @@ supplierPayment — не проводит.
 повторный импорт того же файла его не узнает и создаст дубль-DRAFT —
 бухгалтер увидит два черновика и разберётся вручную. Осознанное упрощение
 MVP, не баг.
+
+## Банковская сверка (Task 3, Фаза 9)
+
+`services/reconciliation.service.ts` + MCP-тулы `reconcile_payments`
+(read-only, `canReadObjectRecords` на payment/supplierPayment/salesInvoice/
+supplierInvoice) и `confirm_reconciliation` (write, `canUpdateObjectRecords`
+на payment/supplierPayment) — оба в мосту `ErpAgentToolService`.
+
+Для непривязанных (`salesInvoiceId`/`supplierInvoiceId` = null) DRAFT-
+платежей организации подбираются кандидаты — POSTED-счета той же
+организации с `paymentStatus` UNPAID/PARTIALLY_PAID, **обязательно** с тем
+же ИНН контрагента (без совпадения ИНН счёт вообще не кандидат — не влияет
+на скор). Скоринг (`utils/compute-reconciliation-score.util.ts`, pure):
+сумма платежа точно равна остатку к оплате — вес 2; сумма ≤ остатка —
+вес 1; назначение платежа (`comment`) содержит номер счёта — ещё +1 (итог до
+3). Остаток к оплате = `invoice.total − invoice.paidAmount` — `paidAmount`
+уже поддерживается атомарно `PaymentPostingRulesService`/
+`SupplierPaymentPostingRulesService` при каждом проведении/отмене оплаты, то
+есть это ровно «сумма POSTED-оплат, привязанных через существующую связь»,
+без обращения к регистру `partyLedgerEntry` (задокументированное упрощение
+ruling'а — не пересчитываем то, что уже посчитано).
+
+`confirm_reconciliation(paymentId, invoiceId)` только проставляет связь
+(`salesInvoiceId`/`supplierInvoiceId`) — не проводит платёж (проведение —
+отдельный шаг, `post_document`). Валидация: тот же контрагент (ИНН) и та же
+организация. Идемпотентность: повторный confirm той же пары — успех
+(`alreadyLinked: true`), смена привязки уже привязанного платежа на другой
+счёт — RU-отказ «Платёж уже привязан — отвяжите вручную» (проверяется до
+загрузки нового счёта, независимо от того, существует ли он).
+
+UI: без отдельного экрана (MVP) — привязка отражается в карточке платежа
+штатно, полем «Счёт» (`sales-invoice-on-payment.field.ts`), которое уже
+видимо в `payment-record-page-fields.view.ts` — это не тронуто Task 3,
+платформенный рендер relation-поля.

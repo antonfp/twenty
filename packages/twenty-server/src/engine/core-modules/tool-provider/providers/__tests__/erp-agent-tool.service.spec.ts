@@ -8,6 +8,7 @@ import { type PrintTemplateService } from 'src/engine/core-modules/erp/services/
 import { type AccountCardService } from 'src/engine/core-modules/erp-accounting/services/account-card.service';
 import { type BalanceSheetService } from 'src/engine/core-modules/erp-accounting/services/balance-sheet.service';
 import { type IncomeStatementService } from 'src/engine/core-modules/erp-accounting/services/income-statement.service';
+import { type ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { type TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
 import { type SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
 import { type SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
@@ -167,6 +168,36 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     renderSalesShipmentUpdHtml: jest.fn().mockResolvedValue('<html>upd</html>'),
   } as unknown as SalesShipmentPrintService;
 
+  const reconciliationService = {
+    getReconciliationProposals: jest.fn().mockResolvedValue([
+      {
+        paymentType: 'payment',
+        paymentId: 'payment-1',
+        paymentNumber: null,
+        paymentAmountKopecks: 122000,
+        paymentComment: 'Оплата по договору',
+        counterpartyId: 'company-1',
+        counterpartyName: 'ООО Ромашка',
+        counterpartyInn: '7712345678',
+        candidates: [
+          {
+            invoiceId: 'invoice-1',
+            invoiceNumber: 'SI-000001',
+            invoiceTotalKopecks: 122000,
+            remainingKopecks: 122000,
+            score: 2,
+            explanation: 'ИНН контрагента совпадает; сумма точно совпадает.',
+          },
+        ],
+      },
+    ]),
+    confirmReconciliation: jest.fn().mockResolvedValue({
+      success: true,
+      alreadyLinked: false,
+      message: 'Платёж привязан к счёту № SI-000001.',
+    }),
+  } as unknown as ReconciliationService;
+
   const service = new ErpAgentToolService(
     postingService,
     trialBalanceService,
@@ -176,6 +207,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     printTemplateService,
     salesInvoicePrintService,
     salesShipmentPrintService,
+    reconciliationService,
     erpObjectPermissionGuardService,
   );
 
@@ -189,6 +221,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     printTemplateService,
     salesInvoicePrintService,
     salesShipmentPrintService,
+    reconciliationService,
     erpObjectPermissionGuardService,
   };
 };
@@ -207,12 +240,14 @@ describe('ErpAgentToolService', () => {
       expect(provider.ownsTool('get_print_template')).toBe(true);
       expect(provider.ownsTool('update_print_template')).toBe(true);
       expect(provider.ownsTool('render_print_preview')).toBe(true);
+      expect(provider.ownsTool('reconcile_payments')).toBe(true);
+      expect(provider.ownsTool('confirm_reconciliation')).toBe(true);
       expect(provider.ownsTool('http_request')).toBe(false);
     });
   });
 
   describe('generateDescriptors', () => {
-    it('exposes post_document, cancel_document, trial_balance, account_card, balance_sheet, income_statement and the print tools', async () => {
+    it('exposes post_document, cancel_document, trial_balance, account_card, balance_sheet, income_statement, the print tools and reconciliation tools', async () => {
       const { provider } = buildProvider();
 
       const descriptors = await provider.generateDescriptors(context, {
@@ -230,6 +265,8 @@ describe('ErpAgentToolService', () => {
           'get_print_template',
           'update_print_template',
           'render_print_preview',
+          'reconcile_payments',
+          'confirm_reconciliation',
         ]),
       );
 
@@ -539,6 +576,81 @@ describe('ErpAgentToolService', () => {
         'SCHET',
         '<div>{{organizationName}}</div>',
       );
+    });
+  });
+
+  describe('reconcile_payments', () => {
+    it('wraps the proposals into a ToolOutput result', async () => {
+      const { provider, reconciliationService } = buildProvider();
+
+      const output = await provider.executeStaticTool(
+        'reconcile_payments',
+        { organizationId: ORGANIZATION_ID },
+        context,
+      );
+
+      expect(output.success).toBe(true);
+      expect(output.result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            paymentId: 'payment-1',
+            candidates: expect.arrayContaining([
+              expect.objectContaining({ invoiceId: 'invoice-1', score: 2 }),
+            ]),
+          }),
+        ]),
+      );
+      expect(
+        reconciliationService.getReconciliationProposals,
+      ).toHaveBeenCalledWith(WORKSPACE_ID, ORGANIZATION_ID);
+    });
+
+    it('rejects when the role lacks canReadObjectRecords', async () => {
+      const { provider } = buildProvider({ permissionDenied: true });
+
+      await expect(
+        provider.executeStaticTool(
+          'reconcile_payments',
+          { organizationId: ORGANIZATION_ID },
+          context,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('confirm_reconciliation', () => {
+    it('confirms the link once the permission check passes', async () => {
+      const { provider, reconciliationService } = buildProvider();
+
+      const output = await provider.executeStaticTool(
+        'confirm_reconciliation',
+        { paymentId: 'payment-1', invoiceId: 'invoice-1' },
+        context,
+      );
+
+      expect(output.success).toBe(true);
+      expect(reconciliationService.confirmReconciliation).toHaveBeenCalledWith(
+        WORKSPACE_ID,
+        'payment-1',
+        'invoice-1',
+      );
+    });
+
+    it('rejects when the role lacks canUpdateObjectRecords', async () => {
+      const { provider, reconciliationService } = buildProvider({
+        permissionDenied: true,
+      });
+
+      await expect(
+        provider.executeStaticTool(
+          'confirm_reconciliation',
+          { paymentId: 'payment-1', invoiceId: 'invoice-1' },
+          context,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(
+        reconciliationService.confirmReconciliation,
+      ).not.toHaveBeenCalled();
     });
   });
 });
