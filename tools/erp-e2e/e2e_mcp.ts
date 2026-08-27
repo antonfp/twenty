@@ -1767,6 +1767,81 @@ async function main() {
     `create_invoice_from_opportunity (MCP, после проведения): новый id ${glueInvoiceAfterPostRes.id} (не ${glueInvoiceId})`,
   );
 
+  // 13d. Review Major (phase-9 final): исправление счёта, созданного из
+  // сделки, обязано унаследовать opportunityId — иначе идемпотентный гвард
+  // create_invoice_from_opportunity (матчит по opportunityId) не видит
+  // DRAFT-исправление и создаёт ВТОРОЙ счёт на всю сумму сделки. Проводим
+  // второй glue-счёт, создаём его исправление, проверяем что opportunityId
+  // унаследован, и что повторный create_invoice_from_opportunity возвращает
+  // именно эту ревизию, а не новый счёт.
+  const glueInvoice2PostRpc = (await mcpToolCall(token, 'post_document', {
+    objectNameSingular: 'salesInvoice',
+    recordId: glueInvoiceAfterPostRes.id,
+  })) as RpcWithStatus;
+  const glueInvoice2PostRes = mcpToolResultJson(glueInvoice2PostRpc) as {
+    success: boolean;
+    message: string;
+  };
+  if (!glueInvoice2PostRes.success)
+    throw new Error(
+      `post_document (2nd glue invoice) failed: ${JSON.stringify(glueInvoice2PostRes)}`,
+    );
+  ok(`post_document (2nd glue invoice): ${glueInvoice2PostRes.message}`);
+
+  const glueRevisionRpc = (await mcpToolCall(token, 'create_invoice_revision', {
+    invoiceId: glueInvoiceAfterPostRes.id,
+  })) as RpcWithStatus;
+  const glueRevisionRes = mcpToolResultJson(glueRevisionRpc) as {
+    success: boolean;
+    id: string;
+    sourceId: string;
+  };
+  if (
+    !glueRevisionRes.success ||
+    glueRevisionRes.sourceId !== glueInvoiceAfterPostRes.id
+  )
+    throw new Error(
+      `create_invoice_revision (glue invoice) failed: ${JSON.stringify(glueRevisionRes)}`,
+    );
+  ok(`create_invoice_revision (glue invoice): ${glueRevisionRes.id}`);
+
+  const glueRevisionOut = await execTool(token, 'find_one_sales_invoice', {
+    id: glueRevisionRes.id,
+    select: ['opportunityId'],
+  });
+  const glueRevision = (
+    glueRevisionOut.result as { records: { opportunityId: string }[] }
+  ).records[0];
+  if (glueRevision.opportunityId !== opportunity.id)
+    throw new Error(
+      `ASSERT: revision lost opportunityId: ${JSON.stringify(glueRevision)}`,
+    );
+  ok(
+    'find_one_sales_invoice (glue revision): opportunityId унаследован от источника',
+  );
+
+  const glueAfterRevisionRpc = (await mcpToolCall(
+    token,
+    'create_invoice_from_opportunity',
+    { opportunityId: opportunity.id },
+  )) as RpcWithStatus;
+  const glueAfterRevisionRes = mcpToolResultJson(glueAfterRevisionRpc) as {
+    success: boolean;
+    id: string;
+    wasExisting: boolean;
+  };
+  if (
+    !glueAfterRevisionRes.success ||
+    !glueAfterRevisionRes.wasExisting ||
+    glueAfterRevisionRes.id !== glueRevisionRes.id
+  )
+    throw new Error(
+      `ASSERT: после исправления create_invoice_from_opportunity должен вернуть DRAFT-ревизию, а не создать новый счёт: ${JSON.stringify(glueAfterRevisionRes)}`,
+    );
+  ok(
+    `create_invoice_from_opportunity (MCP, после исправления): вернул РЕВИЗИЮ ${glueAfterRevisionRes.id}, а не новый счёт`,
+  );
+
   console.log(`\n=== E2E MCP ПРОЙДЕН (${steps} шагов) ===`);
 }
 

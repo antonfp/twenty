@@ -264,6 +264,34 @@ describe('CreateInvoiceRevisionService', () => {
     expect(sourceRowAfter.docStatus).toBe('POSTED');
   });
 
+  // Review Major (phase-9 final): a revision must keep the source's
+  // opportunityId, otherwise create-invoice-from-opportunity's idempotent
+  // DRAFT guard (matches on opportunityId) goes blind to this DRAFT and
+  // creates a second invoice for the full deal amount.
+  it('copies opportunityId onto the revision so the T8 idempotency guard still finds it', async () => {
+    const { service, invoiceRepository } = createService({
+      invoiceRows: [postedSource({ opportunityId: 'opportunity-1' })],
+    });
+
+    await service.createInvoiceRevision(WORKSPACE_ID, SOURCE_ID);
+
+    const savedInvoice = invoiceRepository.save.mock.calls[0][0] as Row;
+
+    expect(savedInvoice.opportunityId).toBe('opportunity-1');
+  });
+
+  it('leaves opportunityId null when the source has no opportunity', async () => {
+    const { service, invoiceRepository } = createService({
+      invoiceRows: [postedSource()],
+    });
+
+    await service.createInvoiceRevision(WORKSPACE_ID, SOURCE_ID);
+
+    const savedInvoice = invoiceRepository.save.mock.calls[0][0] as Row;
+
+    expect(savedInvoice.opportunityId).toBeNull();
+  });
+
   // «исправление исправления»: amending a revision points amendedFrom at the
   // LATEST document you called the tool on, not the original — and the
   // number keeps chaining (N+1), not resetting.

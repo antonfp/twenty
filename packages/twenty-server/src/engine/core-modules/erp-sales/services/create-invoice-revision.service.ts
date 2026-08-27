@@ -149,6 +149,12 @@ export class CreateInvoiceRevisionService {
       organizationId: source.organizationId ?? null,
       customerId: source.customerId ?? null,
       comment: source.comment ?? null,
+      // T8 landed after this service: an invoice created from an
+      // opportunity must keep that link on its revisions too, or
+      // create-invoice-from-opportunity's idempotent DRAFT guard (which
+      // matches on opportunityId) goes blind to this DRAFT and creates a
+      // second one for the full deal amount (review Major, phase-9 final).
+      opportunityId: source.opportunityId ?? null,
       amendedFromId: source.id,
       revisionNumber,
       createdBy: SYSTEM_ACTOR,

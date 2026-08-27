@@ -161,6 +161,37 @@ describe('MonthClosePostingRulesService', () => {
         withDeleted: true,
       });
     });
+
+    // Review Minor #3 (phase-9 final): a UI-created monthClose with no
+    // postingDate must close dated to the PERIOD, not to whatever "now"
+    // PostingService.resolvePostingDate stood in with before validate() ran.
+    it('defaults context.postingDate to the last day of the period when the document has none', async () => {
+      const { service } = createService();
+      // Stand-in for PostingService's pre-validate "now" resolution — must
+      // differ from the period's last day so the assertion is meaningful.
+      const context = createContext({ monthClose: createMockRepository() });
+
+      context.postingDate = '2026-09-05';
+
+      await service.validate(context, monthClose({ period: '2026-08-01' }), []);
+
+      expect(context.postingDate).toBe('2026-08-31');
+    });
+
+    it('does not override an explicit postingDate already on the document', async () => {
+      const { service } = createService();
+      const context = createContext({ monthClose: createMockRepository() });
+
+      context.postingDate = '2026-08-05';
+
+      await service.validate(
+        context,
+        monthClose({ period: '2026-08-01', postingDate: '2026-08-05' }),
+        [],
+      );
+
+      expect(context.postingDate).toBe('2026-08-05');
+    });
   });
 
   describe('getPartyEntries', () => {

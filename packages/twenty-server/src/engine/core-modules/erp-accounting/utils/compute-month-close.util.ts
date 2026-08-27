@@ -46,6 +46,18 @@ export const firstDayOfNextMonth = (periodFirstOfMonth: string): string => {
   return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
 };
 
+// Shared by close_month (MCP path, month-close.service.ts) and
+// month-close-posting-rules.service.ts's UI-posting-date default (review
+// Minor #3, phase-9 final) — one place computing "закрывающая дата" so both
+// paths date closing entries the same way instead of drifting apart.
+export const lastDayOfMonth = (periodFirstOfMonth: string): string => {
+  const lastDayDate = new Date(firstDayOfNextMonth(periodFirstOfMonth));
+
+  lastDayDate.setUTCDate(lastDayDate.getUTCDate() - 1);
+
+  return lastDayDate.toISOString().slice(0, 10);
+};
+
 const ZERO_TURNOVER: AccountTurnover = { debitKopecks: 0, creditKopecks: 0 };
 
 const turnoverOf = (

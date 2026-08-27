@@ -7,7 +7,7 @@ import { isDefined } from 'twenty-shared/utils';
 import { DOC_STATUS } from 'src/engine/core-modules/erp/types/doc-status.type';
 import { type ErpDocumentRecord } from 'src/engine/core-modules/erp/types/posting.types';
 import { PostingService } from 'src/engine/core-modules/erp/services/posting.service';
-import { firstDayOfNextMonth } from 'src/engine/core-modules/erp-accounting/utils/compute-month-close.util';
+import { lastDayOfMonth } from 'src/engine/core-modules/erp-accounting/utils/compute-month-close.util';
 import { GlobalWorkspaceOrmManager } from 'src/engine/twenty-orm/global-workspace-datasource/global-workspace-orm.manager';
 import { type WorkspaceTransactionScope } from 'src/engine/twenty-orm/global-workspace-datasource/types/workspace-transaction-scope.type';
 import { buildSystemAuthContext } from 'src/engine/twenty-orm/utils/build-system-auth-context.util';
@@ -70,7 +70,7 @@ export class MonthCloseService {
     // Даты закрытия — последний день закрываемого месяца (research §3:
     // «заключительными оборотами месяца»), а не «сегодня» — иначе ретроактивное
     // закрытие датировало бы проводки днём вызова тула.
-    const postingDate = this.lastDayOfMonth(period);
+    const postingDate = lastDayOfMonth(period);
 
     const documentId = await this.runInWorkspaceTransaction(
       workspaceId,
@@ -155,15 +155,6 @@ export class MonthCloseService {
         message: `Месяц ${month} закрыт документом ${number ?? documentId}${isYearReformation ? ' (реформация года)' : ''}.`,
       };
     });
-  }
-
-  private lastDayOfMonth(periodFirstOfMonth: string): string {
-    const nextMonthFirstDay = firstDayOfNextMonth(periodFirstOfMonth);
-    const lastDayDate = new Date(nextMonthFirstDay);
-
-    lastDayDate.setUTCDate(lastDayDate.getUTCDate() - 1);
-
-    return lastDayDate.toISOString().slice(0, 10);
   }
 
   private async runInWorkspaceTransaction<TResult>(

@@ -1,6 +1,7 @@
 import {
   computeMonthCloseLegs,
   firstDayOfNextMonth,
+  lastDayOfMonth,
   type MonthCloseLegDraft,
 } from 'src/engine/core-modules/erp-accounting/utils/compute-month-close.util';
 import { type AccountTurnover } from 'src/engine/core-modules/erp-accounting/utils/compute-income-statement.util';
@@ -185,5 +186,23 @@ describe('firstDayOfNextMonth', () => {
 
   it('rolls December into January of the next year', () => {
     expect(firstDayOfNextMonth('2026-12-01')).toBe('2027-01-01');
+  });
+});
+
+describe('lastDayOfMonth', () => {
+  it('returns the last calendar day of a 31-day month', () => {
+    expect(lastDayOfMonth('2026-08-01')).toBe('2026-08-31');
+  });
+
+  it('returns the last calendar day of a 30-day month', () => {
+    expect(lastDayOfMonth('2026-09-01')).toBe('2026-09-30');
+  });
+
+  it('handles December (rolls into next January, then back one day)', () => {
+    expect(lastDayOfMonth('2026-12-01')).toBe('2026-12-31');
+  });
+
+  it('handles February in a leap year', () => {
+    expect(lastDayOfMonth('2028-02-01')).toBe('2028-02-29');
   });
 });

@@ -8,6 +8,7 @@ import {
   ERP_POSTING_EXCEPTION_CODE,
   ErpPostingException,
 } from 'src/engine/core-modules/erp/erp-posting.exception';
+import { lastDayOfMonth } from 'src/engine/core-modules/erp-accounting/utils/compute-month-close.util';
 import { DocumentNumberingService } from 'src/engine/core-modules/erp/services/document-numbering.service';
 import { DOC_STATUS } from 'src/engine/core-modules/erp/types/doc-status.type';
 import {
@@ -67,6 +68,30 @@ export class MonthClosePostingRulesService implements PostingRulesProvider {
           userFriendlyMessage: msg`Период должен быть первым числом закрываемого месяца.`,
         },
       );
+    }
+
+    // Review Minor #3 (phase-9 final): a UI-created monthClose (unlike the
+    // MCP close_month path, which always sets postingDate to lastDayOfMonth
+    // itself) can reach posting with postingDate still null — PostingService
+    // .resolvePostingDate then falls back to "now", so closing a past month
+    // days/weeks late would date the 90.09/91.09→99 GL entries with today
+    // instead of the closed period. Mutating context.postingDate here (not
+    // just the local `period` var) is what actually fixes it — everything
+    // downstream (getPartyEntries' document name, the GL contributor, and
+    // PostingService's own postingDate backfill) reads context.postingDate,
+    // not document.postingDate, from this point on. Only defaults when the
+    // document itself never had one — an explicit postingDate is never
+    // overridden.
+    // ponytail: PostingService's period-lock check already ran (against
+    // "now") before this validate() call, so this default can't make a
+    // backdated close respect a lockDate set between the period and today —
+    // that needs postingDate resolved before the lock check, i.e. in
+    // PostingService itself. Same trivial-pass gap existed before this fix
+    // (the lock check was already checking "now", not the period), just
+    // less visible; revisit if lockDate + backdated monthClose collide in
+    // practice.
+    if (!isDefined(document.postingDate)) {
+      context.postingDate = lastDayOfMonth(period);
     }
 
     // 'YYYY-MM' string compare — same "no Date branch" reasoning as
