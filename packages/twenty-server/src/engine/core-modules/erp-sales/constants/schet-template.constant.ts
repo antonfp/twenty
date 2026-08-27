@@ -112,6 +112,15 @@ export const SCHET_TEMPLATE_HTML = `<!doctype html>
   }
   .signatures .s-gap { width: 10mm; }
   .stamp { margin-top: 6mm; font-weight: bold; }
+
+  /* ── QR-код оплаты (Task 7, ГОСТ Р 56042-2014 / ST00012) ──────
+     Блок целиком пропускается в выводе, если у организации счёта нет
+     полного набора обязательных банковских реквизитов — см. маркер блока
+     ниже и sales-invoice-print.service.ts. */
+  table.sbp-qr { margin-top: 5mm; }
+  .sbp-qr-image { width: 26mm; padding-right: 4mm; }
+  .sbp-qr-image img { display: block; width: 24mm; height: 24mm; }
+  .sbp-qr-caption { font-size: 8.5pt; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -221,6 +230,18 @@ export const SCHET_TEMPLATE_HTML = `<!doctype html>
     </tr>
   </table>
   <div class="stamp">М.П.</div>
+
+  <!-- QR-код оплаты (Task 7): пропущен целиком, если у организации нет
+       обязательных банковских реквизитов (Name/PersonalAcc/BankName/BIC/
+       CorrespAcc — ГОСТ Р 56042-2014). -->
+  <!-- BEGIN sbpQr -->
+  <table class="sbp-qr">
+    <tr>
+      <td class="sbp-qr-image"><img src="{{sbpQr}}" alt="{{sbpQrPayload}}"></td>
+      <td class="sbp-qr-caption">Оплата по QR (СБП/интернет-банк)</td>
+    </tr>
+  </table>
+  <!-- END sbpQr -->
 
 </div>
 </body>

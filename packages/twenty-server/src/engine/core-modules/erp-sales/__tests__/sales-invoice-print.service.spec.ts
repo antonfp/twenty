@@ -171,6 +171,84 @@ describe('SalesInvoicePrintService', () => {
     expect(html).toContain('Исправление № 2 от 27 августа 2026 г.');
   });
 
+  // Task 7 (ruling): статический СБП-QR (ГОСТ Р 56042-2014 / ST00012) —
+  // блок под подписями, пропущен целиком без полного набора обязательных
+  // банковских реквизитов организации счёта.
+  describe('sbpQr block', () => {
+    // The built-in template's own <style> always carries the .sbp-qr CSS
+    // rules (harmless — nothing references them without the block markup),
+    // so these tests assert on the rendered ELEMENT/caption/image, not on
+    // the bare "sbp-qr" substring which the stylesheet always contains.
+    beforeEach(() => {
+      // QRCode.toDataURL's Node PNG encoder (pngjs) schedules its work via
+      // setTimeout; jest.config.mjs enables fake timers globally, which
+      // would otherwise stall it forever in the two tests that actually
+      // render a QR image below.
+      jest.useRealTimers();
+    });
+
+    afterEach(() => {
+      jest.useFakeTimers();
+    });
+
+    it('omits the QR block when the organization has no bank requisites (fixture default: no bankName/bik/settlementAccount/corrAccount)', async () => {
+      const html = await service.renderSalesInvoiceHtml(
+        WORKSPACE_ID,
+        INVOICE_ID,
+      );
+
+      expect(html).not.toContain('<table class="sbp-qr">');
+      expect(html).not.toContain('Оплата по QR (СБП/интернет-банк)');
+      expect(html).not.toContain('<img');
+      expect(html).not.toContain('data:image');
+      expect(html).not.toContain('{{');
+    });
+
+    it('renders a data-URI QR image with the ST00012 payload as alt text when the organization has full requisites', async () => {
+      repositories.organization.findOneBy.mockResolvedValue({
+        ...ORGANIZATION,
+        bankName: 'ПАО Сбербанк',
+        bik: '044525225',
+        settlementAccount: '40702810438000012345',
+        corrAccount: '30101810400000000225',
+      });
+
+      const html = await service.renderSalesInvoiceHtml(
+        WORKSPACE_ID,
+        INVOICE_ID,
+      );
+
+      expect(html).toContain('class="sbp-qr"');
+      expect(html).toContain('Оплата по QR (СБП/интернет-банк)');
+      expect(html).toMatch(/<img src="data:image\/png;base64,[^"]+"/);
+      expect(html).toContain('alt="ST00012|Name=');
+      expect(html).not.toContain('{{sbpQr');
+    });
+
+    it('HTML-escapes the ST00012 payload inside the alt="" attribute even when the invoice number carries a quote character', async () => {
+      repositories.organization.findOneBy.mockResolvedValue({
+        ...ORGANIZATION,
+        bankName: 'ПАО Сбербанк',
+        bik: '044525225',
+        settlementAccount: '40702810438000012345',
+        corrAccount: '30101810400000000225',
+      });
+      repositories.salesInvoice.findOneBy.mockResolvedValue({
+        ...INVOICE,
+        number: '15"test"',
+      });
+
+      const html = await service.renderSalesInvoiceHtml(
+        WORKSPACE_ID,
+        INVOICE_ID,
+      );
+
+      // A raw unescaped '"' here would break out of the alt="" attribute.
+      expect(html).toContain('15&quot;test&quot;');
+      expect(html).not.toMatch(/alt="[^"]*"test"[^"]*"/);
+    });
+  });
+
   describe('workspace print-template override', () => {
     const CUSTOM_TEMPLATE = [
       '<div>Счёт № {{invoice_number}} от {{invoice_date}}</div>',
@@ -241,6 +319,60 @@ describe('SalesInvoicePrintService', () => {
       );
 
       expect(html).toContain('Спасибо, {{clown_car}}!');
+    });
+
+    // Task 7: a custom override can reference {{sbpQr}}/{{sbpQrPayload}}
+    // directly without declaring a <!-- BEGIN sbpQr --> marker — the
+    // built-in template's own conditional block is a SCHET_TEMPLATE_HTML
+    // convenience, not a requirement of the fill-карта itself.
+    it('fills the flat {{sbpQr}}/{{sbpQrPayload}} placeholders even without a <!-- BEGIN sbpQr --> block marker', async () => {
+      // See the "sbpQr block" describe above for why real timers are needed
+      // to let QRCode.toDataURL's pngjs-based encoder actually resolve.
+      jest.useRealTimers();
+      repositories.organization.findOneBy.mockResolvedValue({
+        ...ORGANIZATION,
+        bankName: 'ПАО Сбербанк',
+        bik: '044525225',
+        settlementAccount: '40702810438000012345',
+        corrAccount: '30101810400000000225',
+      });
+      printTemplateService.resolveTemplateHtml.mockReturnValue({
+        html: CUSTOM_TEMPLATE.replace(
+          'Спасибо за покупку!',
+          '<img src="{{sbpQr}}" alt="{{sbpQrPayload}}">',
+        ),
+        source: 'custom',
+        fallbackReason: null,
+      });
+
+      const html = await service.renderSalesInvoiceHtml(
+        WORKSPACE_ID,
+        INVOICE_ID,
+      );
+
+      expect(html).toMatch(/<img src="data:image\/png;base64,[^"]+"/);
+      expect(html).toContain('alt="ST00012|Name=');
+
+      jest.useFakeTimers();
+    });
+
+    it('leaves the flat sbpQr placeholders as empty strings (not "{{...}}") when the organization has no bank requisites', async () => {
+      printTemplateService.resolveTemplateHtml.mockReturnValue({
+        html: CUSTOM_TEMPLATE.replace(
+          'Спасибо за покупку!',
+          '[{{sbpQr}}][{{sbpQrPayload}}]',
+        ),
+        source: 'custom',
+        fallbackReason: null,
+      });
+
+      const html = await service.renderSalesInvoiceHtml(
+        WORKSPACE_ID,
+        INVOICE_ID,
+      );
+
+      expect(html).toContain('[][]');
+      expect(html).not.toContain('{{sbpQr');
     });
   });
 });

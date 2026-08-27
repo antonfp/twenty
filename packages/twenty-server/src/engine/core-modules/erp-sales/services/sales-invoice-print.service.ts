@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { isNonEmptyString } from '@sniptt/guards';
 import { In } from 'typeorm';
@@ -8,13 +8,19 @@ import { PrintTemplateService } from 'src/engine/core-modules/erp/services/print
 import { amountInWordsRu } from 'src/engine/core-modules/erp/utils/amount-in-words-ru.util';
 import {
   extractLineBlockTemplate,
+  extractNamedBlockTemplate,
   fillPlaceholders,
   fillPrintTemplate,
   getTemplatePlaceholderNames,
+  spliceNamedBlock,
   withUnknownPlaceholdersPreserved,
 } from 'src/engine/core-modules/erp/utils/fill-print-template.util';
 import { SCHET_TEMPLATE_HTML } from 'src/engine/core-modules/erp-sales/constants/schet-template.constant';
 import { type CurrencyFieldValue } from 'src/engine/core-modules/erp-sales/types/erp-sales.types';
+import {
+  buildPaymentQrPayload,
+  buildPaymentQrPurpose,
+} from 'src/engine/core-modules/erp-sales/utils/build-payment-qr-payload.util';
 import {
   type ComputedInvoiceLine,
   computeInvoiceTotals,
@@ -26,9 +32,11 @@ import {
 } from 'src/engine/core-modules/erp-sales/utils/erp-sales-money.util';
 import {
   formatDateRuLong,
+  formatDateRuShort,
   formatMoneyRu,
   formatQuantityRu,
 } from 'src/engine/core-modules/erp-sales/utils/format-ru.util';
+import { renderPaymentQrDataUri } from 'src/engine/core-modules/erp-sales/utils/render-payment-qr-image.util';
 import { GlobalWorkspaceOrmManager } from 'src/engine/twenty-orm/global-workspace-datasource/global-workspace-orm.manager';
 import { getWorkspaceContext } from 'src/engine/twenty-orm/storage/orm-workspace-context.storage';
 import { buildSystemAuthContext } from 'src/engine/twenty-orm/utils/build-system-auth-context.util';
@@ -88,6 +96,8 @@ export const SALES_INVOICE_PLACEHOLDER_NAMES: ReadonlySet<string> = new Set(
 
 @Injectable()
 export class SalesInvoicePrintService {
+  private readonly logger = new Logger(SalesInvoicePrintService.name);
+
   constructor(
     private readonly globalWorkspaceOrmManager: GlobalWorkspaceOrmManager,
     private readonly printTemplateService: PrintTemplateService,
@@ -238,7 +248,7 @@ export class SalesInvoicePrintService {
     return new Map(items.map((item) => [item.id, item]));
   }
 
-  private render({
+  private async render({
     invoice,
     lines,
     organization,
@@ -252,7 +262,7 @@ export class SalesInvoicePrintService {
     customer: WorkspaceRecord | null;
     itemsById: Map<string, WorkspaceRecord>;
     templateHtml: string;
-  }): string {
+  }): Promise<string> {
     // Totals are recomputed from the lines so the print form is correct for
     // drafts too, not only for posted invoices.
     const { computedLines, totalKopecks, vatTotalKopecks } =
@@ -278,6 +288,10 @@ export class SalesInvoicePrintService {
         ? `Исправление № ${revisionNumber} от ${formatDateRuLong(invoiceDate)}`
         : '';
 
+    const invoiceNumberText = isNonEmptyString(asText(invoice.number))
+      ? asText(invoice.number)
+      : 'б/н';
+
     const headerValues: Record<string, string> = {
       supplier_bank_name: asText(organization?.bankName),
       supplier_bank_bik: asText(organization?.bik),
@@ -286,9 +300,7 @@ export class SalesInvoicePrintService {
       supplier_inn: asText(organization?.inn),
       supplier_kpp: asText(organization?.kpp),
       supplier_short_name: asText(organization?.name),
-      invoice_number: isNonEmptyString(asText(invoice.number))
-        ? asText(invoice.number)
-        : 'б/н',
+      invoice_number: invoiceNumberText,
       invoice_date: formatDateRuLong(invoiceDate),
       revisionLine,
       supplier_requisites: buildRequisitesLine(organization),
@@ -305,7 +317,33 @@ export class SalesInvoicePrintService {
         : asText(organization?.directorName),
     };
 
-    const lineBlockTemplate = extractLineBlockTemplate(templateHtml);
+    // Task 7 (ruling): статический СБП-QR (ГОСТ Р 56042-2014 / ST00012) —
+    // блок в built-in шаблоне пропускается целиком (spliceNamedBlock с '')
+    // без полного набора обязательных банковских реквизитов; для кастомных
+    // шаблонов те же значения остаются доступны как плоские {{sbpQr}}/
+    // {{sbpQrPayload}} (пустая строка вместо пропуска — тот же конвенция,
+    // что у остальных «пустые реквизиты выводятся пустыми строками»).
+    const {
+      blockHtml: sbpQrBlockHtml,
+      dataUri: sbpQrDataUri,
+      payload: sbpQrPayload,
+    } = await this.renderSbpQrBlock({
+      templateHtml,
+      organization,
+      invoiceNumberText,
+      invoiceDate,
+      totalKopecks,
+    });
+    const templateWithQr = spliceNamedBlock(
+      templateHtml,
+      'sbpQr',
+      sbpQrBlockHtml,
+    );
+
+    headerValues.sbpQr = sbpQrDataUri;
+    headerValues.sbpQrPayload = sbpQrPayload;
+
+    const lineBlockTemplate = extractLineBlockTemplate(templateWithQr);
 
     const renderedLines = computedLines
       .map(({ line, amountKopecks }, lineIndex) => {
@@ -337,14 +375,92 @@ export class SalesInvoicePrintService {
       .join('');
 
     return fillPrintTemplate({
-      template: templateHtml,
+      template: templateWithQr,
       headerValues: withUnknownPlaceholdersPreserved(
-        templateHtml,
+        templateWithQr,
         headerValues,
         SALES_INVOICE_PLACEHOLDER_NAMES,
       ),
       renderedLinesHtml: renderedLines,
     });
+  }
+
+  // Builds the (already-rendered, {{sbpQr}}/{{sbpQrPayload}} filled) block
+  // HTML to splice into the built-in template in place of its own
+  // <!-- BEGIN sbpQr -->…<!-- END sbpQr --> marker — '' when the organization
+  // lacks the required requisites (buildPaymentQrPayload returns null) or
+  // when the active template has no such marker at all (a custom override
+  // that only wants the flat placeholders, filled by the caller instead).
+  // dataUri/payload are returned separately too: render()'s headerValues
+  // needs them regardless of whether a block marker exists.
+  private async renderSbpQrBlock({
+    templateHtml,
+    organization,
+    invoiceNumberText,
+    invoiceDate,
+    totalKopecks,
+  }: {
+    templateHtml: string;
+    organization: WorkspaceRecord | null;
+    invoiceNumberText: string;
+    invoiceDate: string;
+    totalKopecks: number;
+  }): Promise<{ blockHtml: string; dataUri: string; payload: string }> {
+    const purpose = buildPaymentQrPurpose(
+      invoiceNumberText,
+      formatDateRuShort(invoiceDate),
+    );
+    const payload = buildPaymentQrPayload(
+      {
+        name: asText(organization?.name),
+        settlementAccount: asText(organization?.settlementAccount),
+        bankName: asText(organization?.bankName),
+        bik: asText(organization?.bik),
+        corrAccount: asText(organization?.corrAccount),
+        inn: asText(organization?.inn),
+        kpp: asText(organization?.kpp),
+      },
+      purpose,
+      totalKopecks,
+    );
+
+    if (!isDefined(payload)) {
+      return { blockHtml: '', dataUri: '', payload: '' };
+    }
+
+    const dataUri = await this.safeRenderQrDataUri(payload);
+
+    if (!isNonEmptyString(dataUri)) {
+      return { blockHtml: '', dataUri: '', payload };
+    }
+
+    const blockTemplate = extractNamedBlockTemplate(templateHtml, 'sbpQr');
+
+    if (!isNonEmptyString(blockTemplate)) {
+      return { blockHtml: '', dataUri, payload };
+    }
+
+    return {
+      blockHtml: fillPlaceholders(blockTemplate, {
+        sbpQr: dataUri,
+        sbpQrPayload: payload,
+      }),
+      dataUri,
+      payload,
+    };
+  }
+
+  // QR — необязательное дополнение к печатной форме; сбой рендера (например,
+  // payload сверх ёмкости QR — крайне маловероятно для этих длин полей, но
+  // не невозможно) не должен ронять печать счёта целиком.
+  private async safeRenderQrDataUri(payload: string): Promise<string> {
+    try {
+      return await renderPaymentQrDataUri(payload);
+    } catch (error) {
+      this.logger.error('sbpQr: QR render failed, printing without it', error);
+
+      return '';
+    }
   }
 
   private buildVatRow(

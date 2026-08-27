@@ -1,9 +1,11 @@
 import {
   extractLineBlockTemplate,
+  extractNamedBlockTemplate,
   fillPlaceholders,
   fillPrintTemplate,
   findUnknownPlaceholderNames,
   getTemplatePlaceholderNames,
+  spliceNamedBlock,
   withUnknownPlaceholdersPreserved,
 } from 'src/engine/core-modules/erp/utils/fill-print-template.util';
 
@@ -124,5 +126,52 @@ describe('getTemplatePlaceholderNames / findUnknownPlaceholderNames / withUnknow
     );
 
     expect(augmented).toEqual(values);
+  });
+});
+
+// Task 7 (Фаза 9): a second block kind, appearing 0 or 1 times — used for the
+// SCHET template's optional СБП-QR block (see sales-invoice-print.service.ts).
+describe('extractNamedBlockTemplate / spliceNamedBlock', () => {
+  const TEMPLATE_WITH_NAMED_BLOCK = [
+    '<div>before</div>',
+    '<!-- BEGIN sbpQr -->',
+    '<img src="{{sbpQr}}">',
+    '<!-- END sbpQr -->',
+    '<div>after</div>',
+  ].join('\n');
+
+  it('extracts the inner content of a named block', () => {
+    expect(extractNamedBlockTemplate(TEMPLATE_WITH_NAMED_BLOCK, 'sbpQr')).toBe(
+      '\n<img src="{{sbpQr}}">\n',
+    );
+  });
+
+  it('returns null when the template has no such block', () => {
+    expect(extractNamedBlockTemplate('<div>plain</div>', 'sbpQr')).toBeNull();
+  });
+
+  it('replaces the block (markers + content) with already-rendered HTML', () => {
+    const result = spliceNamedBlock(
+      TEMPLATE_WITH_NAMED_BLOCK,
+      'sbpQr',
+      '<img src="data:image/png;base64,AAAA">',
+    );
+
+    expect(result).toBe(
+      '<div>before</div>\n<img src="data:image/png;base64,AAAA">\n<div>after</div>',
+    );
+  });
+
+  it('omits the block entirely when replacement is an empty string — no leftover empty markup', () => {
+    const result = spliceNamedBlock(TEMPLATE_WITH_NAMED_BLOCK, 'sbpQr', '');
+
+    expect(result).toBe('<div>before</div>\n\n<div>after</div>');
+    expect(result).not.toContain('img');
+  });
+
+  it('is a no-op on a template that has no such block (a custom override with no marker)', () => {
+    const plain = '<div>{{sbpQr}} used flat, no marker</div>';
+
+    expect(spliceNamedBlock(plain, 'sbpQr', '<img>')).toBe(plain);
   });
 });

@@ -352,6 +352,26 @@ async function main() {
     `find_one_sales_invoice (execute_tool): docStatus=POSTED, total=${Number(postedInvoice.total.amountMicros) / 1e6} RUB`,
   );
 
+  // 3b2. Task 7 (Фаза 9): СБП-QR (ГОСТ Р 56042-2014 / ST00012) через
+  // render_print_preview (MCP path — REST path covered separately in
+  // e2e_sales.ts) — org (step 3) has full bank requisites, so the built-in
+  // template's sbpQr block must render: a PNG data-URI image plus the
+  // ST00012 payload as its alt="" text.
+  const sbpQrPreviewRpc = (await mcpToolCall(token, 'render_print_preview', {
+    documentType: 'SCHET',
+    recordId: invoice.id,
+  })) as RpcWithStatus;
+  const sbpQrPreview = mcpToolResultJson(sbpQrPreviewRpc) as { html: string };
+  if (!sbpQrPreview.html.includes('<img src="data:image/png;base64,'))
+    throw new Error(
+      'render_print_preview: expected sbpQr data-URI <img>, not found',
+    );
+  if (!sbpQrPreview.html.includes('alt="ST00012|Name='))
+    throw new Error(
+      'render_print_preview: expected ST00012 payload in sbpQr alt="", not found',
+    );
+  ok('render_print_preview: sbpQr block (data-URI + ST00012 payload) ok');
+
   // 3c. trial_balance — assert проводки.
   const trialBalanceRpc = (await mcpToolCall(token, 'trial_balance', {
     organizationId: org.id,
@@ -1172,8 +1192,17 @@ async function main() {
     throw new Error(
       `get_print_template (baseline): expected "invoice_number" placeholder, got: ${JSON.stringify(baselineTemplate.availablePlaceholders)}`,
     );
+  // Task 7 (Фаза 9): СБП-QR — {{sbpQr}}/{{sbpQrPayload}} must be in the
+  // known-placeholder list for custom SCHET templates to be able to use them.
+  if (
+    !baselineTemplate.availablePlaceholders.includes('sbpQr') ||
+    !baselineTemplate.availablePlaceholders.includes('sbpQrPayload')
+  )
+    throw new Error(
+      `get_print_template (baseline): expected "sbpQr"/"sbpQrPayload" placeholders, got: ${JSON.stringify(baselineTemplate.availablePlaceholders)}`,
+    );
   ok(
-    `get_print_template (baseline): source=built-in, ${baselineTemplate.availablePlaceholders.length} known placeholders`,
+    `get_print_template (baseline): source=built-in, ${baselineTemplate.availablePlaceholders.length} known placeholders (incl. sbpQr/sbpQrPayload)`,
   );
 
   // 11b. update_print_template: replace the SCHET template with a valid

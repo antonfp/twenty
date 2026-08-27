@@ -183,6 +183,20 @@ async function main() {
       throw new Error('print form missing expected content');
     }
     console.log('print form ok', `(${html.length} bytes)`);
+
+    // Task 7 (Фаза 9): СБП-QR (ГОСТ Р 56042-2014 / ST00012) — org (above)
+    // has full bank requisites, so the built-in template's <!-- BEGIN sbpQr
+    // --> block must render: a PNG data-URI image plus the ST00012 payload
+    // as its alt="" text (payload isn't otherwise visible in the HTML).
+    if (!html.includes('<img src="data:image/png;base64,'))
+      throw new Error('print form: expected sbpQr data-URI <img>, not found');
+    if (!html.includes('alt="ST00012|Name='))
+      throw new Error(
+        'print form: expected ST00012 payload in sbpQr alt="", not found',
+      );
+    if (!html.includes('Оплата по QR (СБП/интернет-банк)'))
+      throw new Error('print form: missing sbpQr caption text');
+    console.log('print form: sbpQr block (data-URI + ST00012 payload) ok');
   } else {
     console.log(
       `PRINT ENDPOINT: HTTP ${printRes.status} — проверить путь эндпоинта!`,

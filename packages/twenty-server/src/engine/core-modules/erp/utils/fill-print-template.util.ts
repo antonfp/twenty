@@ -87,6 +87,44 @@ export const extractLineBlockTemplate = (template: string): string => {
   return template.match(LINE_BLOCK_PATTERN)?.[1] ?? '';
 };
 
+// A second kind of block a template may declare: unlike the repeating line
+// block (rendered once per document line, always present), a NAMED block
+// appears 0 or 1 times as a whole — e.g. Task 7's `<!-- BEGIN sbpQr -->…
+// <!-- END sbpQr -->`, spliced in only when the caller has what the block
+// needs (full bank requisites) and dropped entirely otherwise, so an
+// organization without them prints with no leftover empty image box rather
+// than blanked-but-still-laid-out markup. `blockName` must be a single
+// \w+ token, matching the same delimiter comment style as the line block.
+const namedBlockPattern = (blockName: string): RegExp => {
+  return new RegExp(
+    `<!-- BEGIN ${blockName} -->([\\s\\S]*?)<!-- END ${blockName} -->`,
+  );
+};
+
+// null when `template` has no such block at all — a workspace override
+// template is free to skip the marker entirely and just reference the
+// block's placeholders directly (see spliceNamedBlock's caller).
+export const extractNamedBlockTemplate = (
+  template: string,
+  blockName: string,
+): string | null => {
+  return template.match(namedBlockPattern(blockName))?.[1] ?? null;
+};
+
+// Replaces a named block's own markers+content in `template` with
+// `replacement` — already-rendered HTML (its own {{placeholders}} filled
+// beforehand, same discipline as the line block: see fillPrintTemplate's own
+// comment) or '' to omit the block entirely. A template without the marker
+// is returned unchanged (no match to replace) — never call this expecting an
+// error for a template that opted not to declare the block.
+export const spliceNamedBlock = (
+  template: string,
+  blockName: string,
+  replacement: string,
+): string => {
+  return template.replace(namedBlockPattern(blockName), () => replacement);
+};
+
 // Fills a print template that has one repeating line block plus header
 // placeholders. renderedLinesHtml must already be fully rendered (each line
 // run once through fillPlaceholders against the line-block template — see
