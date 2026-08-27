@@ -138,3 +138,17 @@ MCP: `close_month(organizationId, month "YYYY-MM", isYearReformation?)` —
 `canUpdateObjectRecords('monthClose')`, как у `post_document`. Мост
 `ErpAgentToolService` — тот же фактори, что и в MCP-тулсете (без обёртки:
 результат уже `{success, message, ...}`).
+
+### Идемпотентность close_month — ретрай, не дубли
+
+`create` и `post` — две разные транзакции (`post()` — своя, внутри
+`posting.service.ts`), поэтому вызов НЕ атомарен: если `post()` упадёт
+(гонка с другим `close_month` за тот же период, «Нет оборотов за месяц»,
+любое исключение провайдера/контрибьютора) — DRAFT, созданный на первом шаге,
+остаётся в БД непроведённым. Повторный вызов `close_month` с теми же
+`(organizationId, month, isYearReformation)` находит этот DRAFT (`findOne` по
+всем трём полям + `docStatus: DRAFT`) и переиспользует его id вместо
+создания нового — ретрай идемпотентен, черновики-сироты не накапливаются.
+Мягко удалённый (`deletedAt`) DRAFT НЕ подхватывается намеренно (без
+`withDeleted`) — раз пользователь явно удалил черновик, ретрай должен
+создать новый, а не воскрешать удалённый.

@@ -36,6 +36,17 @@ export type MonthCloseResult = {
 // then posts it in the same call, so the agent doesn't need two round-trips
 // (create_one_monthClose + post_document) — mirrors how bank-statement
 // import creates documents outside the GraphQL path.
+//
+// create() and post() are two separate transactions (posting.service.ts owns
+// its own), so this is NOT atomic: if post() throws (race with another
+// close_month for the same period, "Нет оборотов", any provider/contributor
+// exception), the DRAFT it just created is left behind. Ruling (review
+// fix-round): idempotent retry, not silent orphan buildup — reuse a matching
+// existing DRAFT instead of creating a new one every call, so a retried
+// close_month for the same (org, period, isYearReformation) picks up the
+// orphan and posts THAT, rather than piling up a fresh DRAFT per failed
+// attempt (the guard only rejects POSTED, so a naive create-every-time here
+// would never notice the pile-up).
 @Injectable()
 export class MonthCloseService {
   constructor(
@@ -81,6 +92,23 @@ export class MonthCloseService {
           MONTH_CLOSE_OBJECT_NAME,
           BYPASS_PERMISSIONS,
         );
+        // Reuse an orphan DRAFT from a previous failed attempt instead of
+        // creating a duplicate — see class comment. Not withDeleted: a
+        // soft-deleted DRAFT means the user explicitly discarded it, so a
+        // retry should create a fresh one, not resurrect it.
+        const existingDraft = await documentRepository.findOne({
+          where: {
+            organizationId,
+            period,
+            isYearReformation,
+            docStatus: DOC_STATUS.DRAFT,
+          },
+        });
+
+        if (isDefined(existingDraft) && typeof existingDraft.id === 'string') {
+          return existingDraft.id;
+        }
+
         // .save()'s resolved value doesn't carry the server-generated id back
         // (see bank-statement-import.service.ts) — generated here instead.
         const id = crypto.randomUUID();

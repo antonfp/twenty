@@ -33,7 +33,7 @@ export const createCloseMonthTool = (
   assertCanUpdateObjectRecords: (objectNameSingular: string) => Promise<void>,
 ) => ({
   description:
-    'Close (закрыть) an accounting month in one call: creates the monthClose document for the organization/month and posts it immediately, writing Дт/Кт 90.09↔99 (and 91.09↔99) from that month\'s glEntry turnover. Fails if the month is already closed, in the future, or has no glEntry turnover. Pass isYearReformation=true only for month "YYYY-12" to additionally zero the 90.x/91.x subaccounts and close 99 into 84 (годовая реформация).',
+    'Close (закрыть) an accounting month in one call: creates the monthClose document for the organization/month and posts it immediately, writing Дт/Кт 90.09↔99 (and 91.09↔99) from that month\'s glEntry turnover. Fails if the month is already closed, in the future, or has no glEntry turnover. Pass isYearReformation=true only for month "YYYY-12" to additionally zero the 90.x/91.x subaccounts and close 99 into 84 (годовая реформация). Retry-safe: create and post are two separate steps, so a failed call (e.g. a race with another close_month for the same period) can leave an unposted DRAFT — retrying with the same organizationId/month/isYearReformation reuses that DRAFT instead of creating a duplicate.',
   inputSchema: closeMonthInputSchema,
   execute: async ({
     organizationId,

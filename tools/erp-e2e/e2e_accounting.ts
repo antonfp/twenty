@@ -1609,6 +1609,47 @@ async function main() {
     'storno MonthClose ok: docStatus=DRAFT (возвращён в черновик), Σ glEntry.amount по voucherId = 0',
   );
 
+  // Review fix-round (Minor): отменённый monthClose больше не матчится
+  // guard'ом "месяц уже закрыт" (validate ищет docStatus: POSTED) — повторное
+  // close_month за тот же период должно пройти. Не проверяем здесь, что
+  // переиспользуется ИМЕННО monthCloseId: шагом выше "repeat close_month"
+  // (негативный тест на уже закрытый месяц) сам создал свой орфан-DRAFT
+  // (MonthCloseService создаёт DRAFT до post() — на тот момент DRAFT'а того
+  // же периода ещё не было, только POSTED), так что к этому месту в БД уже
+  // ДВА DRAFT-кандидата (monthCloseId после отмены + тот орфан) — который из
+  // них найдёт/переиспользует close_month, не гарантируется (оба валидны).
+  // Точная проверка «ретрай переиспользует ИМЕННО тот же id, не плодит
+  // второй» — в month-close.service.spec.ts (Major fix), с одним
+  // контролируемым орфаном.
+  const recloseRpc = await mcpToolCall(token, 'close_month', {
+    organizationId: org.id,
+    month,
+  });
+
+  if (!recloseRpc.result || recloseRpc.result.isError)
+    throw new Error(`unexpected: ${JSON.stringify(recloseRpc)}`);
+
+  const recloseResult = mcpToolResultJson(recloseRpc) as {
+    id: string;
+    docStatus: string;
+  };
+
+  if (recloseResult.docStatus !== 'POSTED')
+    throw new Error(`unexpected: ${JSON.stringify(recloseResult)}`);
+
+  const closeRowsAfterReclose = await glEntries(recloseResult.id);
+
+  assertGlRow(
+    closeRowsAfterReclose,
+    '90.09',
+    '99',
+    600,
+    'MonthClose (reclose)',
+  );
+  console.log(
+    `cancel -> re-close ok: close_month за тот же период после отмены прошёл (id=${recloseResult.id}), Дт90.09/Кт99=600 ok`,
+  );
+
   console.log('\n=== E2E ЦИКЛ БУХГАЛТЕРИИ ПРОЙДЕН ===');
 }
 
