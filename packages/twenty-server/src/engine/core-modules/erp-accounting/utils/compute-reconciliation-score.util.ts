@@ -3,7 +3,7 @@
 // here, so the scoring matrix is directly unit-testable.
 import { isNonEmptyString } from '@sniptt/guards';
 
-import { kopecksToRubles } from 'src/engine/core-modules/erp-sales/utils/erp-sales-money.util';
+import { formatMoneyRu } from 'src/engine/core-modules/erp-sales/utils/format-ru.util';
 
 // Веса ruling'а (docs/plans/phase9-accounting-depth.md, «Ruling (сверка)»):
 // точная сумма — высший вес, частичная (≤ остатка) — ниже; назначение
@@ -67,8 +67,8 @@ export const scoreReconciliationCandidate = ({
 
   const explanationParts = [
     amountMatch === 'EXACT'
-      ? `сумма платежа (${kopecksToRubles(paymentAmountKopecks)} ₽) точно совпадает с остатком к оплате`
-      : `сумма платежа (${kopecksToRubles(paymentAmountKopecks)} ₽) не превышает остаток к оплате (${kopecksToRubles(remainingKopecks)} ₽)`,
+      ? `сумма платежа (${formatMoneyRu(paymentAmountKopecks)} ₽) точно совпадает с остатком к оплате`
+      : `сумма платежа (${formatMoneyRu(paymentAmountKopecks)} ₽) не превышает остаток к оплате (${formatMoneyRu(remainingKopecks)} ₽)`,
   ];
 
   if (commentMentionsInvoiceNumber) {

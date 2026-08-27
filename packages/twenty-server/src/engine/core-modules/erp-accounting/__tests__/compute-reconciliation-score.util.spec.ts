@@ -85,6 +85,32 @@ describe('scoreReconciliationCandidate', () => {
     expect(result?.commentMentionsInvoiceNumber).toBe(true);
   });
 
+  // T10 parked minor (T3 review): the explanation used to interpolate a raw
+  // kopecksToRubles() number (dot decimal, no thousands separator) — every
+  // other RU money string in the codebase uses formatMoneyRu's comma/НБП
+  // format.
+  it('formats amounts in the explanation with a comma decimal and thousands separator, like the rest of the app', () => {
+    const result = scoreReconciliationCandidate({
+      paymentAmountKopecks: 1_500_000,
+      remainingKopecks: 1_500_000,
+      paymentComment: null,
+      invoiceNumber: null,
+    });
+
+    expect(result?.explanation).toContain('15 000,00 ₽');
+    expect(result?.explanation).not.toContain('15000 ₽');
+
+    const partial = scoreReconciliationCandidate({
+      paymentAmountKopecks: 90_000,
+      remainingKopecks: 1_500_000,
+      paymentComment: null,
+      invoiceNumber: null,
+    });
+
+    expect(partial?.explanation).toContain('900,00 ₽');
+    expect(partial?.explanation).toContain('15 000,00 ₽');
+  });
+
   it('does not crash on a null comment/invoice number and simply scores no comment bonus', () => {
     const result = scoreReconciliationCandidate({
       paymentAmountKopecks: 150_000,

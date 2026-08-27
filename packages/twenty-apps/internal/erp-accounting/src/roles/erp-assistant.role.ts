@@ -83,14 +83,20 @@ const ITEM_BALANCE_UNIVERSAL_IDENTIFIER =
   '7f12eb25-99d4-473f-b0dd-080e2aca670f';
 
 // erp-accounting (this app): account.object.ts, manual-entry.object.ts,
-// manual-entry-line.object.ts (writable); gl-entry.object.ts — регистр
-// проводок, read-only.
+// manual-entry-line.object.ts, month-close.object.ts (writable); gl-entry.object.ts
+// — регистр проводок, read-only.
 const ACCOUNT_UNIVERSAL_IDENTIFIER = '412bff53-1e68-44f2-b1d9-2f5a48e252dc';
 const MANUAL_ENTRY_UNIVERSAL_IDENTIFIER =
   'a7fef56d-d3ff-4d95-851b-4df5d59d7ccb';
 const MANUAL_ENTRY_LINE_UNIVERSAL_IDENTIFIER =
   'ad191fc2-fe1b-41e0-9ba3-aee67d64268c';
 const GL_ENTRY_UNIVERSAL_IDENTIFIER = '484daa75-af50-4398-a169-6720ac44951e';
+// Task 5 (Фаза 9) added month-close.object.ts and bridged close_month into
+// ErpAgentToolService, but never added the object here — the internal
+// assistant agent (this role) could not actually call close_month/
+// post_document/cancel_document on monthClose despite the bridge listing it.
+// Task 10 fix.
+const MONTH_CLOSE_UNIVERSAL_IDENTIFIER = '1581ee73-398b-4db3-a35d-c45dc92c3d76';
 
 const WRITABLE_OBJECT_UNIVERSAL_IDENTIFIERS = [
   // справочники (erp-base)
@@ -123,6 +129,7 @@ const WRITABLE_OBJECT_UNIVERSAL_IDENTIFIERS = [
   ACCOUNT_UNIVERSAL_IDENTIFIER,
   MANUAL_ENTRY_UNIVERSAL_IDENTIFIER,
   MANUAL_ENTRY_LINE_UNIVERSAL_IDENTIFIER,
+  MONTH_CLOSE_UNIVERSAL_IDENTIFIER,
 ] as const;
 
 // Ruling (Phase 8, docs/plans/phase8-mcp-ai.md): registers are read-only from
