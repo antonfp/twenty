@@ -172,5 +172,15 @@ export default defineObject({
       icon: 'IconNotes',
       isNullable: true,
     },
+    {
+      universalIdentifier: 'caeb0dc9-5217-4ac6-833a-396a17a0c229',
+      type: FieldType.NUMBER,
+      name: 'revisionNumber',
+      label: 'Номер исправления',
+      description:
+        '0 — оригинал; 1, 2, … — порядковый номер исправления в цепочке',
+      icon: 'IconHistory',
+      defaultValue: 0,
+    },
   ],
 });

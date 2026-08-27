@@ -11,6 +11,8 @@ import {
   gql,
   gqlRaw,
   login,
+  mcpToolCall,
+  mcpToolResultJson,
   mutationNames,
 } from './lib/e2e-client';
 
@@ -494,6 +496,128 @@ async function main() {
     );
   console.log(
     'registers correct after cancel -> edit -> re-post: 3 rows (orig+storno+new), live balance 24000',
+  );
+
+  // Task 6: «Исправление счёта» (amend) — POSTED счёт (inv, № q.number,
+  // total 90000, 2 строки) -> create_invoice_revision (MCP) -> строки
+  // скопированы с суммами -> печать содержит пометку -> повторное создание
+  // на том же источнике -> отказ.
+  const revisionRpc = await mcpToolCall(token, 'create_invoice_revision', {
+    invoiceId: inv.id,
+  });
+
+  if (!revisionRpc.result || revisionRpc.result.isError)
+    throw new Error(`unexpected: ${JSON.stringify(revisionRpc)}`);
+
+  const revision = mcpToolResultJson(revisionRpc) as {
+    success: boolean;
+    id: string;
+    number: string | null;
+    revisionNumber: number;
+    sourceId: string;
+    linesCopied: number;
+    message: string;
+  };
+
+  if (
+    revision.revisionNumber !== 1 ||
+    revision.sourceId !== inv.id ||
+    revision.linesCopied !== 2 ||
+    revision.number !== q.number
+  )
+    throw new Error(`unexpected: ${JSON.stringify(revision)}`);
+  console.log(
+    `create_invoice_revision ok: revision ${revision.id} (№ ${revision.number}, исправление ${revision.revisionNumber}, строк ${revision.linesCopied})`,
+  );
+
+  const revisionInvoice = (
+    await gql<{
+      salesInvoice: {
+        docStatus: string;
+        revisionNumber: number;
+        amendedFrom: { id: string } | null;
+      };
+    }>(
+      '/graphql',
+      `{ salesInvoice(filter: { id: { eq: "${revision.id}" } }) {
+      docStatus revisionNumber amendedFrom { id } } }`,
+      {},
+      token,
+    )
+  ).salesInvoice;
+
+  if (
+    revisionInvoice.docStatus !== 'DRAFT' ||
+    revisionInvoice.revisionNumber !== 1 ||
+    revisionInvoice.amendedFrom?.id !== inv.id
+  )
+    throw new Error(`unexpected: ${JSON.stringify(revisionInvoice)}`);
+  console.log(
+    'revision invoice: DRAFT, revisionNumber=1, amendedFrom=source ok (source untouched, still POSTED)',
+  );
+
+  const revisionLines = await gql<{
+    salesInvoiceLines: {
+      edges: {
+        node: {
+          name: string;
+          quantity: number;
+          amount: { amountMicros: string };
+        };
+      }[];
+    };
+  }>(
+    '/graphql',
+    `{ salesInvoiceLines(filter: { salesInvoiceId: { eq: "${revision.id}" } }) {
+      edges { node { name quantity amount { amountMicros } } } } }`,
+    {},
+    token,
+  );
+  const copiedLines = revisionLines.salesInvoiceLines.edges.map((e) => e.node);
+  const copiedTotal =
+    copiedLines.reduce((sum, l) => sum + Number(l.amount.amountMicros), 0) /
+    1e6;
+
+  if (copiedLines.length !== 2 || copiedTotal !== 90000)
+    throw new Error(`revision lines mismatch: ${JSON.stringify(copiedLines)}`);
+  console.log(
+    'revision lines copied ok: 2 lines, total 90000 (matches source)',
+  );
+
+  const revisionPrintRes = await fetch(
+    `${process.env.E2E_BASE ?? 'http://localhost:3000'}/rest/erp/sales-invoices/${revision.id}/print`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!revisionPrintRes.ok)
+    throw new Error(
+      `revision print HTTP ${revisionPrintRes.status}: ${(await revisionPrintRes.text()).slice(0, 200)}`,
+    );
+  const revisionHtml = await revisionPrintRes.text();
+  if (!revisionHtml.includes('Исправление № 1'))
+    throw new Error('revision print form missing "Исправление № 1" mark');
+  console.log('revision print form contains «Исправление № 1» mark ok');
+
+  const repeatRevisionRpc = await mcpToolCall(
+    token,
+    'create_invoice_revision',
+    { invoiceId: inv.id },
+  );
+  const repeatRevisionContent = repeatRevisionRpc.result?.content as
+    | { text: string }[]
+    | undefined;
+
+  if (!repeatRevisionRpc.result?.isError || !repeatRevisionContent?.[0]?.text)
+    throw new Error(
+      `repeat create_invoice_revision must be denied, got: ${JSON.stringify(repeatRevisionRpc)}`,
+    );
+  if (
+    !repeatRevisionContent[0].text.includes('уже есть черновик исправления № 1')
+  )
+    throw new Error(
+      `unexpected refusal text: ${repeatRevisionContent[0].text}`,
+    );
+  console.log(
+    `negative: повторное create_invoice_revision отклонено — "${repeatRevisionContent[0].text.slice(0, 80)}..."`,
   );
 
   console.log('\n=== E2E ЦИКЛ ПРОЙДЕН ===');

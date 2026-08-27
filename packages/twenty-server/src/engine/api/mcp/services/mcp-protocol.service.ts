@@ -112,6 +112,11 @@ import {
   LIST_SKILLS_TOOL_NAME,
   listSkillsInputSchema,
 } from 'src/engine/api/mcp/tools/list-skills.tool';
+import {
+  createCreateInvoiceRevisionTool,
+  CREATE_INVOICE_REVISION_TOOL_NAME,
+  createInvoiceRevisionInputSchema,
+} from 'src/engine/api/mcp/tools/create-invoice-revision.tool';
 import { type McpToolAnnotations } from 'src/engine/api/mcp/types/mcp-tool-annotations.type';
 import { wrapJsonRpcResponse } from 'src/engine/api/mcp/utils/wrap-jsonrpc-response.util';
 import { ApiKeyRoleService } from 'src/engine/core-modules/api-key/services/api-key-role.service';
@@ -128,6 +133,7 @@ import { KudirService } from 'src/engine/core-modules/erp-accounting/services/ku
 import { MonthCloseService } from 'src/engine/core-modules/erp-accounting/services/month-close.service';
 import { ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
+import { CreateInvoiceRevisionService } from 'src/engine/core-modules/erp-sales/services/create-invoice-revision.service';
 import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
 import { SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
 import { type FlatApiKey } from 'src/engine/core-modules/api-key/types/flat-api-key.type';
@@ -214,6 +220,7 @@ export class McpProtocolService {
     private readonly printTemplateService: PrintTemplateService,
     private readonly salesInvoicePrintService: SalesInvoicePrintService,
     private readonly salesShipmentPrintService: SalesShipmentPrintService,
+    private readonly createInvoiceRevisionService: CreateInvoiceRevisionService,
   ) {}
 
   async handleInitialize(requestId: string | number, workspaceId: string) {
@@ -573,6 +580,15 @@ export class McpProtocolService {
         ),
         inputSchema: zodSchema(renderPrintPreviewInputSchema),
         annotations: MCP_CLOSED_WORLD_READ_ONLY_TOOL_ANNOTATIONS,
+      } as McpAnnotatedTool,
+      [CREATE_INVOICE_REVISION_TOOL_NAME]: {
+        ...createCreateInvoiceRevisionTool(
+          this.createInvoiceRevisionService,
+          workspace.id,
+          assertCanUpdateObjectRecords,
+        ),
+        inputSchema: zodSchema(createInvoiceRevisionInputSchema),
+        annotations: MCP_EXECUTE_TOOL_ANNOTATIONS,
       } as McpAnnotatedTool,
     };
   }

@@ -101,6 +101,17 @@ export const buildErpDocumentCommandMenuItems = (
         conditionalAvailabilityExpression: SINGLE_RECORD_EXPRESSION,
         objectMetadataId,
       }),
+      buildErpDocumentCommandMenuItem({
+        idPrefix: 'erp-create-invoice-revision',
+        engineComponentKey: ERP_ENGINE_COMPONENT_KEYS.CREATE_INVOICE_REVISION,
+        label: t`Создать исправление`,
+        icon: 'IconFileDiff',
+        position: 9003,
+        // Task 6, ruling: активна только на проведённом (POSTED) счёте —
+        // черновик правится напрямую, отменённый счёт исправлению не подлежит.
+        conditionalAvailabilityExpression: `${SINGLE_RECORD_EXPRESSION} and everyEquals(selectedRecords, "docStatus", "POSTED")`,
+        objectMetadataId,
+      }),
     );
   }
 

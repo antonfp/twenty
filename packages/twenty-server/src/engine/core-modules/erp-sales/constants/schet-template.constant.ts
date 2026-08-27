@@ -53,6 +53,13 @@ export const SCHET_TEMPLATE_HTML = `<!doctype html>
     padding-bottom: 2mm;
     border-bottom: 2px solid #000;
   }
+  /* Пустой при revisionNumber=0 (Task 6) — placeholder-текст рендерится
+     escapeHtml'ом как обычный текст, div остаётся, но невидим без содержимого. */
+  .revision-line {
+    font-size: 10pt;
+    font-weight: bold;
+    margin: -1mm 0 2mm;
+  }
 
   /* ── Стороны ───────────────────────────────────────────────── */
   .parties { margin-top: 4mm; }
@@ -138,6 +145,7 @@ export const SCHET_TEMPLATE_HTML = `<!doctype html>
 
   <!-- Заголовок -->
   <h1 class="doc-title">Счёт на оплату № {{invoice_number}} от {{invoice_date}}</h1>
+  <div class="revision-line">{{revisionLine}}</div>
 
   <!-- Стороны -->
   <table class="parties">

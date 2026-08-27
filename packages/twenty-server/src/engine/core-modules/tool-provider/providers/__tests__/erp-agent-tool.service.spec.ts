@@ -12,6 +12,7 @@ import { type KudirService } from 'src/engine/core-modules/erp-accounting/servic
 import { type MonthCloseService } from 'src/engine/core-modules/erp-accounting/services/month-close.service';
 import { type ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { type TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
+import { type CreateInvoiceRevisionService } from 'src/engine/core-modules/erp-sales/services/create-invoice-revision.service';
 import { type SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
 import { type SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
 import { ErpAgentToolService } from 'src/engine/core-modules/tool-provider/providers/erp-agent-tool.service';
@@ -232,6 +233,19 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     }),
   } as unknown as MonthCloseService;
 
+  const createInvoiceRevisionService = {
+    createInvoiceRevision: jest.fn().mockResolvedValue({
+      success: true,
+      id: 'invoice-revision-1',
+      number: 'SI-000001',
+      revisionNumber: 1,
+      sourceId: 'invoice-1',
+      linesCopied: 2,
+      message:
+        'Исправление создано: черновик № SI-000001 (исправление 1), строк скопировано: 2. Оригинал остаётся проведённым — отмените его проведение, когда исправление готово.',
+    }),
+  } as unknown as CreateInvoiceRevisionService;
+
   const service = new ErpAgentToolService(
     postingService,
     trialBalanceService,
@@ -244,6 +258,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     reconciliationService,
     kudirService,
     monthCloseService,
+    createInvoiceRevisionService,
     erpObjectPermissionGuardService,
   );
 
@@ -260,6 +275,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     reconciliationService,
     kudirService,
     monthCloseService,
+    createInvoiceRevisionService,
     erpObjectPermissionGuardService,
   };
 };
@@ -282,6 +298,7 @@ describe('ErpAgentToolService', () => {
       expect(provider.ownsTool('confirm_reconciliation')).toBe(true);
       expect(provider.ownsTool('kudir')).toBe(true);
       expect(provider.ownsTool('close_month')).toBe(true);
+      expect(provider.ownsTool('create_invoice_revision')).toBe(true);
       expect(provider.ownsTool('http_request')).toBe(false);
     });
   });
@@ -309,6 +326,7 @@ describe('ErpAgentToolService', () => {
           'confirm_reconciliation',
           'kudir',
           'close_month',
+          'create_invoice_revision',
         ]),
       );
 
@@ -773,6 +791,41 @@ describe('ErpAgentToolService', () => {
         ),
       ).rejects.toThrow(ForbiddenException);
       expect(monthCloseService.closeMonth).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('create_invoice_revision', () => {
+    it('creates the revision once the permission check passes', async () => {
+      const { provider, createInvoiceRevisionService } = buildProvider();
+
+      const output = await provider.executeStaticTool(
+        'create_invoice_revision',
+        { invoiceId: 'invoice-1' },
+        context,
+      );
+
+      expect(output.success).toBe(true);
+      expect(output.message).toContain('Оригинал остаётся проведённым');
+      expect(
+        createInvoiceRevisionService.createInvoiceRevision,
+      ).toHaveBeenCalledWith(WORKSPACE_ID, 'invoice-1');
+    });
+
+    it('rejects when the role lacks canUpdateObjectRecords', async () => {
+      const { provider, createInvoiceRevisionService } = buildProvider({
+        permissionDenied: true,
+      });
+
+      await expect(
+        provider.executeStaticTool(
+          'create_invoice_revision',
+          { invoiceId: 'invoice-1' },
+          context,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(
+        createInvoiceRevisionService.createInvoiceRevision,
+      ).not.toHaveBeenCalled();
     });
   });
 });

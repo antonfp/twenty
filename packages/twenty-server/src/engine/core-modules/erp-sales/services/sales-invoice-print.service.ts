@@ -269,6 +269,15 @@ export class SalesInvoicePrintService {
       asText(invoice.createdAt) ||
       new Date().toISOString();
 
+    // Task 6 (ruling): исправительный документ, не УКД (research §4) —
+    // строка появляется только при revisionNumber>0, дата — invoiceDate ЭТОГО
+    // (исправляющего) документа, не оригинала.
+    const revisionNumber = Number(invoice.revisionNumber ?? 0);
+    const revisionLine =
+      revisionNumber > 0
+        ? `Исправление № ${revisionNumber} от ${formatDateRuLong(invoiceDate)}`
+        : '';
+
     const headerValues: Record<string, string> = {
       supplier_bank_name: asText(organization?.bankName),
       supplier_bank_bik: asText(organization?.bik),
@@ -281,6 +290,7 @@ export class SalesInvoicePrintService {
         ? asText(invoice.number)
         : 'б/н',
       invoice_date: formatDateRuLong(invoiceDate),
+      revisionLine,
       supplier_requisites: buildRequisitesLine(organization),
       buyer_requisites: buildRequisitesLine(customer),
       total_amount: formatMoneyRu(totalKopecks),

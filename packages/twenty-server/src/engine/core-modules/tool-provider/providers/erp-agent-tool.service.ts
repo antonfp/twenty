@@ -24,6 +24,10 @@ import {
   createConfirmReconciliationTool,
 } from 'src/engine/api/mcp/tools/confirm-reconciliation.tool';
 import {
+  CREATE_INVOICE_REVISION_TOOL_NAME,
+  createCreateInvoiceRevisionTool,
+} from 'src/engine/api/mcp/tools/create-invoice-revision.tool';
+import {
   GET_PRINT_TEMPLATE_TOOL_NAME,
   createGetPrintTemplateTool,
 } from 'src/engine/api/mcp/tools/get-print-template.tool';
@@ -65,6 +69,7 @@ import { KudirService } from 'src/engine/core-modules/erp-accounting/services/ku
 import { MonthCloseService } from 'src/engine/core-modules/erp-accounting/services/month-close.service';
 import { ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
+import { CreateInvoiceRevisionService } from 'src/engine/core-modules/erp-sales/services/create-invoice-revision.service';
 import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
 import { SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
 import { type GenerateDescriptorOptions } from 'src/engine/core-modules/tool-provider/interfaces/generate-descriptor-options.type';
@@ -117,6 +122,7 @@ export const ERP_AGENT_TOOL_NAMES: readonly string[] = [
   RECONCILE_PAYMENTS_TOOL_NAME,
   CONFIRM_RECONCILIATION_TOOL_NAME,
   KUDIR_TOOL_NAME,
+  CREATE_INVOICE_REVISION_TOOL_NAME,
 ];
 
 @Injectable()
@@ -133,6 +139,7 @@ export class ErpAgentToolService {
     private readonly reconciliationService: ReconciliationService,
     private readonly kudirService: KudirService,
     private readonly monthCloseService: MonthCloseService,
+    private readonly createInvoiceRevisionService: CreateInvoiceRevisionService,
     private readonly erpObjectPermissionGuardService: ErpObjectPermissionGuardService,
   ) {}
 
@@ -398,6 +405,14 @@ export class ErpAgentToolService {
           };
         },
       },
+      // create_invoice_revision already returns {success, id, number,
+      // revisionNumber, sourceId, linesCopied, message} — matches ToolOutput
+      // as-is, no wrapping needed (same as close_month above).
+      [CREATE_INVOICE_REVISION_TOOL_NAME]: createCreateInvoiceRevisionTool(
+        this.createInvoiceRevisionService,
+        context.workspaceId,
+        assertCanUpdateObjectRecords,
+      ),
     };
   }
 }

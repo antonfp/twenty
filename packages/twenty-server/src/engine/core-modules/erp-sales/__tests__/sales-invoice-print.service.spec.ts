@@ -149,6 +149,28 @@ describe('SalesInvoicePrintService', () => {
     expect(html).toContain(formatMoneyRu(8_500_000));
   });
 
+  // Task 6 (ruling): «Исправление № N от <дата>» под заголовком, только при
+  // revisionNumber>0 — ordinary (non-amended) invoices show nothing.
+  it('omits the revision line for an ordinary invoice (revisionNumber absent/0)', async () => {
+    const html = await service.renderSalesInvoiceHtml(WORKSPACE_ID, INVOICE_ID);
+
+    expect(html).toContain('<div class="revision-line"></div>');
+    expect(html).not.toContain('Исправление №');
+  });
+
+  it('shows «Исправление № N от <дата счёта>» when revisionNumber>0', async () => {
+    repositories.salesInvoice.findOneBy.mockResolvedValue({
+      ...INVOICE,
+      revisionNumber: 2,
+      invoiceDate: '2026-08-27',
+      postingDate: undefined,
+    });
+
+    const html = await service.renderSalesInvoiceHtml(WORKSPACE_ID, INVOICE_ID);
+
+    expect(html).toContain('Исправление № 2 от 27 августа 2026 г.');
+  });
+
   describe('workspace print-template override', () => {
     const CUSTOM_TEMPLATE = [
       '<div>Счёт № {{invoice_number}} от {{invoice_date}}</div>',

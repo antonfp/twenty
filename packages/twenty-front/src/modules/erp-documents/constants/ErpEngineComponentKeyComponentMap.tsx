@@ -1,4 +1,5 @@
 import { CancelErpDocumentCommand } from '@/erp-documents/components/CancelErpDocumentCommand';
+import { CreateInvoiceRevisionCommand } from '@/erp-documents/components/CreateInvoiceRevisionCommand';
 import { PostErpDocumentCommand } from '@/erp-documents/components/PostErpDocumentCommand';
 import { PrintErpSalesInvoiceCommand } from '@/erp-documents/components/PrintErpSalesInvoiceCommand';
 import { PrintErpSalesShipmentUpdCommand } from '@/erp-documents/components/PrintErpSalesShipmentUpdCommand';
@@ -17,5 +18,8 @@ export const ERP_ENGINE_COMPONENT_KEY_COMPONENT_MAP: Record<
   ),
   [ERP_ENGINE_COMPONENT_KEYS.PRINT_SALES_SHIPMENT_UPD]: (
     <PrintErpSalesShipmentUpdCommand />
+  ),
+  [ERP_ENGINE_COMPONENT_KEYS.CREATE_INVOICE_REVISION]: (
+    <CreateInvoiceRevisionCommand />
   ),
 };
