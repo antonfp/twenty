@@ -176,6 +176,18 @@ export default defineRole({
       canSoftDeleteObjectRecords: true,
       canDestroyObjectRecords: false,
     },
+    // CRM opportunity (Task 8, «Ruling (glue Сделка→Счёт)»): read-only —
+    // the agent needs to find a deal to pass its id to
+    // create_invoice_from_opportunity, but the deal itself is CRM's, not
+    // ERPilot's, to write.
+    {
+      objectUniversalIdentifier:
+        STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.opportunity.universalIdentifier,
+      canReadObjectRecords: true,
+      canUpdateObjectRecords: false,
+      canSoftDeleteObjectRecords: false,
+      canDestroyObjectRecords: false,
+    },
     {
       objectUniversalIdentifier:
         STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.workspaceMember
