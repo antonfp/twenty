@@ -12,6 +12,7 @@ import { type KudirService } from 'src/engine/core-modules/erp-accounting/servic
 import { type MonthCloseService } from 'src/engine/core-modules/erp-accounting/services/month-close.service';
 import { type ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { type TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
+import { type CreateInvoiceFromOpportunityService } from 'src/engine/core-modules/erp-sales/services/create-invoice-from-opportunity.service';
 import { type CreateInvoiceRevisionService } from 'src/engine/core-modules/erp-sales/services/create-invoice-revision.service';
 import { type SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
 import { type SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
@@ -246,6 +247,17 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     }),
   } as unknown as CreateInvoiceRevisionService;
 
+  const createInvoiceFromOpportunityService = {
+    createInvoiceFromOpportunity: jest.fn().mockResolvedValue({
+      success: true,
+      id: 'invoice-from-opportunity-1',
+      opportunityId: 'opportunity-1',
+      wasExisting: false,
+      message:
+        'Черновик счёта создан из сделки «Ромашка» (id invoice-from-opportunity-1).',
+    }),
+  } as unknown as CreateInvoiceFromOpportunityService;
+
   const service = new ErpAgentToolService(
     postingService,
     trialBalanceService,
@@ -259,6 +271,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     kudirService,
     monthCloseService,
     createInvoiceRevisionService,
+    createInvoiceFromOpportunityService,
     erpObjectPermissionGuardService,
   );
 
@@ -276,6 +289,7 @@ const buildProvider = (options?: { permissionDenied?: boolean }) => {
     kudirService,
     monthCloseService,
     createInvoiceRevisionService,
+    createInvoiceFromOpportunityService,
     erpObjectPermissionGuardService,
   };
 };
@@ -299,6 +313,7 @@ describe('ErpAgentToolService', () => {
       expect(provider.ownsTool('kudir')).toBe(true);
       expect(provider.ownsTool('close_month')).toBe(true);
       expect(provider.ownsTool('create_invoice_revision')).toBe(true);
+      expect(provider.ownsTool('create_invoice_from_opportunity')).toBe(true);
       expect(provider.ownsTool('http_request')).toBe(false);
     });
   });
@@ -327,6 +342,7 @@ describe('ErpAgentToolService', () => {
           'kudir',
           'close_month',
           'create_invoice_revision',
+          'create_invoice_from_opportunity',
         ]),
       );
 
@@ -825,6 +841,40 @@ describe('ErpAgentToolService', () => {
       ).rejects.toThrow(ForbiddenException);
       expect(
         createInvoiceRevisionService.createInvoiceRevision,
+      ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('create_invoice_from_opportunity', () => {
+    it('creates the invoice once the permission check passes', async () => {
+      const { provider, createInvoiceFromOpportunityService } = buildProvider();
+
+      const output = await provider.executeStaticTool(
+        'create_invoice_from_opportunity',
+        { opportunityId: 'opportunity-1' },
+        context,
+      );
+
+      expect(output.success).toBe(true);
+      expect(
+        createInvoiceFromOpportunityService.createInvoiceFromOpportunity,
+      ).toHaveBeenCalledWith(WORKSPACE_ID, 'opportunity-1');
+    });
+
+    it('rejects when the role lacks canUpdateObjectRecords', async () => {
+      const { provider, createInvoiceFromOpportunityService } = buildProvider({
+        permissionDenied: true,
+      });
+
+      await expect(
+        provider.executeStaticTool(
+          'create_invoice_from_opportunity',
+          { opportunityId: 'opportunity-1' },
+          context,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(
+        createInvoiceFromOpportunityService.createInvoiceFromOpportunity,
       ).not.toHaveBeenCalled();
     });
   });

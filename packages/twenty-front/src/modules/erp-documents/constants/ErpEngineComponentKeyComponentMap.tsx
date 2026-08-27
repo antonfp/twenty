@@ -1,4 +1,5 @@
 import { CancelErpDocumentCommand } from '@/erp-documents/components/CancelErpDocumentCommand';
+import { CreateInvoiceFromOpportunityCommand } from '@/erp-documents/components/CreateInvoiceFromOpportunityCommand';
 import { CreateInvoiceRevisionCommand } from '@/erp-documents/components/CreateInvoiceRevisionCommand';
 import { PostErpDocumentCommand } from '@/erp-documents/components/PostErpDocumentCommand';
 import { PrintErpSalesInvoiceCommand } from '@/erp-documents/components/PrintErpSalesInvoiceCommand';
@@ -21,5 +22,8 @@ export const ERP_ENGINE_COMPONENT_KEY_COMPONENT_MAP: Record<
   ),
   [ERP_ENGINE_COMPONENT_KEYS.CREATE_INVOICE_REVISION]: (
     <CreateInvoiceRevisionCommand />
+  ),
+  [ERP_ENGINE_COMPONENT_KEYS.CREATE_INVOICE_FROM_OPPORTUNITY]: (
+    <CreateInvoiceFromOpportunityCommand />
   ),
 };

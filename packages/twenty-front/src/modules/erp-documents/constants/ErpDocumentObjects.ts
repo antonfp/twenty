@@ -18,6 +18,9 @@ export const ERP_DOCUMENT_OBJECTS = {
   ] as readonly string[],
   SALES_INVOICE_NAME_SINGULAR: 'salesInvoice',
   SALES_SHIPMENT_NAME_SINGULAR: 'salesShipment',
+  // Not an ERP document object (no docStatus) — the CRM opportunity Task 8
+  // glue command hangs off it separately, see buildErpDocumentCommandMenuItems.
+  OPPORTUNITY_NAME_SINGULAR: 'opportunity',
   // Line objects that carry both `quantity` and `price` (and therefore a
   // derived `amount` = quantity × price) — mirrors the objects consumed by
   // computeInvoiceTotals/inflow-document-posting-rules on the server.

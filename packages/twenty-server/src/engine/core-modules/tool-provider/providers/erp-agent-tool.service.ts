@@ -24,6 +24,10 @@ import {
   createConfirmReconciliationTool,
 } from 'src/engine/api/mcp/tools/confirm-reconciliation.tool';
 import {
+  CREATE_INVOICE_FROM_OPPORTUNITY_TOOL_NAME,
+  createCreateInvoiceFromOpportunityTool,
+} from 'src/engine/api/mcp/tools/create-invoice-from-opportunity.tool';
+import {
   CREATE_INVOICE_REVISION_TOOL_NAME,
   createCreateInvoiceRevisionTool,
 } from 'src/engine/api/mcp/tools/create-invoice-revision.tool';
@@ -69,6 +73,7 @@ import { KudirService } from 'src/engine/core-modules/erp-accounting/services/ku
 import { MonthCloseService } from 'src/engine/core-modules/erp-accounting/services/month-close.service';
 import { ReconciliationService } from 'src/engine/core-modules/erp-accounting/services/reconciliation.service';
 import { TrialBalanceService } from 'src/engine/core-modules/erp-accounting/services/trial-balance.service';
+import { CreateInvoiceFromOpportunityService } from 'src/engine/core-modules/erp-sales/services/create-invoice-from-opportunity.service';
 import { CreateInvoiceRevisionService } from 'src/engine/core-modules/erp-sales/services/create-invoice-revision.service';
 import { SalesInvoicePrintService } from 'src/engine/core-modules/erp-sales/services/sales-invoice-print.service';
 import { SalesShipmentPrintService } from 'src/engine/core-modules/erp-stock/services/sales-shipment-print.service';
@@ -123,6 +128,7 @@ export const ERP_AGENT_TOOL_NAMES: readonly string[] = [
   CONFIRM_RECONCILIATION_TOOL_NAME,
   KUDIR_TOOL_NAME,
   CREATE_INVOICE_REVISION_TOOL_NAME,
+  CREATE_INVOICE_FROM_OPPORTUNITY_TOOL_NAME,
 ];
 
 @Injectable()
@@ -140,6 +146,7 @@ export class ErpAgentToolService {
     private readonly kudirService: KudirService,
     private readonly monthCloseService: MonthCloseService,
     private readonly createInvoiceRevisionService: CreateInvoiceRevisionService,
+    private readonly createInvoiceFromOpportunityService: CreateInvoiceFromOpportunityService,
     private readonly erpObjectPermissionGuardService: ErpObjectPermissionGuardService,
   ) {}
 
@@ -413,6 +420,15 @@ export class ErpAgentToolService {
         context.workspaceId,
         assertCanUpdateObjectRecords,
       ),
+      // create_invoice_from_opportunity already returns {success, id,
+      // opportunityId, wasExisting, message} — matches ToolOutput as-is, no
+      // wrapping needed (same as create_invoice_revision above).
+      [CREATE_INVOICE_FROM_OPPORTUNITY_TOOL_NAME]:
+        createCreateInvoiceFromOpportunityTool(
+          this.createInvoiceFromOpportunityService,
+          context.workspaceId,
+          assertCanUpdateObjectRecords,
+        ),
     };
   }
 }

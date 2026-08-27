@@ -3,6 +3,7 @@ import { SALES_INVOICE_UNIVERSAL_IDENTIFIER } from '../objects/sales-invoice.obj
 import { ORGANIZATION_ON_SALES_INVOICE_ID } from '../fields/organization-on-sales-invoice.field';
 import { CUSTOMER_ON_SALES_INVOICE_ID } from '../fields/customer-on-sales-invoice.field';
 import { AMENDED_FROM_ON_SALES_INVOICE_ID } from '../fields/amended-from-on-sales-invoice.field';
+import { OPPORTUNITY_ON_SALES_INVOICE_ID } from '../fields/opportunity-on-sales-invoice.field';
 
 export const SALES_INVOICE_RECORD_PAGE_FIELDS_VIEW_ID =
   '1a7a5b26-f8a2-4604-bad0-8ffd2d8d636c';
@@ -103,5 +104,11 @@ export default defineView({
       position: 14,
       isVisible: true,
     }, // revisionNumber
+    {
+      universalIdentifier: 'c8f3cb19-eca3-463c-90f3-46dd81970132',
+      fieldMetadataUniversalIdentifier: OPPORTUNITY_ON_SALES_INVOICE_ID,
+      position: 15,
+      isVisible: true,
+    }, // opportunity
   ],
 });

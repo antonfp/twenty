@@ -12,7 +12,9 @@
   `postedAt`, `cancelledAt`, `number`, `name`, `total` (CURRENCY),
   `vatTotal` (CURRENCY), `paidAmount` (CURRENCY), `paymentStatus`
   (UNPAID/PARTIALLY_PAID/PAID), `customerId` → company, `organizationId` →
-  organization.
+  organization, `amendedFromId` → self (Task 6), `opportunityId` → CRM
+  `opportunity` (Task 8, SET_NULL — cross-app link to the platform standard
+  object, no erp-* app dependency needed).
 - `salesInvoiceLine`: `salesInvoiceId`, `name`, `quantity` (NUMBER), `price`
   (CURRENCY), `vatRate` (VAT_22/VAT_20/VAT_10/VAT_0/NO_VAT), `amount` (CURRENCY),
   опционально `itemId` → item.

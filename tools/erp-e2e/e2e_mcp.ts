@@ -1563,6 +1563,188 @@ async function main() {
     `post_document + ASSERT: счёт сверки PARTIALLY_PAID, paidAmount=${Number(reconInvoiceAfterPayment.paidAmount.amountMicros) / 1e6} RUB`,
   );
 
+  // 13. Task 8 (Фаза 9): glue Сделка→Счёт — create_invoice_from_opportunity.
+  // Опорную организацию помечаем isDefault=true явно: этот dev-workspace
+  // копится между прогонами (десятки старых организаций без isDefault),
+  // поэтому без явной пометки сервис ушёл бы в fallback «первая по
+  // createdAt» на чужую древнюю организацию, а не на созданную здесь — тест
+  // должен бить именно по ветке isDefault, которую иначе ничем не покрыть
+  // живьём.
+  const dealOrgOut = await execTool(token, 'create_one_organization', {
+    name: `ООО Glue-Тест (e2e ${suffix})`,
+    isDefault: true,
+  });
+  if (!dealOrgOut.success)
+    throw new Error(
+      `create_one_organization (glue) failed: ${JSON.stringify(dealOrgOut)}`,
+    );
+  const dealOrg = dealOrgOut.result as Id;
+  ok(`create_one_organization (glue, isDefault=true): ${dealOrg.id}`);
+
+  const dealCompanyOut = await execTool(token, 'create_one_company', {
+    name: `ООО Сделка (e2e ${suffix})`,
+    isCustomer: true,
+  });
+  if (!dealCompanyOut.success)
+    throw new Error(
+      `create_one_company (glue) failed: ${JSON.stringify(dealCompanyOut)}`,
+    );
+  const dealCompany = dealCompanyOut.result as Id;
+  ok(`create_one_company (glue): ${dealCompany.id}`);
+
+  const DEAL_NAME = `Ромашка — годовой контракт (e2e ${suffix})`;
+  const opportunityOut = await execTool(token, 'create_one_opportunity', {
+    name: DEAL_NAME,
+    companyId: dealCompany.id,
+    amount: { amountMicros: '5000000000', currencyCode: 'RUB' }, // 5 000.00 руб
+  });
+  if (!opportunityOut.success)
+    throw new Error(
+      `create_one_opportunity failed: ${JSON.stringify(opportunityOut)}`,
+    );
+  const opportunity = opportunityOut.result as Id;
+  ok(`create_one_opportunity (execute_tool): ${opportunity.id}`);
+
+  // 13a. create_invoice_from_opportunity -> DRAFT salesInvoice, одна строка
+  // на всю сумму сделки, customer/organization/opportunity проставлены.
+  const glueInvoiceRpc = (await mcpToolCall(
+    token,
+    'create_invoice_from_opportunity',
+    { opportunityId: opportunity.id },
+  )) as RpcWithStatus;
+  const glueInvoiceRes = mcpToolResultJson(glueInvoiceRpc) as {
+    success: boolean;
+    id: string;
+    wasExisting: boolean;
+  };
+  if (!glueInvoiceRes.success || glueInvoiceRes.wasExisting)
+    throw new Error(
+      `create_invoice_from_opportunity (1st call) failed or unexpectedly reused: ${JSON.stringify(glueInvoiceRes)}`,
+    );
+  const glueInvoiceId = glueInvoiceRes.id;
+  ok(`create_invoice_from_opportunity (MCP, 1st call): ${glueInvoiceId}`);
+
+  const glueInvoiceOut = await execTool(token, 'find_one_sales_invoice', {
+    id: glueInvoiceId,
+    select: ['docStatus', 'customerId', 'organizationId', 'opportunityId'],
+  });
+  const glueInvoice = (
+    glueInvoiceOut.result as {
+      records: {
+        docStatus: string;
+        customerId: string;
+        organizationId: string;
+        opportunityId: string;
+      }[];
+    }
+  ).records[0];
+  if (
+    glueInvoice.docStatus !== 'DRAFT' ||
+    glueInvoice.customerId !== dealCompany.id ||
+    glueInvoice.organizationId !== dealOrg.id ||
+    glueInvoice.opportunityId !== opportunity.id
+  )
+    throw new Error(
+      `ASSERT: unexpected header from create_invoice_from_opportunity: ${JSON.stringify(glueInvoice)}`,
+    );
+  ok(
+    'find_one_sales_invoice (glue): DRAFT, customer/organization/opportunity linked correctly',
+  );
+
+  const glueLinesOut = await execTool(token, 'find_many_sales_invoice_lines', {
+    salesInvoiceId: { eq: glueInvoiceId },
+    select: ['name', 'quantity', 'price', 'amount', 'vatRate'],
+  });
+  const glueLines = (
+    glueLinesOut.result as {
+      records: {
+        name: string;
+        quantity: number;
+        price: { amountMicros: string };
+        amount: { amountMicros: string };
+        vatRate: string;
+      }[];
+    }
+  ).records;
+  if (glueLines.length !== 1)
+    throw new Error(
+      `ASSERT: expected exactly 1 line, got ${glueLines.length}: ${JSON.stringify(glueLines)}`,
+    );
+  const [glueLine] = glueLines;
+  if (
+    glueLine.name !== `Услуги по сделке "${DEAL_NAME}"` ||
+    glueLine.quantity !== 1 ||
+    glueLine.vatRate !== 'VAT_22' ||
+    Number(glueLine.price.amountMicros) !== 5_000_000_000 ||
+    Number(glueLine.amount.amountMicros) !== 5_000_000_000
+  )
+    throw new Error(
+      `ASSERT: unexpected line from create_invoice_from_opportunity: ${JSON.stringify(glueLine)}`,
+    );
+  ok(
+    `find_many_sales_invoice_lines (glue): 1 line, qty=1, VAT_22, amount=${Number(glueLine.amount.amountMicros) / 1e6} RUB (from deal CURRENCY)`,
+  );
+
+  // 13b. Идемпотентность: повторный вызов для той же сделки, пока счёт ещё
+  // DRAFT, возвращает ТОТ ЖЕ id, а не создаёт второй.
+  const glueInvoiceAgainRpc = (await mcpToolCall(
+    token,
+    'create_invoice_from_opportunity',
+    { opportunityId: opportunity.id },
+  )) as RpcWithStatus;
+  const glueInvoiceAgainRes = mcpToolResultJson(glueInvoiceAgainRpc) as {
+    success: boolean;
+    id: string;
+    wasExisting: boolean;
+  };
+  if (
+    !glueInvoiceAgainRes.success ||
+    !glueInvoiceAgainRes.wasExisting ||
+    glueInvoiceAgainRes.id !== glueInvoiceId
+  )
+    throw new Error(
+      `ASSERT: repeated call must reuse the same DRAFT invoice: ${JSON.stringify(glueInvoiceAgainRes)}`,
+    );
+  ok(
+    `create_invoice_from_opportunity (MCP, 2nd call): идемпотентность — тот же id ${glueInvoiceAgainRes.id}`,
+  );
+
+  // 13c. После проведения счёта повторный вызов создаёт НОВЫЙ (сделку можно
+  // легально закрыть несколькими счетами).
+  const gluePostRpc = (await mcpToolCall(token, 'post_document', {
+    objectNameSingular: 'salesInvoice',
+    recordId: glueInvoiceId,
+  })) as RpcWithStatus;
+  const gluePostRes = mcpToolResultJson(gluePostRpc) as {
+    success: boolean;
+    message: string;
+  };
+  if (!gluePostRes.success)
+    throw new Error(
+      `post_document (glue invoice) failed: ${JSON.stringify(gluePostRes)}`,
+    );
+  ok(`post_document (glue invoice): ${gluePostRes.message}`);
+
+  const glueInvoiceAfterPostRpc = (await mcpToolCall(
+    token,
+    'create_invoice_from_opportunity',
+    { opportunityId: opportunity.id },
+  )) as RpcWithStatus;
+  const glueInvoiceAfterPostRes = mcpToolResultJson(
+    glueInvoiceAfterPostRpc,
+  ) as { success: boolean; id: string; wasExisting: boolean };
+  if (
+    !glueInvoiceAfterPostRes.success ||
+    glueInvoiceAfterPostRes.wasExisting ||
+    glueInvoiceAfterPostRes.id === glueInvoiceId
+  )
+    throw new Error(
+      `ASSERT: after posting, a new call must create a NEW invoice: ${JSON.stringify(glueInvoiceAfterPostRes)}`,
+    );
+  ok(
+    `create_invoice_from_opportunity (MCP, после проведения): новый id ${glueInvoiceAfterPostRes.id} (не ${glueInvoiceId})`,
+  );
+
   console.log(`\n=== E2E MCP ПРОЙДЕН (${steps} шагов) ===`);
 }
 

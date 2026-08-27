@@ -61,11 +61,33 @@ export const buildErpDocumentCommandMenuItems = (
   const objectMetadataId = objectMetadataItem.id;
   const nameSingular = objectMetadataItem.nameSingular;
 
-  if (
-    !isNonEmptyString(objectMetadataId) ||
-    !isNonEmptyString(nameSingular) ||
-    !ERP_DOCUMENT_OBJECTS.NAME_SINGULARS.includes(nameSingular)
-  ) {
+  if (!isNonEmptyString(objectMetadataId) || !isNonEmptyString(nameSingular)) {
+    return [];
+  }
+
+  // Task 8 glue Сделка→Счёт: opportunity is a CRM standard object, not an ERP
+  // document (no docStatus) — handled as its own branch rather than folding
+  // it into ERP_DOCUMENT_OBJECTS.NAME_SINGULARS, which gates the
+  // post/cancel/print/revision commands below that all assume docStatus.
+  if (nameSingular === ERP_DOCUMENT_OBJECTS.OPPORTUNITY_NAME_SINGULAR) {
+    return [
+      buildErpDocumentCommandMenuItem({
+        idPrefix: 'erp-create-invoice-from-opportunity',
+        engineComponentKey:
+          ERP_ENGINE_COMPONENT_KEYS.CREATE_INVOICE_FROM_OPPORTUNITY,
+        label: t`Создать счёт`,
+        icon: 'IconFileInvoice',
+        position: 9000,
+        // Ruling: active always — the service itself decides whether to
+        // create a new DRAFT or return the deal's already-open one
+        // (idempotency), so the UI doesn't need to know which will happen.
+        conditionalAvailabilityExpression: SINGLE_RECORD_EXPRESSION,
+        objectMetadataId,
+      }),
+    ];
+  }
+
+  if (!ERP_DOCUMENT_OBJECTS.NAME_SINGULARS.includes(nameSingular)) {
     return [];
   }
 
