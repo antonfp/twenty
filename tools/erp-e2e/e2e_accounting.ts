@@ -962,6 +962,113 @@ async function main() {
       'несуществующий accountCode -> 404 RU «Счёт не найден в плане счетов» ok',
   );
 
+  // 16. Карточка счёта 26 за todayIso (ревью Task 2, Major: сторно-путь не
+  //     был покрыт живым тестом) — период включает и оригинальную
+  //     ManualEntry шага 6 (Дт26/Кт71=500), и её сторно шага 10 (та же
+  //     проводка, отрицательная сумма, та же колонка Дт — buildReversalRows
+  //     не переставляет debitAccountId/creditAccountId). Входящее сальдо
+  //     ненулевое: lockMe шага 8 (Дт26/Кт71=1, postingDate=вчера) остаётся
+  //     живым (не отменялся) и попадает в сальдо на начало.
+  const trialBalanceAfterStornoRpc = await mcpToolCall(token, 'trial_balance', {
+    organizationId: org.id,
+    dateFrom: todayIso,
+    dateTo: todayIso,
+  });
+
+  if (
+    !trialBalanceAfterStornoRpc.result ||
+    trialBalanceAfterStornoRpc.result.isError
+  )
+    throw new Error(`unexpected: ${JSON.stringify(trialBalanceAfterStornoRpc)}`);
+
+  const tbAfterStorno = mcpToolResultJson(trialBalanceAfterStornoRpc) as {
+    rows: { accountCode: string; closingDebit: number; closingCredit: number }[];
+  };
+  const byCodeAfterStorno = Object.fromEntries(
+    tbAfterStorno.rows.map((row) => [row.accountCode, row]),
+  );
+  const closing26FromOsv =
+    (byCodeAfterStorno['26']?.closingDebit ?? 0) -
+    (byCodeAfterStorno['26']?.closingCredit ?? 0);
+
+  const accountCard26Rpc = await mcpToolCall(token, 'account_card', {
+    organizationId: org.id,
+    accountCode: '26',
+    dateFrom: todayIso,
+    dateTo: todayIso,
+  });
+
+  if (!accountCard26Rpc.result || accountCard26Rpc.result.isError)
+    throw new Error(`unexpected: ${JSON.stringify(accountCard26Rpc)}`);
+
+  const accountCard26 = mcpToolResultJson(accountCard26Rpc) as {
+    rows: {
+      documentLabel: string;
+      correspondingAccountCode: string;
+      debit: number;
+      credit: number;
+      balanceDebit: number;
+      balanceCredit: number;
+    }[];
+    openingBalanceDebit: number;
+    openingBalanceCredit: number;
+    closingBalanceDebit: number;
+    closingBalanceCredit: number;
+    totalDebit: number;
+    totalCredit: number;
+  };
+
+  if (accountCard26.rows.length !== 2)
+    throw new Error(
+      `expected original+сторно rows on 26: ${JSON.stringify(accountCard26)}`,
+    );
+
+  const [originalRow, reversalRow] = accountCard26.rows;
+  const expectedLabel = `Ручная операция № ${meQ.number}`;
+
+  if (
+    originalRow.documentLabel !== expectedLabel ||
+    reversalRow.documentLabel !== expectedLabel
+  )
+    throw new Error(
+      `unexpected documentLabel: ${JSON.stringify(accountCard26.rows)}`,
+    );
+  if (
+    originalRow.correspondingAccountCode !== '71' ||
+    reversalRow.correspondingAccountCode !== '71'
+  )
+    throw new Error(
+      `unexpected corr. account: ${JSON.stringify(accountCard26.rows)}`,
+    );
+  if (originalRow.debit !== 50000 || originalRow.credit !== 0)
+    throw new Error(`unexpected original leg: ${JSON.stringify(originalRow)}`);
+  // Сторно: та же колонка Дт, отрицательная сумма — НЕ переезжает в Кт.
+  if (reversalRow.debit !== -50000 || reversalRow.credit !== 0)
+    throw new Error(`unexpected сторно leg: ${JSON.stringify(reversalRow)}`);
+  // Сальдо нарастающим итогом возвращается к входящему после пары ориг./сторно.
+  if (reversalRow.balanceDebit !== accountCard26.openingBalanceDebit)
+    throw new Error(
+      `running balance did not return to opening after сторно: ${JSON.stringify(accountCard26)}`,
+    );
+  if (accountCard26.closingBalanceDebit !== accountCard26.openingBalanceDebit)
+    throw new Error(
+      `closing != opening despite net-zero period: ${JSON.stringify(accountCard26)}`,
+    );
+  if (accountCard26.totalDebit !== 0 || accountCard26.totalCredit !== 0)
+    throw new Error(
+      `turnover pair did not net to zero: ${JSON.stringify(accountCard26)}`,
+    );
+  // Исходящее сальдо карточки счёта совпадает с ОСВ (сверка путей REST/MCP).
+  if (accountCard26.closingBalanceDebit !== closing26FromOsv)
+    throw new Error(
+      `account_card closing (${accountCard26.closingBalanceDebit}) != ОСВ closing (${closing26FromOsv})`,
+    );
+  console.log(
+    `account_card (MCP) 26 ok: сторно шага 10 виден как отдельная строка (${reversalRow.documentLabel}, ` +
+      `Дт${reversalRow.debit / 100}), сальдо нарастающим итогом вернулось к входящему ` +
+      `(${accountCard26.openingBalanceDebit / 100} руб), исходящее сходится с ОСВ`,
+  );
+
   console.log('\n=== E2E ЦИКЛ БУХГАЛТЕРИИ ПРОЙДЕН ===');
 }
 

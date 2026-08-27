@@ -193,6 +193,80 @@ describe('computeAccountCardRows', () => {
       expect(totalDebitKopecks).toBe(rub(1220));
       expect(totalCreditKopecks).toBe(rub(1520));
     });
+
+    // Review Major (Task 2): the карточка renders a сторно leg as its OWN
+    // row — same account, same side, literal negative amount (buildReversalRows
+    // negates in place, never swaps debitAccountId/creditAccountId — see
+    // build-reversal-rows.util.ts) — never flips the negative to the other
+    // column. Mirrors ОСВ's «сторно нейтрализует оригинал арифметически, не
+    // фильтрацией» invariant (compute-trial-balance.util.spec.ts) at the
+    // per-row level: the pair's combined turnover is exactly zero.
+    it('a leg and its сторно reversal print as two rows, negative amount in the SAME column, running balance returns to its pre-leg value, totals net to zero (ОСВ semantics)', () => {
+      const legs: RawAccountCardLeg[] = [
+        leg({
+          glEntryId: 'gl-original',
+          date: '2026-08-25',
+          isDebit: true,
+          amountKopecks: rub(500),
+          correspondingAccountId: 'account-71',
+          voucherType: 'manualEntry',
+          voucherId: 'me-1',
+        }),
+        // Реверс: тот же debitAccountId (та же карточка, тот же счёт), та
+        // же correspondingAccountId/voucherType/voucherId — только
+        // amountKopecks отрицательный (buildReversalRows негирует
+        // amountAmountMicros на месте, не переставляя дебет/кредит).
+        leg({
+          glEntryId: 'gl-reversal',
+          date: '2026-08-25',
+          isDebit: true,
+          amountKopecks: -rub(500),
+          correspondingAccountId: 'account-71',
+          voucherType: 'manualEntry',
+          voucherId: 'me-1',
+        }),
+      ];
+
+      const {
+        rows,
+        openingBalance,
+        closingBalance,
+        totalDebitKopecks,
+        totalCreditKopecks,
+      } = computeAccountCardRows(
+        legs,
+        { openingDebitKopecks: rub(100), openingCreditKopecks: 0 },
+        'ACTIVE',
+      );
+
+      expect(rows).toHaveLength(2);
+
+      // Original: +500 в Дт, никогда не в Кт.
+      expect(rows[0]).toMatchObject({
+        debitKopecks: rub(500),
+        creditKopecks: 0,
+      });
+      expect(rows[0].runningBalanceDebitKopecks).toBe(rub(600));
+      expect(rows[0].runningBalanceCreditKopecks).toBe(0);
+
+      // Реверс: −500 остаётся в ТОЙ ЖЕ колонке Дт (не переезжает в Кт) —
+      // ключевая проверка ревью.
+      expect(rows[1]).toMatchObject({
+        debitKopecks: -rub(500),
+        creditKopecks: 0,
+      });
+      // Сальдо нарастающим итогом возвращается к значению ДО пары
+      // ориг./сторно — тому же, что и входящее сальдо (пары в периоде
+      // больше не было).
+      expect(rows[1].runningBalanceDebitKopecks).toBe(rub(100));
+      expect(rows[1].runningBalanceCreditKopecks).toBe(0);
+      expect(closingBalance).toEqual(openingBalance);
+
+      // Обороты за пару равны нулю с обеих сторон — тот же принцип «сумма
+      // без фильтрации по isCancellation», что и в ОСВ.
+      expect(totalDebitKopecks).toBe(0);
+      expect(totalCreditKopecks).toBe(0);
+    });
   });
 
   it('starts the running balance from a non-zero opening net (сверка with ОСВ closing = opening + turnover)', () => {
