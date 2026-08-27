@@ -98,6 +98,34 @@ describe('renderBalanceSheetHtml', () => {
     expect(formatThousandRoublesRu(622_000)).toBe('6');
   });
 
+  it('prints "—" for a nonzero amount that rounds down to 0 тыс.руб. (review Finding 1: 400 руб must not print "0")', () => {
+    const lines = zeroLines().map(
+      (line) =>
+        line.code === '1170' ? { ...line, currentKopecks: 40_000 } : line, // 400,00 руб = 0,4 тыс.
+    );
+
+    const html = renderBalanceSheetHtml({
+      organizationName: 'ООО «Ромашка»',
+      organizationInn: '',
+      organizationKpp: '',
+      reportDate: '2026-08-31',
+      previousReportDate: '2025-12-31',
+      lines,
+      totals: {
+        ...ZERO_TOTALS,
+        assetsCurrentKopecks: 40_000, // same boundary on the 1600 total row
+      },
+    });
+
+    expect(html).not.toContain('<td class="c-amt">0</td>');
+    // Every cell that should be a dash still is one: the 1170/1600 boundary
+    // cells round to 0 and print «—» exactly like the true-zero cells, so
+    // the count is unchanged from the all-zero case (26).
+    const dashCells = html.match(/<td class="c-amt">—<\/td>/g) ?? [];
+
+    expect(dashCells).toHaveLength(26);
+  });
+
   it('escapes HTML-significant characters in the organization name', () => {
     const html = renderBalanceSheetHtml({
       organizationName: 'ООО "Хитрость" <script>alert(1)</script> & Co',

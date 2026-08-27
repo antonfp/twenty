@@ -58,6 +58,31 @@ describe('renderIncomeStatementHtml', () => {
     expect(dashCells).toHaveLength(16); // 8 lines × 2 columns
   });
 
+  it('prints "—" for a nonzero amount that rounds down to 0 тыс.руб. (review Finding 1: 400 руб must not print "0")', () => {
+    const lines = zeroLines().map(
+      (line) =>
+        line.code === '2120' ? { ...line, currentKopecks: 40_000 } : line, // 400,00 руб = 0,4 тыс.
+    );
+
+    const html = renderIncomeStatementHtml({
+      organizationName: 'ООО «Ромашка»',
+      organizationInn: '',
+      organizationKpp: '',
+      dateFrom: '2026-08-01',
+      dateTo: '2026-08-31',
+      previousDateFrom: '2025-08-01',
+      previousDateTo: '2025-08-31',
+      lines,
+    });
+
+    expect(html).not.toContain('<td class="c-amt">0</td>');
+    // Still 16 dash cells total: the 400 руб cell rounds to 0 and prints
+    // «—» exactly like the true-zero cells, so the count is unchanged.
+    const dashCells = html.match(/<td class="c-amt">—<\/td>/g) ?? [];
+
+    expect(dashCells).toHaveLength(16);
+  });
+
   it('formats a non-zero revenue line with formatThousandRoublesRu', () => {
     const lines = zeroLines().map((line) =>
       line.code === '2110' ? { ...line, currentKopecks: 100_000 } : line,

@@ -3,6 +3,7 @@ import { type IncomeStatementLineValue } from 'src/engine/core-modules/erp-accou
 import {
   formatDateRuShort,
   formatThousandRoublesRu,
+  roundKopecksToThousandRoubles,
 } from 'src/engine/core-modules/erp-sales/utils/format-ru.util';
 import { fillPlaceholders } from 'src/engine/core-modules/erp/utils/fill-print-template.util';
 
@@ -19,9 +20,13 @@ export type IncomeStatementHtmlData = {
 };
 
 // Same «прочерк на пустой ячейке, включая итоговые строки» convention as
-// the balance sheet — see balance-spec.md §2/§5.
+// the balance sheet — see balance-spec.md §2/§5. Checks the ROUNDED
+// (тыс.руб.) value, not raw kopecks — a nonzero amount that rounds to zero
+// (e.g. 400 руб = 0,4 тыс.) must still print «—», not "0" (review Finding 1).
 const formatCellRu = (kopecks: number): string =>
-  kopecks === 0 ? '—' : formatThousandRoublesRu(kopecks);
+  roundKopecksToThousandRoubles(kopecks) === 0
+    ? '—'
+    : formatThousandRoublesRu(kopecks);
 
 // Fixed 8-line form (2110…2400, 2300/2400 already part of `lines` — unlike
 // the balance sheet, no separate totals object) — named placeholders

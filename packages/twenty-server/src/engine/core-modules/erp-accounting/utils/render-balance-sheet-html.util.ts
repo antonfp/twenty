@@ -6,6 +6,7 @@ import {
 import {
   formatDateRuShort,
   formatThousandRoublesRu,
+  roundKopecksToThousandRoubles,
 } from 'src/engine/core-modules/erp-sales/utils/format-ru.util';
 import { fillPlaceholders } from 'src/engine/core-modules/erp/utils/fill-print-template.util';
 
@@ -23,9 +24,13 @@ export type BalanceSheetHtmlData = {
 // Ruling («печать регламентированных форм — прочерк на пустой ячейке
 // целиком»): unlike trial-balance's «zero row cell blank, zero total
 // numeric» split (osv-spec.md §2), Баланс/ОФР print «—» uniformly, totals
-// included — see balance-spec.md §2/§5.
+// included — see balance-spec.md §2/§5. Checks the ROUNDED (тыс.руб.) value,
+// not raw kopecks — a nonzero amount that rounds to zero (e.g. 400 руб =
+// 0,4 тыс.) must still print «—», not the literal text "0" (review Finding 1).
 const formatCellRu = (kopecks: number): string =>
-  kopecks === 0 ? '—' : formatThousandRoublesRu(kopecks);
+  roundKopecksToThousandRoubles(kopecks) === 0
+    ? '—'
+    : formatThousandRoublesRu(kopecks);
 
 // The form has a small, FIXED set of line codes (unlike ОСВ's variable
 // per-account rows) — every line gets its own named placeholder pair
