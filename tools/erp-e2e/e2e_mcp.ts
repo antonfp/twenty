@@ -22,7 +22,9 @@
 //      негатив: create_object_metadata для API-key без DATA_MODEL -> отказ
 //   -> T2 review round 3 (app-owned frontier в сервисном слое): негатив прямой
 //      POST /metadata deleteOneField на salesInvoice.total (app-owned, не
-//      регистр) -> RU-отказ
+//      регистр) -> RU-отказ; негатив updateOneField(defaultValue: null) на
+//      salesInvoice.docStatus -> RU-отказ (final review Finding 1 Major:
+//      explicit null раньше проскакивал как «не изменение»)
 //   -> Phase 8 T3 (workflow-тулы, execute_tool -> WorkflowToolProvider, штатный
 //      движок Twenty): list_workflow_capabilities (непустой список триггеров/
 //      действий) -> create_complete_workflow + activate_workflow_version
@@ -50,6 +52,16 @@ import {
 
 type Id = { id: string };
 type RpcWithStatus = JsonRpcResponse & { status: number };
+
+// PostingService.resolvePostingDate() falls back to `new Date().toISOString()`
+// (server "now") whenever a document has neither postingDate nor docDate set
+// — salesInvoice's own invoiceDate field isn't consulted, so the GL entries'
+// actual date is always today's date, not the invoiceDate this script passes
+// at document creation. A date hardcoded to whatever "today" was when this
+// file was last edited silently rots into a trial_balance mismatch once the
+// calendar moves on — compute it instead so the script keeps working
+// regardless of which day it runs.
+const TODAY_ISO_DATE = new Date().toISOString().slice(0, 10);
 
 function randomSuffix(len = 6): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -200,7 +212,7 @@ async function main() {
 
   const invoiceOut = await execTool(token, 'create_one_sales_invoice', {
     name: 'Черновик e2e (mcp)',
-    invoiceDate: '2026-08-26',
+    invoiceDate: TODAY_ISO_DATE,
     organizationId: org.id,
     customerId: company.id,
   });
@@ -342,8 +354,8 @@ async function main() {
   // 3c. trial_balance — assert проводки.
   const trialBalanceRpc = (await mcpToolCall(token, 'trial_balance', {
     organizationId: org.id,
-    dateFrom: '2026-08-26',
-    dateTo: '2026-08-26',
+    dateFrom: TODAY_ISO_DATE,
+    dateTo: TODAY_ISO_DATE,
   })) as RpcWithStatus;
   const trialBalance = mcpToolResultJson(trialBalanceRpc) as {
     rows: { accountCode: string }[];
@@ -815,6 +827,37 @@ async function main() {
     );
   }
 
+  // 9b. Негатив (финальное whole-phase ревью, Finding 1 Major): explicit
+  // `null` — не отсутствие ключа — тоже структурное изменение и обязано
+  // отклоняться, а не проскакивать как «косметика» (isDefined(null) === false
+  // раньше маскировал это). docStatus — тот же пример, что в находке: null
+  // ломает инвариант ErpDocumentGuardService «docStatus omitted -> DRAFT».
+  const docStatusFieldId = salesInvoiceFieldsOut.find(
+    (f) => f.name === 'docStatus',
+  )?.id;
+  if (!docStatusFieldId)
+    throw new Error(
+      'salesInvoice.docStatus field not found via get_field_metadata',
+    );
+
+  try {
+    await gql(
+      '/metadata',
+      `mutation($input: UpdateOneFieldMetadataInput!) { updateOneField(input: $input) { id name defaultValue } }`,
+      { input: { id: docStatusFieldId, update: { defaultValue: null } } },
+      token,
+    );
+    throw new Error(
+      'direct /metadata updateOneField(defaultValue: null) on app-owned salesInvoice.docStatus must be denied, but succeeded',
+    );
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (!message.includes('установленному приложению')) throw e;
+    ok(
+      `negative: direct POST /metadata updateOneField(defaultValue: null) on app-owned salesInvoice.docStatus denied — "${message.slice(0, 140)}"`,
+    );
+  }
+
   // 10. Phase 8 T3 (workflow-тулы): штатный workflow-движок Twenty
   // (create_complete_workflow/activate_workflow_version/… уже существовал —
   // фронтир T3 был только list_workflow_capabilities + верификация
@@ -972,12 +1015,27 @@ async function main() {
     );
   } finally {
     // Cleanup per task brief: deactivate (not delete) regardless of outcome.
-    const deactivateOut = (await execTool(
-      token,
-      'deactivate_workflow_version',
-      { workflowVersionId },
-    )) as { success?: boolean; error?: string };
-    workflowDeactivated = deactivateOut.success !== false;
+    // try/catch here (not a bare await): a throw in `finally` masks whatever
+    // the try body threw (no-unsafe-finally) — log loudly instead, same
+    // pattern as the T4 print-template cleanup below.
+    try {
+      const deactivateOut = (await execTool(
+        token,
+        'deactivate_workflow_version',
+        { workflowVersionId },
+      )) as { success?: boolean; error?: string };
+
+      workflowDeactivated = deactivateOut.success !== false;
+      if (!workflowDeactivated)
+        console.error(
+          `WARN cleanup: deactivate_workflow_version failed: ${JSON.stringify(deactivateOut)}`,
+        );
+    } catch (cleanupError) {
+      console.error(
+        'WARN cleanup: deactivate_workflow_version threw:',
+        cleanupError,
+      );
+    }
   }
   if (!workflowDeactivated)
     throw new Error('cleanup: deactivate_workflow_version failed');

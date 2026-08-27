@@ -140,6 +140,36 @@ describe('assertInstalledAppOwnedMetadataUpdateIsCosmeticOrThrow', () => {
     ).not.toThrow();
   });
 
+  // Final whole-phase review Finding 1 (Major): isDefined(null) is false, so
+  // an explicit null used to read as "not a change" and slip through as
+  // cosmetic — the platform itself persists null as a real change
+  // (mergeUpdateInExistingRecord.ts: `update[property] !== undefined`).
+  it('rejects an explicit null on a structural key — null is a real change, not "unset"', () => {
+    expect(() =>
+      assertInstalledAppOwnedMetadataUpdateIsCosmeticOrThrow({
+        targetApplicationId: ERP_SALES_APP_ID,
+        exemptApplicationIds: EXEMPT_APPLICATION_IDS,
+        ownerFlatApplicationOverride: undefined,
+        updatePayload: { defaultValue: null },
+        allowedCosmeticKeys: FIELD_COSMETIC_UPDATE_KEYS,
+        targetDescription: 'Поле «salesInvoice.docStatus»',
+      }),
+    ).toThrow(ForbiddenException);
+  });
+
+  it('still ignores an undefined key (not present / explicitly undefined) — only omission means "no change"', () => {
+    expect(() =>
+      assertInstalledAppOwnedMetadataUpdateIsCosmeticOrThrow({
+        targetApplicationId: ERP_SALES_APP_ID,
+        exemptApplicationIds: EXEMPT_APPLICATION_IDS,
+        ownerFlatApplicationOverride: undefined,
+        updatePayload: { defaultValue: undefined, label: 'Итого' },
+        allowedCosmeticKeys: FIELD_COSMETIC_UPDATE_KEYS,
+        targetDescription: 'Поле «salesInvoice.total»',
+      }),
+    ).not.toThrow();
+  });
+
   it('allows any update on a custom (workspace-owned) field, structural included', () => {
     expect(() =>
       assertInstalledAppOwnedMetadataUpdateIsCosmeticOrThrow({

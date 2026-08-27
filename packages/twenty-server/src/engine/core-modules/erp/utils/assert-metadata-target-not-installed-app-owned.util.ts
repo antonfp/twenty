@@ -160,9 +160,18 @@ export const assertInstalledAppOwnedMetadataUpdateIsCosmeticOrThrow = ({
   // (UpdateFieldInput re-adds it as a @HideField after omitting it from the
   // GraphQL-facing PartialType), so this must be ignored here rather than
   // relying on every call site to strip it first.
+  //
+  // value !== undefined, NOT isDefined(value): isDefined(null) is false, so
+  // an explicit `null` (e.g. { defaultValue: null }) used to read as "not a
+  // change" and slip through as cosmetic. The platform itself treats null as
+  // a real change and persists it — mergeUpdateInExistingRecord.ts:
+  // `update[property] !== undefined`, same contract in
+  // compute-flat-field-to-update...util.ts. This guard must match that
+  // contract, not a stricter one, or `{defaultValue: null}` on an app-owned
+  // field bypasses the structural-update block (final review Finding 1).
   const NON_CHANGE_KEYS = new Set(['id', 'workspaceId']);
   const structuralKeys = Object.entries(updatePayload)
-    .filter(([key, value]) => isDefined(value) && !NON_CHANGE_KEYS.has(key))
+    .filter(([key, value]) => value !== undefined && !NON_CHANGE_KEYS.has(key))
     .map(([key]) => key)
     .filter((key) => !allowedCosmeticKeys.has(key));
 
